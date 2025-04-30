@@ -141,18 +141,8 @@ Commit your changes (git commit -m 'Add some amazing feature')
 Push to the branch (git push origin feature/amazing-feature)
 Open a Pull Request
 
-📜 License
-This project is licensed under the MIT License - see the LICENSE file for details.
-📞 Support
-For support, please:
 
-Open an issue in this repository
-Contact the maintainer at [your-email@example.com]
 
-🙏 Acknowledgements
-
-Planning Center Online for their excellent API
-All contributors who have helped improve this project
 
 
 Made with ❤️ for churches and organizations using Planning Center OnlineAdd to Conversation
