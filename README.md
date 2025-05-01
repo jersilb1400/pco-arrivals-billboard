@@ -15,6 +15,7 @@ A Planning Center Online account with Check-ins enabled.
 PCO API credentials (Application ID and Secret).
 Python 3.7+ installed.
 A web browser for displaying the billboard.
+
 🚀 Installation
 1. Clone the Repository
 
@@ -24,7 +25,8 @@ cd pco-arrivals-billboard
 2. Set Up a Virtual Environment (Recommended)
 
 python -m venv venv
-source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+source venv/bin/activate  
+# On Windows, use: venv\Scripts\activate
 
 3. Install Dependencies
 
