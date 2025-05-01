@@ -25,8 +25,7 @@ cd pco-arrivals-billboard
 2. Set Up a Virtual Environment (Recommended)
 
 python -m venv venv
-source venv/bin/activate  
-# On Windows, use: venv\Scripts\activate
+source venv/bin/activate     # On Windows, use: venv\Scripts\activate
 
 3. Install Dependencies
 
