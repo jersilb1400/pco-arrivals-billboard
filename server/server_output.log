@@ -1,0 +1,199 @@
+Server is running on port 3001
+PCO OAuth callback URL: http://localhost:3001/auth/callback
+Authorized users: 2
+Remember Me duration: 30 days
+MongoDB connected successfully
+User authorized: Jeremy Silbernagel (undefined) - ID: 163050178
+Fetching events from: https://api.planningcenteronline.com/check-ins/v2/events?where[starts_at]=2025-05-08&include=time
+Selected date: 2025-05-08
+Total events found: 15
+Non-archived events: 15
+Event: Sunday, Date: undefined, Archived: undefined
+Event: Wednesday Nights, Date: undefined, Archived: undefined
+Event:  Students, Date: undefined, Archived: undefined
+Event: Jr. High Youth, Date: undefined, Archived: undefined
+Event: Special Events, Date: undefined, Archived: undefined
+Event: Legacy , Date: undefined, Archived: undefined
+Event: monday, Date: undefined, Archived: undefined
+Event: Tuesday, Date: undefined, Archived: undefined
+Event: Christmas Eve Candlelight Services 2021: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Sunday Night - special event, Date: undefined, Archived: undefined
+Event: Sundays (2 services), Date: undefined, Archived: undefined
+Event: Discover Grace, Date: undefined, Archived: undefined
+Event: Good Friday, Date: undefined, Archived: undefined
+Event: Easter - Saturday, Date: undefined, Archived: undefined
+Fetching events from: https://api.planningcenteronline.com/check-ins/v2/events?where[starts_at]=2025-05-08&include=time
+Selected date: 2025-05-08
+Total events found: 15
+Non-archived events: 15
+Event: Sunday, Date: undefined, Archived: undefined
+Event: Wednesday Nights, Date: undefined, Archived: undefined
+Event:  Students, Date: undefined, Archived: undefined
+Event: Jr. High Youth, Date: undefined, Archived: undefined
+Event: Special Events, Date: undefined, Archived: undefined
+Event: Legacy , Date: undefined, Archived: undefined
+Event: monday, Date: undefined, Archived: undefined
+Event: Tuesday, Date: undefined, Archived: undefined
+Event: Christmas Eve Candlelight Services 2021: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Sunday Night - special event, Date: undefined, Archived: undefined
+Event: Sundays (2 services), Date: undefined, Archived: undefined
+Event: Discover Grace, Date: undefined, Archived: undefined
+Event: Good Friday, Date: undefined, Archived: undefined
+Event: Easter - Saturday, Date: undefined, Archived: undefined
+Fetching events from: https://api.planningcenteronline.com/check-ins/v2/events?where[starts_at]=2025-05-07&include=time
+Selected date: 2025-05-07
+Total events found: 15
+Non-archived events: 15
+Event: Sunday, Date: undefined, Archived: undefined
+Event: Wednesday Nights, Date: undefined, Archived: undefined
+Event:  Students, Date: undefined, Archived: undefined
+Event: Jr. High Youth, Date: undefined, Archived: undefined
+Event: Special Events, Date: undefined, Archived: undefined
+Event: Legacy , Date: undefined, Archived: undefined
+Event: monday, Date: undefined, Archived: undefined
+Event: Tuesday, Date: undefined, Archived: undefined
+Event: Christmas Eve Candlelight Services 2021: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Sunday Night - special event, Date: undefined, Archived: undefined
+Event: Sundays (2 services), Date: undefined, Archived: undefined
+Event: Discover Grace, Date: undefined, Archived: undefined
+Event: Good Friday, Date: undefined, Archived: undefined
+Event: Easter - Saturday, Date: undefined, Archived: undefined
+
+=== API Error ===
+{
+  errors: [
+    {
+      status: '404',
+      title: 'Not Found',
+      detail: 'The resource you requested could not be found'
+    }
+  ]
+}
+=== End API Error ===
+
+
+=== API Error ===
+{
+  errors: [
+    {
+      status: '404',
+      title: 'Not Found',
+      detail: 'The resource you requested could not be found'
+    }
+  ]
+}
+=== End API Error ===
+
+
+=== API Error ===
+{
+  errors: [
+    {
+      status: '404',
+      title: 'Not Found',
+      detail: 'The resource you requested could not be found'
+    }
+  ]
+}
+=== End API Error ===
+
+
+=== API Error ===
+{
+  errors: [
+    {
+      status: '404',
+      title: 'Not Found',
+      detail: 'The resource you requested could not be found'
+    }
+  ]
+}
+=== End API Error ===
+
+User authorized: Jeremy Silbernagel (undefined) - ID: 163050178
+Fetching events from: https://api.planningcenteronline.com/check-ins/v2/events?where[starts_at]=2025-05-08&include=time
+Selected date: 2025-05-08
+Total events found: 15
+Non-archived events: 15
+Event: Sunday, Date: undefined, Archived: undefined
+Event: Wednesday Nights, Date: undefined, Archived: undefined
+Event:  Students, Date: undefined, Archived: undefined
+Event: Jr. High Youth, Date: undefined, Archived: undefined
+Event: Special Events, Date: undefined, Archived: undefined
+Event: Legacy , Date: undefined, Archived: undefined
+Event: monday, Date: undefined, Archived: undefined
+Event: Tuesday, Date: undefined, Archived: undefined
+Event: Christmas Eve Candlelight Services 2021: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Sunday Night - special event, Date: undefined, Archived: undefined
+Event: Sundays (2 services), Date: undefined, Archived: undefined
+Event: Discover Grace, Date: undefined, Archived: undefined
+Event: Good Friday, Date: undefined, Archived: undefined
+Event: Easter - Saturday, Date: undefined, Archived: undefined
+Fetching events from: https://api.planningcenteronline.com/check-ins/v2/events?where[starts_at]=2025-05-08&include=time
+Selected date: 2025-05-08
+Total events found: 15
+Non-archived events: 15
+Event: Sunday, Date: undefined, Archived: undefined
+Event: Wednesday Nights, Date: undefined, Archived: undefined
+Event:  Students, Date: undefined, Archived: undefined
+Event: Jr. High Youth, Date: undefined, Archived: undefined
+Event: Special Events, Date: undefined, Archived: undefined
+Event: Legacy , Date: undefined, Archived: undefined
+Event: monday, Date: undefined, Archived: undefined
+Event: Tuesday, Date: undefined, Archived: undefined
+Event: Christmas Eve Candlelight Services 2021: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Sunday Night - special event, Date: undefined, Archived: undefined
+Event: Sundays (2 services), Date: undefined, Archived: undefined
+Event: Discover Grace, Date: undefined, Archived: undefined
+Event: Good Friday, Date: undefined, Archived: undefined
+Event: Easter - Saturday, Date: undefined, Archived: undefined
+Fetching events from: https://api.planningcenteronline.com/check-ins/v2/events?where[starts_at]=2025-05-07&include=time
+Selected date: 2025-05-07
+Total events found: 15
+Non-archived events: 15
+Event: Sunday, Date: undefined, Archived: undefined
+Event: Wednesday Nights, Date: undefined, Archived: undefined
+Event:  Students, Date: undefined, Archived: undefined
+Event: Jr. High Youth, Date: undefined, Archived: undefined
+Event: Special Events, Date: undefined, Archived: undefined
+Event: Legacy , Date: undefined, Archived: undefined
+Event: monday, Date: undefined, Archived: undefined
+Event: Tuesday, Date: undefined, Archived: undefined
+Event: Christmas Eve Candlelight Services 2021: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Christmas Eve Check-Ins, Date: undefined, Archived: undefined
+Event: Sunday Night - special event, Date: undefined, Archived: undefined
+Event: Sundays (2 services), Date: undefined, Archived: undefined
+Event: Discover Grace, Date: undefined, Archived: undefined
+Event: Good Friday, Date: undefined, Archived: undefined
+Event: Easter - Saturday, Date: undefined, Archived: undefined
+
+=== API Error ===
+{
+  errors: [
+    {
+      status: '404',
+      title: 'Not Found',
+      detail: 'The resource you requested could not be found'
+    }
+  ]
+}
+=== End API Error ===
+
+
+=== API Error ===
+{
+  errors: [
+    {
+      status: '404',
+      title: 'Not Found',
+      detail: 'The resource you requested could not be found'
+    }
+  ]
+}
+=== End API Error ===
+

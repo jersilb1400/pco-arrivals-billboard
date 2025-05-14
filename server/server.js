@@ -4,7 +4,17 @@ const axios = require('axios');
 const cors = require('cors');
 const session = require('express-session');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
+const connectDB = require('./db/config');
+const logger = require('./utils/logger');
+const { errorHandler } = require('./middleware/errorHandler');
+const { authLimiter, apiLimiter } = require('./middleware/rateLimiter');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
+const MongoStore = require('connect-mongo');
+const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
+const { Parser } = require('json2csv'); // For CSV export (optional)
 
 // Create Express app instance
 const app = express();
@@ -15,6 +25,7 @@ const CLIENT_SECRET = process.env.PCO_CLIENT_SECRET || 'YOUR_CLIENT_SECRET';
 const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3001/auth/callback';
 const PORT = process.env.PORT || 3001;
 const PCO_API_BASE = 'https://api.planningcenteronline.com/check-ins/v2';
+const ACCESS_TOKEN = process.env.PCO_ACCESS_TOKEN;
 
 // Environment variables for cookie settings
 const COOKIE_SECRET = process.env.COOKIE_SECRET || 'pco-arrivals-session-secret';
@@ -32,14 +43,18 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Update session configuration to support remember me
+// Update session configuration to use MongoDB for persistence
 app.use(session({
   secret: COOKIE_SECRET,
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI || 'mongodb://localhost:27017/pco-arrivals-billboard-sessions',
+    collectionName: 'sessions'
+  }),
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // Default to 24 hours
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
 
@@ -48,12 +63,18 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/build')));
 }
 
-// User database - for a simple implementation, store in memory
-// In production, use a database like MongoDB
-let authorizedUsers = [
-  // Seed with default admin user(s) if provided
-  ...(process.env.ADMIN_USER_ID ? [{ id: process.env.ADMIN_USER_ID, name: 'Administrator' }] : [])
-];
+// Utility functions to load and save users
+function loadAuthorizedUsers() {
+  if (!fs.existsSync(path.join(__dirname, 'authorized_users.json'))) return [];
+  return JSON.parse(fs.readFileSync(path.join(__dirname, 'authorized_users.json'), 'utf-8'));
+}
+
+function saveAuthorizedUsers(users) {
+  fs.writeFileSync(path.join(__dirname, 'authorized_users.json'), JSON.stringify(users, null, 2));
+}
+
+// Load users at startup
+let authorizedUsers = loadAuthorizedUsers();
 
 // Load authorized users from environment or config file
 if (AUTHORIZED_USER_IDS.length > 0) {
@@ -149,64 +170,43 @@ app.get('/api/user-info', requireAuth, (req, res) => {
 
 // User management endpoints
 app.get('/api/admin/users', requireAuth, (req, res) => {
-  // Only admins can access the user list
   if (!req.session.user?.isAdmin) {
     return res.status(403).json({ error: 'Not authorized' });
   }
-  
   res.json(authorizedUsers);
 });
 
 app.post('/api/admin/users', requireAuth, (req, res) => {
-  // Only admins can add users
   if (!req.session.user?.isAdmin) {
     return res.status(403).json({ error: 'Not authorized' });
   }
-  
   const { userId, name, email } = req.body;
-  
   if (!userId) {
     return res.status(400).json({ message: 'User ID is required' });
   }
-  
-  // Check if user already exists
   if (authorizedUsers.some(user => user.id === userId)) {
     return res.status(400).json({ message: 'User with this ID already exists' });
   }
-  
-  // Add new user
   const newUser = { id: userId, name, email };
   authorizedUsers.push(newUser);
-  
-  // In a real application, save to database here
-  
+  saveAuthorizedUsers(authorizedUsers); // Persist the change
   res.status(201).json(newUser);
 });
 
 app.delete('/api/admin/users/:id', requireAuth, (req, res) => {
-  // Only admins can remove users
   if (!req.session.user?.isAdmin) {
     return res.status(403).json({ error: 'Not authorized' });
   }
-  
   const userId = req.params.id;
-  
-  // Don't allow removing the current user
   if (userId === req.session.user.id) {
     return res.status(400).json({ message: 'Cannot remove your own account' });
   }
-  
-  // Check if user exists
   const userIndex = authorizedUsers.findIndex(user => user.id === userId);
   if (userIndex === -1) {
     return res.status(404).json({ message: 'User not found' });
   }
-  
-  // Remove user
   authorizedUsers.splice(userIndex, 1);
-  
-  // In a real application, update database here
-  
+  saveAuthorizedUsers(authorizedUsers); // Persist the change
   res.status(200).json({ message: 'User removed successfully' });
 });
 
@@ -259,8 +259,11 @@ app.get('/auth/callback', async (req, res) => {
     // Fetch user information
     try {
       const userResponse = await axios.get('https://api.planningcenteronline.com/people/v2/me', {
-        headers: { 
-          Authorization: `Bearer ${req.session.accessToken}`,
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: {
           'Accept': 'application/json'
         }
       });
@@ -354,16 +357,23 @@ app.get('/api/events', requireAuth, async (req, res) => {
     }
     
     const response = await axios.get(`${PCO_API_BASE}/events`, {
-      headers: { 
-        Authorization: `Bearer ${accessToken}`,
+      auth: {
+        username: process.env.PCO_ACCESS_TOKEN,
+        password: process.env.PCO_ACCESS_SECRET
+      },
+      headers: {
         'Accept': 'application/json'
       }
     });
     
     // Filter out archived events
-    const nonArchivedEvents = response.data.data.filter(event => 
-      !event.attributes.archived
-    );
+    const nonArchivedEvents = response.data.data.filter(event => event.attributes.archived !== true);
+    
+    // Log event IDs and names for debugging
+    console.log('Fetched Events:');
+    nonArchivedEvents.forEach(event => {
+      console.log(`ID: ${event.id}, Name: ${event.attributes.name}`);
+    });
     
     res.json(nonArchivedEvents);
   } catch (error) {
@@ -388,26 +398,43 @@ app.get('/api/events-by-date', requireAuth, async (req, res) => {
     // Format the URL based on whether a date is provided
     let url = `${PCO_API_BASE}/events`;
     if (date) {
-      // PCO date filter format: 2023-08-15
-      const formattedDate = date.split('T')[0]; // Ensure date format is YYYY-MM-DD
-      url += `?where[starts_at]=${formattedDate}`;
+      // PCO date filter format: YYYY-MM-DD
+      const formattedDate = date.split('T')[0];
+      // Include all events for the specific date, including past events
+      url += `?where[starts_at]=${formattedDate}&include=time`;
     }
     
     console.log(`Fetching events from: ${url}`);
     
     const response = await axios.get(url, {
-      headers: { 
-        Authorization: `Bearer ${accessToken}`,
+      auth: {
+        username: process.env.PCO_ACCESS_TOKEN,
+        password: process.env.PCO_ACCESS_SECRET
+      },
+      headers: {
         'Accept': 'application/json'
       }
     });
     
-    // Filter out archived events
-    const nonArchivedEvents = response.data.data.filter(event => 
-      !event.attributes.archived
-    );
+    // Filter events to only exclude archived ones
+    const nonArchivedEvents = response.data.data.filter(event => event.attributes.archived !== true);
     
-    res.json(nonArchivedEvents);
+    // Sort events by start time
+    const sortedEvents = nonArchivedEvents.sort((a, b) => {
+      const timeA = new Date(a.attributes.starts_at);
+      const timeB = new Date(b.attributes.starts_at);
+      return timeA - timeB;
+    });
+    
+    // Debug logging
+    console.log(`Selected date: ${date}`);
+    console.log(`Total events found: ${response.data.data.length}`);
+    console.log(`Non-archived events: ${sortedEvents.length}`);
+    sortedEvents.forEach(event => {
+      console.log(`Event: ${event.attributes.name}, Date: ${event.attributes.starts_at}, Archived: ${event.attributes.archived}`);
+    });
+    
+    res.json(sortedEvents);
   } catch (error) {
     console.error('API Error:', error.response?.data || error.message);
     const status = error.response?.status || 500;
@@ -426,63 +453,466 @@ app.post('/api/security-codes', requireAuth, async (req, res) => {
     
     const { eventId, securityCodes } = req.body;
     
-    if (!eventId || !securityCodes || !securityCodes.length) {
-      return res.status(400).json({ error: 'Event ID and security codes are required' });
+    if (!eventId) {
+      return res.status(400).json({ error: 'Event ID is required' });
     }
     
-    const results = [];
-    
-    for (const code of securityCodes) {
-      try {
-        // Make sure to get the most recent check-in for this security code
-        const checkInResponse = await axios.get(
-          `${PCO_API_BASE}/events/${eventId}/check_ins?where[security_code]=${code}&include=person&order=-created_at`, {
-          headers: { 
-            Authorization: `Bearer ${accessToken}`,
-            'Accept': 'application/json'
+    // If securityCodes is provided and non-empty, use existing logic
+    if (securityCodes && securityCodes.length > 0) {
+      const results = [];
+      for (const code of securityCodes) {
+        try {
+          // Get all check-ins for this security code
+          const checkInResponse = await axios.get(
+            `${PCO_API_BASE}/events/${eventId}/check_ins?where[security_code]=${code}&include=person,household`, {
+            auth: {
+              username: process.env.PCO_ACCESS_TOKEN,
+              password: process.env.PCO_ACCESS_SECRET
+            },
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (checkInResponse.data.data.length > 0) {
+            const checkIns = checkInResponse.data.data;
+            const included = checkInResponse.data.included || [];
+            
+            // Group check-ins by household
+            const householdGroups = {};
+            
+            checkIns.forEach(checkIn => {
+              const person = included.find(item => 
+                item.type === 'Person' && 
+                item.id === checkIn.relationships.person?.data?.id
+              );
+              
+              const household = included.find(item =>
+                item.type === 'Household' &&
+                item.id === person?.relationships?.household?.data?.id
+              );
+              
+              const householdId = household?.id || 'no-household';
+              const householdName = household?.attributes?.name || person?.attributes?.last_name + ' Household';
+              
+              if (!householdGroups[householdId]) {
+                householdGroups[householdId] = {
+                  householdName,
+                  members: []
+                };
+              }
+              
+              householdGroups[householdId].members.push({
+                id: checkIn.id,
+                firstName: person?.attributes?.first_name || 'Unknown',
+                lastName: person?.attributes?.last_name || 'Unknown',
+                eventName: checkIn.attributes.event_times_name || checkIn.attributes.event_name,
+                securityCode: code,
+                checkedOut: !!checkIn.attributes.checked_out_at,
+                checkInTime: checkIn.attributes.created_at,
+                checkOutTime: checkIn.attributes.checked_out_at,
+                householdName
+              });
+            });
+            
+            // Add all grouped members to results
+            Object.values(householdGroups).forEach(group => {
+              results.push(...group.members);
+            });
+          } else {
+            results.push({
+              securityCode: code,
+              error: 'No check-in found with this security code'
+            });
           }
-        });
-        
-        if (checkInResponse.data.data.length > 0) {
-          const checkIn = checkInResponse.data.data[0]; // Get the most recent check-in
-          const included = checkInResponse.data.included || [];
+        } catch (codeError) {
+          console.error(`Error fetching code ${code}:`, codeError.message);
+          results.push({
+            securityCode: code,
+            error: codeError.message
+          });
+        }
+      }
+      res.json(results);
+    } else {
+      // No securityCodes provided: fetch all check-ins for the event
+      const checkInResponse = await axios.get(
+        `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,household`, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      const checkIns = checkInResponse.data.data;
+      const included = checkInResponse.data.included || [];
+      // Only include active (not checked out) check-ins
+      const activePeople = checkIns
+        .filter(checkIn => !checkIn.attributes.checked_out_at)
+        .map(checkIn => {
           const person = included.find(item => 
             item.type === 'Person' && 
             item.id === checkIn.relationships.person?.data?.id
           );
-          
-          results.push({
+          return {
             id: checkIn.id,
             firstName: person?.attributes?.first_name || 'Unknown',
             lastName: person?.attributes?.last_name || 'Unknown',
-            eventName: checkIn.attributes.event_times_name || checkIn.attributes.event_name,
-            securityCode: code,
-            checkedOut: !!checkIn.attributes.checked_out_at,
+            securityCode: checkIn.attributes.security_code || '',
             checkInTime: checkIn.attributes.created_at,
-            checkOutTime: checkIn.attributes.checked_out_at
-          });
-        } else {
-          results.push({
-            securityCode: code,
-            error: 'No check-in found with this security code'
-          });
-        }
-      } catch (codeError) {
-        console.error(`Error fetching code ${code}:`, codeError.message);
-        results.push({
-          securityCode: code,
-          error: codeError.message
+            checkedOut: !!checkIn.attributes.checked_out_at
+          };
         });
-      }
+      res.json(activePeople);
     }
-    
-    res.json(results);
   } catch (error) {
     console.error('API Error:', error.response?.data || error.message);
     const status = error.response?.status || 500;
     res.status(status).json({ 
       error: status === 401 ? 'Authentication expired' : 'Failed to fetch security code data'
     });
+  }
+});
+
+app.get('/api/events/:eventId/active-people', requireAuth, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { date } = req.query; // YYYY-MM-DD
+    const accessToken = await ensureValidToken(req);
+    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
+
+    // 1. Fetch all event times for the event
+    const eventTimesResponse = await axios.get(
+      `${PCO_API_BASE}/events/${eventId}/event_times`,
+      {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      }
+    );
+    const eventTimes = eventTimesResponse.data.data;
+    if (!eventTimes || eventTimes.length === 0) return res.json([]);
+
+    let allCheckIns = [];
+    let allIncluded = [];
+
+    // 2. For each event time, fetch active check-ins
+    for (const eventTime of eventTimes) {
+      let nextPage = `${PCO_API_BASE}/event_times/${eventTime.id}/check_ins?include=person,household&per_page=100&where[checked_out_at]=null`;
+      while (nextPage) {
+        try {
+          const response = await axios.get(nextPage, {
+            auth: {
+              username: process.env.PCO_ACCESS_TOKEN,
+              password: process.env.PCO_ACCESS_SECRET
+            },
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          allCheckIns = allCheckIns.concat(response.data.data || []);
+          allIncluded = allIncluded.concat(response.data.included || []);
+          nextPage = response.data.links?.next;
+        } catch (err) {
+          if (err.response && err.response.status === 404) {
+            // Log and skip this event time, but do NOT throw
+            console.warn(`404 Not Found for event_time ${eventTime.id}, skipping.`);
+            break;
+          } else {
+            // For other errors, log and rethrow
+            console.error(`Error fetching check-ins for event_time ${eventTime.id}:`, err.response?.data || err.message);
+            throw err;
+          }
+        }
+      }
+    }
+
+    // 3. Map to person info and filter by date if provided
+    let activePeople = allCheckIns.map(checkIn => {
+      const person = allIncluded.find(
+        item => item.type === 'Person' && item.id === checkIn.relationships.person?.data?.id
+      );
+      const household = allIncluded.find(
+        item => item.type === 'Household' && item.id === person?.relationships?.household?.data?.id
+      );
+      return {
+        id: checkIn.id,
+        firstName: person?.attributes?.first_name || 'Unknown',
+        lastName: person?.attributes?.last_name || 'Unknown',
+        securityCode: checkIn.attributes.security_code || '',
+        checkInTime: checkIn.attributes.created_at,
+        householdName: household?.attributes?.name || `${person?.attributes?.last_name || 'Unknown'} Household`,
+        eventName: checkIn.attributes.event_times_name || checkIn.attributes.event_name,
+        eventId: eventId
+      };
+    });
+
+    // Filter by date if provided (YYYY-MM-DD)
+    if (date) {
+      activePeople = activePeople.filter(person => {
+        const checkInDate = new Date(person.checkInTime).toISOString().split('T')[0];
+        return checkInDate === date;
+      });
+    }
+
+    res.json(activePeople);
+  } catch (error) {
+    console.error('API Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch active people' });
+  }
+});
+
+// GET /api/events/:eventId/event-times
+app.get('/api/events/:eventId/event-times', requireAuth, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const accessToken = await ensureValidToken(req);
+    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
+
+    let allEventTimes = [];
+    let nextPage = `${PCO_API_BASE}/events/${eventId}/event_times`;
+    while (nextPage) {
+      const response = await axios.get(nextPage, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      allEventTimes = allEventTimes.concat(response.data.data || []);
+      nextPage = response.data.links?.next;
+    }
+    res.json(allEventTimes);
+  } catch (error) {
+    console.error('API Error:', error.response?.data || error.message);
+    // Return the actual error message from PCO if available
+    const errorMsg = error.response?.data?.errors?.[0]?.detail || error.message || 'Failed to fetch event times';
+    res.status(500).json({ error: errorMsg });
+  }
+});
+
+// GET /api/event-times/:eventTimeId/active-people
+app.get('/api/event-times/:eventTimeId/active-people', requireAuth, async (req, res) => {
+  try {
+    const { eventTimeId } = req.params;
+    const accessToken = await ensureValidToken(req);
+    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
+
+    let allCheckIns = [];
+    let allIncluded = [];
+    let nextPage = `${PCO_API_BASE}/event_times/${eventTimeId}/check_ins?include=person,household&per_page=100&where[checked_out_at]=null`;
+    while (nextPage) {
+      const response = await axios.get(nextPage, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      allCheckIns = allCheckIns.concat(response.data.data || []);
+      allIncluded = allIncluded.concat(response.data.included || []);
+      nextPage = response.data.links?.next;
+    }
+
+    const activePeople = allCheckIns.map(checkIn => {
+      const person = allIncluded.find(
+        item => item.type === 'Person' && item.id === checkIn.relationships.person?.data?.id
+      );
+      const household = allIncluded.find(
+        item => item.type === 'Household' && item.id === person?.relationships?.household?.data?.id
+      );
+      return {
+        id: checkIn.id,
+        firstName: person?.attributes?.first_name || 'Unknown',
+        lastName: person?.attributes?.last_name || 'Unknown',
+        securityCode: checkIn.attributes.security_code || '',
+        checkInTime: checkIn.attributes.created_at,
+        householdName: household?.attributes?.name || `${person?.attributes?.last_name || 'Unknown'} Household`,
+        eventTimeId: eventTimeId
+      };
+    });
+
+    res.json(activePeople);
+  } catch (error) {
+    console.error('API Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch active people for event time' });
+  }
+});
+
+// GET /api/events/:eventId/remaining-checkins?date=YYYY-MM-DD
+app.get('/api/events/:eventId/remaining-checkins', requireAuth, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { date } = req.query; // Expecting YYYY-MM-DD
+    const accessToken = await ensureValidToken(req);
+    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
+
+    // 1. Fetch all event times for the event
+    let eventTimes = [];
+    try {
+      const eventTimesResponse = await axios.get(
+        `${PCO_API_BASE}/events/${eventId}/event_times`,
+        {
+          auth: {
+            username: process.env.PCO_ACCESS_TOKEN,
+            password: process.env.PCO_ACCESS_SECRET
+          },
+          headers: {
+            'Accept': 'application/json'
+          }
+        }
+      );
+      eventTimes = eventTimesResponse.data.data;
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        return res.json({ message: 'No event times found for the selected event.', checkIns: [] });
+      } else {
+        throw err;
+      }
+    }
+
+    // 2. Filter event times by date (if provided)
+    let filteredEventTimes = eventTimes;
+    if (date) {
+      filteredEventTimes = eventTimes.filter(et => {
+        // et.attributes.starts_at is ISO string
+        return et.attributes.starts_at.startsWith(date);
+      });
+    }
+
+    // If no event times found for the date, return a user-friendly message
+    if (!filteredEventTimes.length) {
+      return res.json({ message: 'No event times found for the selected date.', checkIns: [] });
+    }
+
+    // 3. For each event time, fetch check-ins where checked_out_at=null
+    let allCheckIns = [];
+    for (const eventTime of filteredEventTimes) {
+      let nextPage = `${PCO_API_BASE}/event_times/${eventTime.id}/check_ins?where[checked_out_at]=null&include=person,household&per_page=100`;
+      while (nextPage) {
+        try {
+          const response = await axios.get(nextPage, {
+            auth: {
+              username: process.env.PCO_ACCESS_TOKEN,
+              password: process.env.PCO_ACCESS_SECRET
+            },
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          allCheckIns = allCheckIns.concat(response.data.data || []);
+          nextPage = response.data.links?.next;
+        } catch (err) {
+          if (err.response && err.response.status === 404) {
+            // Log and skip this event time, but do NOT throw
+            console.warn(`404 Not Found for event_time ${eventTime.id}, skipping.`);
+            break;
+          } else {
+            // For other errors, log and rethrow
+            console.error(`Error fetching check-ins for event_time ${eventTime.id}:`, err.response?.data || err.message);
+            throw err;
+          }
+        }
+      }
+    }
+
+    res.json({ checkIns: allCheckIns });
+  } catch (error) {
+    console.error('API Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch remaining check-ins' });
+  }
+});
+
+// GET /api/events/:eventId/locations
+app.get('/api/events/:eventId/locations', requireAuth, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const accessToken = await ensureValidToken(req);
+    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
+
+    let allLocations = [];
+    let nextPage = `https://api.planningcenteronline.com/check-ins/v2/events/${eventId}/locations?per_page=100`;
+    while (nextPage) {
+      const response = await axios.get(nextPage, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: { 'Accept': 'application/json' }
+      });
+      allLocations = allLocations.concat(response.data.data || []);
+      nextPage = response.data.links?.next;
+    }
+    res.json(allLocations);
+  } catch (error) {
+    console.error('API Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch locations for event' });
+  }
+});
+
+// GET /api/events/:eventId/locations/:locationId/active-checkins
+app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAuth, async (req, res) => {
+  try {
+    const { eventId, locationId } = req.params;
+    const accessToken = await ensureValidToken(req);
+    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
+
+    let allCheckIns = [];
+    let allIncluded = [];
+    let nextPage = `https://api.planningcenteronline.com/check-ins/v2/locations/${locationId}/check_ins?include=person,household,location&per_page=100`;
+    while (nextPage) {
+      const response = await axios.get(nextPage, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: { 'Accept': 'application/json' }
+      });
+      allCheckIns = allCheckIns.concat(response.data.data || []);
+      allIncluded = allIncluded.concat(response.data.included || []);
+      nextPage = response.data.links?.next;
+    }
+    // Filter for active check-ins
+    const activeCheckIns = allCheckIns.filter(ci => !ci.attributes.checked_out_at);
+
+    // Debug: log included locations
+    const includedLocations = allIncluded.filter(item => item.type === 'Location');
+    console.log('Included locations:', includedLocations.map(loc => ({ id: loc.id, name: loc.attributes.name })));
+
+    // Map to desired output
+    const result = activeCheckIns.map(checkIn => {
+      const person = allIncluded.find(
+        item => item.type === 'Person' && item.id === checkIn.relationships.person?.data?.id
+      );
+      // Find the location for this check-in using relationships.location.data.id
+      const checkInLocationId = checkIn.relationships.location?.data?.id;
+      const location = allIncluded.find(
+        item => item.type === 'Location' && item.id === checkInLocationId
+      );
+      return {
+        id: checkIn.id,
+        status: checkIn.attributes.status,
+        created_at: checkIn.attributes.created_at,
+        name: person ? `${person.attributes.first_name} ${person.attributes.last_name}` : undefined,
+        security_code: checkIn.attributes.security_code || '',
+        location_name: location ? location.attributes.name : '',
+        location_id: checkInLocationId
+      };
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('API Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch active check-ins by location' });
   }
 });
 
@@ -493,9 +923,45 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Connect to MongoDB
+connectDB();
+
+// Apply rate limiting
+app.use('/api/auth', authLimiter);
+app.use('/api', apiLimiter);
+
+// Serve Swagger documentation
+app.use('/api-docs', swaggerUi.serve);
+app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: "PCO Arrivals Billboard API Documentation",
+  customfavIcon: "/favicon.ico"
+}));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  logger.info({
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    ip: req.ip
+  });
+  next();
+});
+
+// Error handling middleware (should be last)
+app.use(errorHandler);
+
+// Unhandled rejection handler
+process.on('unhandledRejection', (err) => {
+  logger.error('UNHANDLED REJECTION! 💥 Shutting down...');
+  logger.error(err);
+  process.exit(1);
+});
+
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
   console.log(`PCO OAuth callback URL: ${REDIRECT_URI}`);
   if (authorizedUsers.length === 0) {
     console.log('Warning: No authorized users configured. The first user to log in will be granted admin access.');
