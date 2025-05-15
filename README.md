@@ -1,147 +1,132 @@
-PCO Arrivals Billboard
+# PCO Arrivals Billboard
 
-A real-time digital signage application that displays check-in arrivals from Planning Center Online (PCO) on a billboard or display screen. Perfect for churches and organizations using Planning Center for event management.
+A full-stack web application for displaying and managing Planning Center Online (PCO) check-ins in a secure, user-friendly, and real-time "billboard" format. Designed for churches and organizations using PCO Check-Ins, this app helps staff and volunteers monitor arrivals, manage security codes, and view check-in activity by event and location.
 
-🌟 Features
-Live Updates: Real-time display of check-ins from Planning Center Online.
-Customizable Display: Configure the appearance to match your organization's branding.
-Multiple Display Modes: Choose between different display layouts.
-Auto-Refresh: Automatically updates to show new check-ins.
-Responsive Design: Works on various screen sizes and orientations.
-📋 Prerequisites
-Before you begin, ensure you have the following:
+---
 
-A Planning Center Online account with Check-ins enabled.
-PCO API credentials (Application ID and Secret).
-Python 3.7+ installed.
-A web browser for displaying the billboard.
+## Features
+- **Admin Dashboard:** Manage events, dates, security codes, and view check-ins by location.
+- **Billboard Display:** Real-time, large-format display of arrivals for selected events and codes.
+- **Location-Based View:** See active check-ins filtered by PCO location.
+- **User Authentication:** Secure login via PCO OAuth (admin-only access).
+- **MongoDB Storage:** Session and user data stored securely.
+- **Self-Hosting Ready:** Easily deploy on your own internal server (see [SELF_HOSTING.md](SELF_HOSTING.md)).
 
-🚀 Installation
-1. Clone the Repository
+---
 
-git clone https://github.com/jersilb1400/pco-arrivals-billboard.git
-cd pco-arrivals-billboard
+## Prerequisites
+- Node.js (LTS recommended)
+- npm
+- MongoDB (local or remote)
+- Planning Center Online account with API access
+- (Optional) Homebrew (for Mac OS deployment)
 
-2. Set Up a Virtual Environment (Recommended)
+---
 
-python -m venv venv
-source venv/bin/activate     # On Windows, use: venv\Scripts\activate
+## Quick Start (Local Development)
 
-3. Install Dependencies
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/pco-arrivals-billboard.git
+   cd pco-arrivals-billboard
+   ```
 
-pip install -r requirements.txt
+2. **Set up environment variables:**
+   - Copy `.env.example` to `.env` and fill in your credentials and secrets.
 
-4. Configure Environment Variables
-Create a .env file in the root directory with your PCO API credentials:
+3. **Install dependencies:**
+   - Backend:
+     ```bash
+     cd server
+     npm install
+     cd ..
+     ```
+   - Frontend:
+     ```bash
+     cd client
+     npm install
+     cd ..
+     ```
 
-Code
-PCO_APP_ID=your_application_id
-PCO_SECRET=your_secret_key
+4. **Start MongoDB:**
+   - Make sure MongoDB is running locally or update `MONGO_URI` in your `.env` file.
 
-5. Run the Application
+5. **Run the app:**
+   - Backend:
+     ```bash
+     cd server
+     npm start
+     ```
+   - Frontend (in a separate terminal):
+     ```bash
+     cd client
+     npm start
+     ```
+   - The app will be available at [http://localhost:3000](http://localhost:3000)
 
-python app.py
+---
 
-6. Access the Billboard
-Open your web browser and navigate to:
-http://localhost:5000
+## Self-Hosting & Production Deployment
 
-⚙️ Configuration
-Application Settings
-Edit the config.py file to customize the following:
+- See [SELF_HOSTING.md](SELF_HOSTING.md) for a full guide to deploying on an internal server, including environment setup, reverse proxy, and security best practices.
+- For Mac OS, use the included deployment script:
+  ```bash
+  bash deploy_mac.sh
+  ```
 
-CHECK_IN_STATION_ID: The ID of your PCO check-in station.
-REFRESH_INTERVAL: Time between updates (in seconds).
-MAX_ARRIVALS: Maximum number of arrivals to display.
-DISPLAY_MODE: Choose between different visual layouts.
+---
 
-Display Customization
-Modify the CSS in static/css/style.css.
-Update the layout templates in the templates/ directory.
-Add your logo to static/images/ and update the reference in the templates.
+## Environment Variables
 
-🖥️ Usage
-Basic Setup
-Launch the application on a computer connected to your display screen.
-Open the browser in full-screen mode (F11 in most browsers).
-Navigate to the application URL.
+See `.env.example` for all required and optional environment variables. Key variables include:
+- `PCO_CLIENT_ID`, `PCO_CLIENT_SECRET`, `PCO_ACCESS_TOKEN`, `PCO_ACCESS_SECRET`
+- `MONGO_URI`
+- `COOKIE_SECRET`
+- `CLIENT_URL`, `REDIRECT_URI`
+- `AUTHORIZED_USERS` (optional)
+- `NODE_ENV`, `PORT`, `REMEMBER_ME_DAYS`
 
-Display Options
-Standard View: Shows names and timestamps of recent check-ins.
+---
 
-Count View: Displays totals by category/location.
+## Updating & Contributing
+- Pull the latest changes from GitHub before making updates.
+- Use feature branches and submit pull requests for contributions.
+- Keep sensitive data out of commits.
 
-Split View: Shows both names and counts in a split-screen format.
-Change the view by adding the ?mode= parameter to the URL:
+---
 
-Code
-http://localhost:5000?mode=standard
-http://localhost:5000?mode=count
-http://localhost:5000?mode=split
+## Troubleshooting
+- **Authentication Issues:** Ensure your PCO API credentials and redirect URIs are correct.
+- **MongoDB Errors:** Check that MongoDB is running and accessible at the URI specified.
+- **Port Conflicts:** Change `PORT` in your `.env` if 3001 is in use.
+- **Frontend/Backend Not Syncing:** Make sure both are running and environment variables are set correctly.
 
-🔄 API Integration
-This application uses the following PCO API endpoints:
+---
 
-Check-ins API: For accessing real-time check-in data.
-People API: For retrieving additional person details (optional).
-API requests are cached to minimize the number of calls and improve performance.
+## License
+This project is for internal use by your organization. For external use or contributions, please contact the maintainer.
 
-🧰 Troubleshooting
-Common Issues
-No data appearing: Verify your PCO API credentials and check-in station ID.
-Slow refresh: Check your network connection or adjust the refresh interval.
-API rate limiting: Implement longer caching or reduce the refresh frequency.
+---
 
-Logs
-Application logs are stored in logs/app.log. Check this file for error messages and debugging information.
+## Deployment Scripts
 
-🔒 Security Notes
-Keep your .env file secure and never commit it to version control.
-This application should be run on a secure, internal network.
-Consider implementing authentication if the display is publicly accessible.
+This project includes deployment scripts for common operating systems:
 
-⚡ Advanced Setup
-Running as a Service
-Linux (systemd):
-Create a file at /etc/systemd/system/pco-billboard.service:
-INI
-[Unit]
-Description=PCO Arrivals Billboard
-After=network.target
+- **Mac OS:**
+  - `deploy_mac.sh`
+  - Usage: `bash deploy_mac.sh`
+- **Ubuntu Linux:**
+  - `deploy_ubuntu.sh`
+  - Usage: `bash deploy_ubuntu.sh`
+- **Windows:**
+  - `deploy_windows.bat`
+  - Usage: Double-click the file or run as Administrator in Command Prompt
 
-[Service]
-User=your_user
-WorkingDirectory=/path/to/pco-arrivals-billboard
-ExecStart=/path/to/pco-arrivals-billboard/venv/bin/python app.py
-Restart=always
+Each script will:
+- Check/install Node.js, MongoDB, and PM2
+- Install backend and frontend dependencies
+- Build the frontend
+- Start MongoDB (as a service)
+- Launch the backend with PM2
 
-[Install]
-WantedBy=multi-user.target
-Enable and start the service:
-bash
-sudo systemctl enable pco-billboard.service
-sudo systemctl start pco-billboard.service
-Windows:
-Use NSSM (Non-Sucking Service Manager) to create a Windows service for the application.
-
-Using with a Raspberry Pi
-Install Raspberry Pi OS.
-Clone the repository and install dependencies.
-Configure auto-start in /etc/xdg/lxsession/LXDE-pi/autostart.
-Set up the browser to launch in kiosk mode.
-
-🤝 Contributing
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-Fork the repository.
-Create your feature branch:
-bash
-git checkout -b feature/amazing-feature
-Commit your changes:
-bash
-git commit -m 'Add some amazing feature'
-Push to the branch:
-bash
-git push origin feature/amazing-feature
-Open a Pull Request.
-Made with ❤️ for churches and organizations using Planning Center Online.
+**For advanced/server deployment, see [SELF_HOSTING.md](SELF_HOSTING.md).**

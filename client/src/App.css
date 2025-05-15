@@ -14,6 +14,7 @@
   --pco-border: #d0d5dd;
   --pco-white: #ffffff;
   --pco-black: #101828;
+  --navbar-shadow: 0 2px 8px rgba(16, 24, 40, 0.08);
 
   /* PCO Typography */
   --pco-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -106,8 +107,8 @@ p {
 }
 
 .church-logo {
-  width: 250px;
-  height: 250px;
+  width: 200px;
+  height: 200px;
   max-width: 100%;
   object-fit: contain;
   margin-right: 16px;
@@ -412,31 +413,31 @@ p {
 /* Enhanced Table Styles for TV Visibility */
 .arrivals-table {
   width: 100%;
-  border-collapse: collapse;
-  background-color: var(--pco-white);
+  border-spacing: 0;
+  border-collapse: separate;
+  background: var(--pco-white);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0px 1px 3px rgba(16, 24, 40, 0.1);
-  font-size: 24px; /* Much larger base font size for TV display */
+  margin-top: 24px;
 }
 
 .arrivals-table th {
   background-color: var(--pco-gray-lightest);
   text-align: left;
-  padding: 16px 20px; /* Larger padding */
-  font-weight: 700; /* Extra bold headers */
+  padding: 20px;
+  font-weight: 700;
   color: var(--pco-gray-dark);
   border-bottom: 2px solid var(--pco-border);
-  font-size: 26px; /* Larger headers */
-  text-transform: uppercase; /* More prominent headers */
+  font-size: 26px;
 }
 
 .arrivals-table td {
-  padding: 20px 20px; /* Larger cell padding */
+  padding: 20px;
   border-bottom: 1px solid var(--pco-border);
-  color: var(--pco-black); /* Darker text for better contrast */
-  font-weight: 600; /* Bold text for better visibility */
-  font-size: 28px; /* Larger text */
+  color: var(--pco-black);
+  font-weight: 600;
+  font-size: 20px;
 }
 
 .arrivals-table tr:last-child td {
@@ -459,6 +460,12 @@ p {
   font-weight: 700; /* Extra bold for security code */
   color: var(--pco-green); /* Distinct color for security code */
   font-size: 32px; /* Even larger security code */
+}
+
+/* Highlight household name for better visibility */
+.arrivals-table td:nth-child(4) {
+  color: var(--pco-blue);
+  font-weight: 700;
 }
 
 .no-arrivals {
@@ -813,409 +820,505 @@ p {
   text-align: center;
 }
 
-/* Enhanced NavBar */
-.navbar {
+/* Professional NavBar Styles */
+.custom-navbar {
   display: flex;
+  align-items: stretch;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 24px;
-  background-color: var(--pco-white);
-  border-radius: 8px;
-  border: 1px solid var(--pco-border);
-  margin-bottom: 24px;
-  box-shadow: 0px 1px 3px rgba(16, 24, 40, 0.1);
+  padding: 24px 40px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.08);
+  margin-bottom: 36px;
+  min-height: 150px;
+  gap: 0;
 }
 
-.navbar-brand {
+.navbar-left {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 220px;
+  gap: 8px;
 }
 
 .navbar-logo {
-  height: 40px;
-  margin-right: 12px;
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  margin-bottom: 4px;
 }
 
 .navbar-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--pco-black);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a202c;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
 }
 
-.navbar-nav {
+.navbar-center {
   display: flex;
-  gap: 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+  flex: 1;
 }
 
 .navbar-link {
-  color: var(--pco-gray-dark);
+  color: #344054;
   text-decoration: none;
   font-weight: 500;
-  padding: 8px 0;
+  font-size: 1.15rem;
+  padding: 10px 0;
+  transition: color 0.2s, border-bottom 0.2s;
+  border-bottom: 2px solid transparent;
+}
+
+.navbar-link:hover,
+.navbar-link.active {
+  color: #2e77bb;
+  border-bottom: 2px solid #2e77bb;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 180px;
+}
+
+.user-info.user-info-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #e9f1f9;
+  margin-bottom: 2px;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #344054;
+  font-size: 1rem;
+  margin-bottom: 2px;
+}
+
+.btn-logout, .btn-login {
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 1.08rem;
+  cursor: pointer;
+  background-color: #f8f9fa;
+  color: #2e77bb;
+  border: 1.5px solid #2e77bb;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn-logout:hover, .btn-login:hover {
+  background-color: #2e77bb;
+  color: #fff;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 16px;
+    min-height: unset;
+  }
+  .navbar-brand {
+    margin-bottom: 12px;
+  }
+  .navbar-nav {
+    gap: 18px;
+    margin-bottom: 12px;
+  }
+  .navbar-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .container {
+    padding: 12px;
+  }
+  .card {
+    padding: 12px;
+  }
+  .arrivals-table th,
+  .arrivals-table td {
+    padding: 10px;
+    font-size: 14px;
+  }
+}
+
+/* Update the household-related styles */
+.arrivals-table .household-row {
   position: relative;
 }
 
-.navbar-link:hover {
-  color: var(--pco-blue);
+.arrivals-table .household-row td {
+  border-left: 1px solid var(--pco-border);
 }
 
-.navbar-link.active {
-  color: var(--pco-blue);
+.arrivals-table .household-row.household-first {
+  border-top: 2px solid var(--pco-blue);
 }
 
-.navbar-link.active::after {
+.arrivals-table .household-row.household-last {
+  border-bottom: 2px solid var(--pco-blue);
+}
+
+.arrivals-table .household-row td:first-child {
+  border-left: 4px solid var(--pco-blue);
+}
+
+.arrivals-table .household-row {
+  background-color: rgba(46, 119, 187, 0.03);
+}
+
+.arrivals-table .household-name {
+  font-weight: 700;
+  color: var(--pco-blue);
+  font-size: 24px;
+}
+
+/* Empty household name cells should maintain spacing */
+.arrivals-table td.household-name:empty {
+  position: relative;
+}
+
+.arrivals-table td.household-name:empty::after {
   content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background-color: var(--pco-blue);
-  border-radius: 2px;
+  display: block;
+  height: 1px;
 }
 
-/* User Management Styles */
-.page-header {
-  margin-bottom: 24px;
+/* Adjust the table styles for better readability */
+.arrivals-table {
+  border-spacing: 0;
+  border-collapse: separate;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.page-header h1 {
+.arrivals-table th,
+.arrivals-table td {
+  padding: 20px;
+  text-align: left;
+}
+
+.arrivals-table th {
+  background-color: var(--pco-gray-lightest);
+  font-weight: 700;
+  color: var(--pco-gray-dark);
+  border-bottom: 2px solid var(--pco-border);
+}
+
+/* Security code column styling */
+.arrivals-table td:last-child {
+  font-weight: 700;
+  color: var(--pco-green);
+  font-size: 32px;
+}
+
+/* Security Code Separator */
+.security-code-separator {
+  background-color: var(--pco-gray-lightest);
+}
+
+.security-code-separator td {
+  padding: 12px 20px;
+  font-weight: 700;
+  color: var(--pco-gray-dark);
+  font-size: 24px;
+  text-transform: uppercase;
+  background-color: #f8fafc;
+  border-top: 2px solid var(--pco-border);
+  border-bottom: 2px solid var(--pco-border);
+}
+
+/* Household Rows */
+.arrivals-table .household-row {
+  background-color: var(--household-bg);
+}
+
+.arrivals-table .household-row td:first-child {
+  border-left: 4px solid var(--household-border);
+}
+
+.arrivals-table .household-row.household-first {
+  border-top: 1px solid var(--household-border);
+}
+
+.arrivals-table .household-row.household-last {
+  border-bottom: 1px solid var(--household-border);
   margin-bottom: 8px;
 }
 
-.page-header p {
-  color: var(--pco-gray);
-  margin-bottom: 0;
+/* Household Name Column */
+.arrivals-table .household-name {
+  font-weight: 700;
+  color: var(--household-border);
+  font-size: 24px;
 }
 
-.admin-section {
-  margin-bottom: 32px;
+/* Update the table styles */
+.arrivals-table {
+  border-spacing: 0;
+  border-collapse: separate;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 24px;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.admin-form {
+.arrivals-table th {
+  background-color: #f8fafc;
+  padding: 16px 20px;
+  font-weight: 700;
+  color: var(--pco-gray-dark);
+  border-bottom: 2px solid var(--pco-border);
+  font-size: 26px;
+  text-transform: uppercase;
+}
+
+.arrivals-table td {
+  padding: 20px;
+  border-bottom: 1px solid var(--pco-border);
+  font-size: 24px;
+}
+
+/* Security Code Column */
+.arrivals-table td:last-child {
+  font-weight: 700;
+  color: var(--pco-green);
+  font-size: 28px;
+  text-transform: uppercase;
+}
+
+/* Add spacing between security code groups */
+.security-code-separator:not(:first-child) {
   margin-top: 24px;
 }
 
-.form-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+/* Security Code Header */
+.security-code-header td {
+  padding: 16px 20px;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--pco-green);
+  background-color: #F7FAFC;
+  border-top: 2px solid var(--pco-border);
+  border-bottom: 2px solid var(--pco-border);
+  text-transform: uppercase;
 }
 
-.form-help {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--pco-gray);
-}
-
-.required {
-  color: var(--pco-red);
-}
-
-.section-subtitle {
-  color: var(--pco-gray);
-  margin-top: -8px;
-  margin-bottom: 16px;
-}
-
-.card-header-with-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.search-container {
-  width: 250px;
-}
-
-.search-input {
+/* Table Styles */
+.arrivals-table {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--pco-border);
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  margin-top: 24px;
+  background-color: white;
   border-radius: 8px;
-  font-size: 14px;
+  overflow: hidden;
+}
+
+.arrivals-table th {
+  background-color: #1A202C;
+  color: white;
+  padding: 16px 20px;
+  font-size: 24px;
+  font-weight: 600;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+/* Household Row Styles */
+.household-row {
+  background-color: white;
+  color: var(--household-color);
+  transition: transform 0.2s;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.household-row:hover {
+  background-color: #F7FAFC;
+}
+
+.household-row td {
+  padding: 20px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Household Icon */
+.household-icon {
+  display: inline-block;
+  margin-right: 12px;
+  font-size: 28px;
+  vertical-align: middle;
+}
+
+/* Security Code Column */
+.security-code {
+  font-weight: 700;
+  font-size: 28px;
+  text-transform: uppercase;
+  color: var(--pco-green) !important;
+}
+
+/* Add spacing between security code groups */
+.security-code-header:not(:first-child) {
+  margin-top: 24px;
+}
+
+/* Improve table header contrast */
+.arrivals-table thead tr {
+  border-bottom: 2px solid var(--pco-border);
+}
+
+/* Add subtle animation for row hover */
+.household-row {
+  transition: all 0.2s ease-in-out;
+}
+
+.household-row:hover {
+  transform: translateX(4px);
+}
+
+/* Security code section spacing */
+.security-code-header td {
+  padding-top: 32px;
+}
+
+/* Make the table more compact but maintain readability */
+.arrivals-table td,
+.arrivals-table th {
+  padding: 16px 20px;
+  white-space: nowrap;
+}
+
+/* Add subtle border radius to rows */
+.household-row td:first-child {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+.household-row td:last-child {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+/* Ensure consistent text color within rows */
+.household-row td {
+  color: var(--household-color);
+}
+
+/* Keep ID column neutral for better readability */
+.household-row td:first-child {
+  color: #4A5568;
+}
+
+/* Keep security code green */
+.household-row td:last-child {
+  color: var(--pco-green);
+}
+
+.user-info.user-info-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-avatar {
+  margin-bottom: 4px;
+}
+
+.user-name {
+  margin-bottom: 4px;
 }
 
 .users-table-container {
-  overflow-x: auto;
+  background: var(--pco-white);
+  border-radius: 8px;
+  box-shadow: 0px 1px 3px rgba(16, 24, 40, 0.1);
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid var(--pco-border);
 }
 
 .users-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 16px;
+}
+
+.users-table th, .users-table td {
+  padding: 14px 18px;
+  text-align: left;
+  font-size: 1rem;
 }
 
 .users-table th {
-  text-align: left;
-  padding: 12px 16px;
-  background-color: var(--pco-gray-lightest);
-  border-bottom: 1px solid var(--pco-border);
-  font-weight: 600;
+  background: var(--pco-gray-lightest);
+  color: var(--pco-gray-dark);
+  font-weight: 700;
+  border-bottom: 2px solid var(--pco-border);
 }
 
-.users-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--pco-border);
+.users-table tr:nth-child(even) {
+  background: var(--pco-gray-lightest);
 }
 
 .users-table tr:last-child td {
   border-bottom: none;
 }
 
-.current-user-row {
-  background-color: var(--pco-blue-light);
+.users-table td {
+  color: var(--pco-gray-dark);
+  border-bottom: 1px solid var(--pco-border);
+  vertical-align: middle;
 }
 
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 13px;
-}
-
-.success-message {
-  background-color: #ecfdf3;
-  color: #027948;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #6ce9a6;
-  margin-bottom: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.error-dismiss,
-.success-dismiss {
+.users-table .remove-btn {
   background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: inherit;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 48px 24px;
-  color: var(--pco-gray);
-}
-
-/* Login button and related styles */
-.btn-login {
-  padding: 8px 16px;
+  border: 1.5px solid #e15241;
+  color: #e15241;
   border-radius: 8px;
-  background-color: var(--pco-blue);
-  color: var(--pco-white);
-  border: none;
+  padding: 8px 18px;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 
-.btn-login:hover {
-  background-color: var(--pco-blue-dark);
+.users-table .remove-btn:hover {
+  background: #fef3f2;
+  color: #fff;
+  border-color: #e15241;
 }
 
-.btn-login-light {
-  padding: 6px 12px;
-  border-radius: 6px;
-  background-color: rgba(46, 119, 187, 0.3);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-login-light:hover {
-  background-color: rgba(46, 119, 187, 0.5);
-}
-
-.btn-logout-light {
-  padding: 6px 12px;
-  border-radius: 6px;
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-logout-light:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-.billboard-user-controls {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 100;
-}
-
-.user-panel {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  background-color: rgba(0, 0, 0, 0.3);
+.user-search-input {
+  width: 260px;
+  padding: 10px 14px;
+  border: 1px solid var(--pco-border);
   border-radius: 8px;
-  color: white;
-}
-
-/* Not Found and Error Pages */
-.not-found-actions {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  margin-top: 24px;
-}
-
-.billboard-actions {
-  display: flex;
-  gap: 16px;
-  margin-top: 20px;
-  justify-content: center;
-}
-
-/* Unauthorized page */
-.unauthorized-actions {
-  margin-top: 24px;
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-}
-
-.error-container {
-  text-align: center;
-  padding: 40px 20px;
-}
-
-.error-container h2 {
-  color: var(--pco-red);
-  margin-bottom: 16px;
-}
-
-.error-container p {
-  margin-bottom: 24px;
-}
-
-/* Return to Billboard button */
-.return-to-billboard {
-  min-width: 150px;
-  font-weight: 600;
-}
-
-/* Responsive styles */
-@media (max-width: 768px) {
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .header h1 {
-    margin-bottom: 16px;
-  }
-  
-  .billboard-header {
-    flex-direction: column;
-  }
-  
-  .billboard-controls {
-    margin-top: 16px;
-  }
-  
-  .arrivals-table {
-    display: block;
-    overflow-x: auto;
-    font-size: 16px; /* Smaller on mobile */
-  }
-  
-  .arrivals-table th {
-    font-size: 16px; /* Smaller on mobile */
-    padding: 10px 12px;
-  }
-  
-  .arrivals-table td {
-    font-size: 16px; /* Smaller on mobile */
-    padding: 12px;
-  }
-  
-  .arrivals-table td:last-child {
-    font-size: 18px; /* Still slightly larger for security codes */
-  }
-  
-  .church-logo {
-    height: 50px;
-  }
-  
-  .church-logo-billboard {
-    height: 30px;
-  }
-  
-  .billboard-logo {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .billboard-logo img {
-    margin-bottom: 8px;
-    margin-right: 0;
-  }
-  
-  .active-billboard-banner {
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  .active-billboard-banner .btn-primary {
-    width: 100%;
-  }
-  
-  .user-controls {
-    margin-top: 16px;
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .navbar {
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .navbar-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-  
-  .not-found-actions, 
-  .unauthorized-actions,
-  .billboard-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-  
-  .not-found-actions button,
-  .not-found-actions a,
-  .unauthorized-actions button,
-  .billboard-actions button {
-    width: 100%;
-    margin-bottom: 8px;
-  }
-  
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-  
-  .card-header-with-actions {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .search-container {
-    width: 100%;
-  }
+  font-size: 1rem;
+  margin-bottom: 12px;
+  background: var(--pco-gray-lightest);
+  color: var(--pco-gray-dark);
 }

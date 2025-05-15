@@ -1,10 +1,28 @@
 // src/components/NavBar.js
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useSession } from '../context/SessionContext';
 
-function NavBar({ user, currentPage }) {
+function NavBar({
+  currentPage,
+  selectedEvent,
+  selectedEventName,
+  selectedDate,
+  securityCodes = [],
+  existingSecurityCodes = []
+}) {
   const navigate = useNavigate();
-  
+  const location = useLocation();
+  const { session } = useSession();
+
+  // Prefer props, but fall back to location.state if not provided
+  const eventId = selectedEvent || location.state?.eventId;
+  const eventName = selectedEventName || location.state?.eventName;
+  const eventDate = selectedDate || location.state?.selectedDate;
+  const codes = securityCodes.length ? securityCodes : (location.state?.securityCodes || []);
+  const existingCodes = existingSecurityCodes.length ? existingSecurityCodes : (location.state?.existingSecurityCodes || []);
+  const user = session?.user;
+
   const handleLogout = () => {
     window.location.href = 'http://localhost:3001/auth/logout';
   };
@@ -12,52 +30,78 @@ function NavBar({ user, currentPage }) {
   const handleLogin = () => {
     window.location.href = 'http://localhost:3001/auth/pco';
   };
-  
+
+  // Custom handler for Dashboard to preserve state
+  const handleDashboardClick = (e) => {
+    e.preventDefault();
+    navigate('/admin', {
+      state: {
+        eventId,
+        eventName,
+        selectedDate: eventDate,
+        securityCodes: codes,
+        existingSecurityCodes: existingCodes,
+        selectedLocation: location.state?.selectedLocation,
+        locationName: location.state?.locationName,
+        fromNav: true // Add this flag to indicate navigation from navbar
+      }
+    });
+  };
+
+  // Debug: Uncomment to check what props are being received
+  // console.log('NavBar props:', { user, currentPage, selectedEvent, selectedEventName });
+
   return (
-    <div className="navbar">
-      <div className="navbar-brand">
+    <div className="navbar custom-navbar">
+      <div className="navbar-left">
         <img 
           src="https://thechurchco-production.s3.amazonaws.com/uploads/sites/1824/2020/02/Website-Logo1.png" 
           alt="Logo"
           className="navbar-logo"
         />
-        <span className="navbar-title">PCO Arrivals Billboard</span>
+        <span className="navbar-title">
+          PCO Arrivals Billboard
+        </span>
       </div>
-      
-      <div className="navbar-nav">
-        <Link 
-          to="/admin" 
+      <div className="navbar-center">
+        <a
+          href="/admin"
+          onClick={handleDashboardClick}
           className={`navbar-link ${currentPage === 'admin' ? 'active' : ''}`}
         >
           Dashboard
-        </Link>
+        </a>
         {user?.isAdmin && (
           <Link 
             to="/admin/users" 
             className={`navbar-link ${currentPage === 'users' ? 'active' : ''}`}
+            state={{
+              eventId,
+              eventName,
+              selectedDate: eventDate,
+              securityCodes: codes,
+              existingSecurityCodes: existingCodes,
+              fromNav: true
+            }}
           >
             User Management
           </Link>
         )}
       </div>
-      
-      <div className="navbar-actions">
+      <div className="navbar-right">
         {user ? (
-          <div className="navbar-user">
-            <div className="user-info">
-              {user.avatar && (
-                <img 
-                  src={user.avatar} 
-                  alt={user.name} 
-                  className="user-avatar"
-                />
-              )}
-              <span className="user-name">{user.name}</span>
-            </div>
-            
+          <div className="user-info user-info-vertical">
+            {user.avatar && (
+              <img 
+                src={user.avatar} 
+                alt={user.name} 
+                className="user-avatar"
+              />
+            )}
+            <span className="user-name">{user.name}</span>
             <button 
               onClick={handleLogout} 
-              className="btn-logout"
+              className="btn-logout" 
               title="Logout"
             >
               Logout
@@ -66,7 +110,7 @@ function NavBar({ user, currentPage }) {
         ) : (
           <button 
             onClick={handleLogin} 
-            className="btn-login"
+            className="btn-login" 
             title="Login with Planning Center"
           >
             Login

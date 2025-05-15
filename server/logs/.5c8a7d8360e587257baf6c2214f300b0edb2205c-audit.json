@@ -49,6 +49,11 @@
             "date": 1747238404706,
             "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/error-2025-05-14.log",
             "hash": "9c14136e7b9249d1bcfe567374152af099464280a6cbd029fb365071878414d2"
+        },
+        {
+            "date": 1747321253903,
+            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/error-2025-05-15.log",
+            "hash": "cc486348acca68483e9c80738132ff9a3ac8ef682d1de5032807fd08c15baebb"
         }
     ],
     "hashType": "sha256"

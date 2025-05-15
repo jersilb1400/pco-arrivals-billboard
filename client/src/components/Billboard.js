@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getHouseholdTheme } from '../utils/colors';
 
 // Configure axios to send cookies with requests
 axios.defaults.withCredentials = true;
@@ -90,13 +91,17 @@ function Billboard() {
   
   // Navigate back to admin with current session data
   const handleBackToAdmin = () => {
+    const activeSecurityCodes = arrivals.map(a => a.securityCode);
     navigate('/admin', {
       state: {
         fromBillboard: true,
         eventId,
         securityCodes,
         eventName,
-        eventDate
+        eventDate,
+        selectedLocation: location.state?.selectedLocation,
+        locationName: location.state?.locationName,
+        activeSecurityCodes
       }
     });
   };
@@ -108,6 +113,31 @@ function Billboard() {
   const handleLogout = () => {
     window.location.href = 'http://localhost:3001/auth/logout';
   };
+  
+  // Group arrivals by security code and household
+  const groupedArrivals = useMemo(() => {
+    const groups = {};
+    
+    arrivals.forEach(arrival => {
+      // Create security code group if it doesn't exist
+      if (!groups[arrival.securityCode]) {
+        groups[arrival.securityCode] = {};
+      }
+      
+      // Get household name
+      const householdName = arrival.householdName || `${arrival.lastName} Household`;
+      
+      // Create household group if it doesn't exist
+      if (!groups[arrival.securityCode][householdName]) {
+        groups[arrival.securityCode][householdName] = [];
+      }
+      
+      // Add arrival to the appropriate group
+      groups[arrival.securityCode][householdName].push(arrival);
+    });
+    
+    return groups;
+  }, [arrivals]);
   
   if (!hasValidData()) {
     // Redirect if no data is available
@@ -258,19 +288,43 @@ function Billboard() {
                 <th>ID</th>
                 <th>First Name</th>
                 <th>Last Name</th>
+                <th>Household</th>
                 <th>Event</th>
                 <th>Security Code</th>
               </tr>
             </thead>
             <tbody>
-              {arrivals.map(arrival => (
-                <tr key={arrival.id || arrival.securityCode}>
-                  <td>{arrival.id || '-'}</td>
-                  <td>{arrival.firstName || '-'}</td>
-                  <td>{arrival.lastName || '-'}</td>
-                  <td>{arrival.eventName || '-'}</td>
-                  <td>{arrival.securityCode}</td>
-                </tr>
+              {Object.entries(groupedArrivals).map(([securityCode, households]) => (
+                <React.Fragment key={securityCode}>
+                  <tr className="security-code-header">
+                    <td colSpan="6">
+                      Security Code: {securityCode}
+                    </td>
+                  </tr>
+                  
+                  {Object.entries(households).map(([householdName, householdMembers]) => {
+                    const theme = getHouseholdTheme(householdName);
+                    return householdMembers.map((arrival, index) => (
+                      <tr 
+                        key={`${arrival.id}-${index}`}
+                        className="household-row"
+                        style={{
+                          '--household-color': theme.color
+                        }}
+                      >
+                        <td>{arrival.id || '-'}</td>
+                        <td>
+                          <span className="household-icon">{theme.icon}</span>
+                          {arrival.firstName || '-'}
+                        </td>
+                        <td>{arrival.lastName || '-'}</td>
+                        <td>{householdName}</td>
+                        <td>{arrival.eventName || '-'}</td>
+                        <td className="security-code">{securityCode}</td>
+                      </tr>
+                    ));
+                  })}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
