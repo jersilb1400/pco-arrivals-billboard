@@ -33,6 +33,7 @@ function LocationBillboard() {
         `http://localhost:3001/api/events/${eventId}/locations/${locationId}/active-checkins`,
         { params: { date } }
       );
+      console.log('Received check-ins from backend:', response.data);
       setCheckIns(response.data);
       setLastUpdated(new Date());
     } catch (err) {
@@ -44,7 +45,7 @@ function LocationBillboard() {
 
   useEffect(() => {
     fetchCheckIns();
-    const interval = setInterval(fetchCheckIns, 10000); // auto-refresh every 10s
+    const interval = setInterval(fetchCheckIns, 60000); // auto-refresh every 60s
     return () => clearInterval(interval);
   }, [fetchCheckIns]);
 
@@ -58,7 +59,8 @@ function LocationBillboard() {
         eventName,
         fromLocationBillboard: true,
         securityCodes: state.securityCodes || [],
-        existingSecurityCodes: state.existingSecurityCodes || []
+        existingSecurityCodes: state.existingSecurityCodes || [],
+        selectedDate: date
       }
     });
   };
@@ -111,19 +113,19 @@ function LocationBillboard() {
           <table className="arrivals-table">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Security Code</th>
                 <th>Name</th>
                 <th>Check-In Time</th>
+                <th>Location</th>
               </tr>
             </thead>
             <tbody>
               {checkIns.map(ci => (
                 <tr key={ci.id}>
-                  <td>{ci.id}</td>
                   <td style={{ fontWeight: 700, color: '#6db56d', fontSize: 22 }}>{ci.security_code || '-'}</td>
                   <td style={{ fontWeight: 700, color: '#2e77bb' }}>{ci.name || '-'}</td>
                   <td>{ci.created_at ? new Date(ci.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                  <td>{ci.location_name || '-'}</td>
                 </tr>
               ))}
             </tbody>

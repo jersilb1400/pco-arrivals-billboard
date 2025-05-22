@@ -863,6 +863,7 @@ app.get('/api/events/:eventId/locations', requireAuth, async (req, res) => {
 // GET /api/events/:eventId/locations/:locationId/active-checkins?date=YYYY-MM-DD
 app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAuth, async (req, res) => {
   try {
+    const { eventId, locationId } = req.params;
     const { date } = req.query;
     if (!date) {
       console.error('No date provided in request!');
@@ -871,12 +872,13 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
     const accessToken = await ensureValidToken(req);
     if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
-    // Build the Planning Center API URL with only the date filter
-    let url = `https://api.planningcenteronline.com/check-ins/v2/check_ins?where[created_at][gte]=${encodeURIComponent(date + 'T00:00:00Z')}`;
+    // Build the Planning Center API URL with event, date, and include locations
+    let url = `https://api.planningcenteronline.com/check-ins/v2/check_ins?where[event_id]=${eventId}&include=locations&where[created_at][gte]=${encodeURIComponent(date + 'T00:00:00Z')}`;
 
     console.log('[PCO API] Fetching check-ins with URL:', url);
 
     let allCheckIns = [];
+    let allIncluded = [];
     let nextPage = url;
     while (nextPage) {
       const response = await axios.get(nextPage, {
@@ -885,21 +887,50 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
           password: process.env.PCO_ACCESS_SECRET
         }
       });
-      const { data, links } = response.data;
+      const { data, included, links } = response.data;
       allCheckIns = allCheckIns.concat(data);
+      if (included) allIncluded = allIncluded.concat(included);
       nextPage = links && links.next ? links.next : null;
     }
 
-    // Format check-ins (location info not included)
-    const formatted = allCheckIns.map(ci => ({
-      id: ci.id,
-      security_code: ci.attributes.security_code,
-      name: ci.attributes.person_name || [ci.attributes.first_name, ci.attributes.last_name].filter(Boolean).join(' ') || 'Unknown',
-      created_at: ci.attributes.created_at
-    }));
+    console.log('[PCO API] First 2 raw check-ins from PCO:', JSON.stringify(allCheckIns.slice(0,2), null, 2));
+    console.log(`[PCO API] Total check-ins returned from PCO: ${allCheckIns.length}`);
+    const locationCount = allIncluded.filter(item => item.type === 'Location').length;
+    console.log(`[PCO API] Total locations in 'included': ${locationCount}`);
+
+    // Build a map of locationId -> locationName
+    const locationMap = {};
+    allIncluded
+      .filter(item => item.type === 'Location')
+      .forEach(loc => {
+        locationMap[loc.id] = loc.attributes.name;
+      });
+
+    // Format check-ins, filtering by locationId (now using relationships.locations.data array)
+    const formatted = allCheckIns
+      .filter(ci => Array.isArray(ci.relationships?.locations?.data) &&
+                    ci.relationships.locations.data.some(loc => loc.id === locationId))
+      .map(ci => {
+        const locId = ci.relationships.locations.data.find(loc => loc.id === locationId)?.id || null;
+        return {
+          id: ci.id,
+          security_code: ci.attributes.security_code,
+          name: ci.attributes.person_name || [ci.attributes.first_name, ci.attributes.last_name].filter(Boolean).join(' ') || 'Unknown',
+          created_at: ci.attributes.created_at,
+          location_id: locId,
+          location_name: locId ? locationMap[locId] || 'Unknown' : 'Unknown'
+        };
+      });
+
+    console.log(`[PCO API] Check-ins after filtering by locationId (${locationId}): ${formatted.length}`);
+    if (formatted.length > 0) {
+      console.log('[PCO API] First 2 check-ins sent to frontend:', JSON.stringify(formatted.slice(0,2), null, 2));
+    } else {
+      console.log('[PCO API] No check-ins after filtering by locationId.');
+    }
 
     res.json(formatted);
-    console.log(`[PCO API] Returned ${formatted.length} check-ins for date=${date}`);
+    console.log(`[PCO API] Returned ${formatted.length} check-ins for date=${date} and location=${locationId}`);
   } catch (error) {
     console.error('API Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch active check-ins' });
