@@ -860,59 +860,49 @@ app.get('/api/events/:eventId/locations', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/events/:eventId/locations/:locationId/active-checkins
+// GET /api/events/:eventId/locations/:locationId/active-checkins?date=YYYY-MM-DD
 app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAuth, async (req, res) => {
   try {
-    const { eventId, locationId } = req.params;
+    const { date } = req.query;
+    if (!date) {
+      console.error('No date provided in request!');
+      return res.status(400).json({ error: 'Date parameter is required' });
+    }
     const accessToken = await ensureValidToken(req);
     if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
+    // Build the Planning Center API URL with only the date filter
+    let url = `https://api.planningcenteronline.com/check-ins/v2/check_ins?where[created_at][gte]=${encodeURIComponent(date + 'T00:00:00Z')}`;
+
+    console.log('[PCO API] Fetching check-ins with URL:', url);
+
     let allCheckIns = [];
-    let allIncluded = [];
-    let nextPage = `https://api.planningcenteronline.com/check-ins/v2/locations/${locationId}/check_ins?include=person,household,location&per_page=100`;
+    let nextPage = url;
     while (nextPage) {
       const response = await axios.get(nextPage, {
         auth: {
           username: process.env.PCO_ACCESS_TOKEN,
           password: process.env.PCO_ACCESS_SECRET
-        },
-        headers: { 'Accept': 'application/json' }
+        }
       });
-      allCheckIns = allCheckIns.concat(response.data.data || []);
-      allIncluded = allIncluded.concat(response.data.included || []);
-      nextPage = response.data.links?.next;
+      const { data, links } = response.data;
+      allCheckIns = allCheckIns.concat(data);
+      nextPage = links && links.next ? links.next : null;
     }
-    // Filter for active check-ins
-    const activeCheckIns = allCheckIns.filter(ci => !ci.attributes.checked_out_at);
 
-    // Debug: log included locations
-    const includedLocations = allIncluded.filter(item => item.type === 'Location');
-    console.log('Included locations:', includedLocations.map(loc => ({ id: loc.id, name: loc.attributes.name })));
+    // Format check-ins (location info not included)
+    const formatted = allCheckIns.map(ci => ({
+      id: ci.id,
+      security_code: ci.attributes.security_code,
+      name: ci.attributes.person_name || [ci.attributes.first_name, ci.attributes.last_name].filter(Boolean).join(' ') || 'Unknown',
+      created_at: ci.attributes.created_at
+    }));
 
-    // Map to desired output
-    const result = activeCheckIns.map(checkIn => {
-      const person = allIncluded.find(
-        item => item.type === 'Person' && item.id === checkIn.relationships.person?.data?.id
-      );
-      // Find the location for this check-in using relationships.location.data.id
-      const checkInLocationId = checkIn.relationships.location?.data?.id;
-      const location = allIncluded.find(
-        item => item.type === 'Location' && item.id === checkInLocationId
-      );
-      return {
-        id: checkIn.id,
-        status: checkIn.attributes.status,
-        created_at: checkIn.attributes.created_at,
-        name: person ? `${person.attributes.first_name} ${person.attributes.last_name}` : undefined,
-        security_code: checkIn.attributes.security_code || '',
-        location_name: location ? location.attributes.name : '',
-        location_id: checkInLocationId
-      };
-    });
-    res.json(result);
+    res.json(formatted);
+    console.log(`[PCO API] Returned ${formatted.length} check-ins for date=${date}`);
   } catch (error) {
     console.error('API Error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to fetch active check-ins by location' });
+    res.status(500).json({ error: 'Failed to fetch active check-ins' });
   }
 });
 

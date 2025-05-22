@@ -21,14 +21,18 @@ function LocationBillboard() {
   const locationId = state.locationId;
   const locationName = state.locationName;
   const eventName = state.eventName;
+  const date = state.date;
 
   // Fetch check-ins for the location
   const fetchCheckIns = useCallback(async () => {
-    if (!eventId || !locationId) return;
+    if (!eventId || !locationId || !date) return;
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`http://localhost:3001/api/events/${eventId}/locations/${locationId}/active-checkins`);
+      const response = await axios.get(
+        `http://localhost:3001/api/events/${eventId}/locations/${locationId}/active-checkins`,
+        { params: { date } }
+      );
       setCheckIns(response.data);
       setLastUpdated(new Date());
     } catch (err) {
@@ -36,7 +40,7 @@ function LocationBillboard() {
     } finally {
       setLoading(false);
     }
-  }, [eventId, locationId]);
+  }, [eventId, locationId, date]);
 
   useEffect(() => {
     fetchCheckIns();

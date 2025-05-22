@@ -412,6 +412,7 @@ function AdminPanel() {
                     locationId: selectedLocation,
                     locationName: locationObj ? locationObj.attributes.name : '',
                     eventName: eventObj ? eventObj.attributes.name : '',
+                    date: selectedDate,
                     securityCodes,
                     existingSecurityCodes
                   }
