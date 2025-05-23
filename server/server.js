@@ -906,10 +906,13 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
         locationMap[loc.id] = loc.attributes.name;
       });
 
-    // Format check-ins, filtering by locationId (now using relationships.locations.data array)
+    // Format check-ins, filtering by locationId and only active (not checked out)
     const formatted = allCheckIns
-      .filter(ci => Array.isArray(ci.relationships?.locations?.data) &&
-                    ci.relationships.locations.data.some(loc => loc.id === locationId))
+      .filter(ci =>
+        !ci.attributes.checked_out_at && // Only active check-ins
+        Array.isArray(ci.relationships?.locations?.data) &&
+        ci.relationships.locations.data.some(loc => loc.id === locationId)
+      )
       .map(ci => {
         const locId = ci.relationships.locations.data.find(loc => loc.id === locationId)?.id || null;
         return {
