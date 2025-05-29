@@ -49,7 +49,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGO_URI || 'mongodb://localhost:27017/pco-arrivals-billboard-sessions',
+    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/pco-arrivals-billboard-sessions',
     collectionName: 'sessions'
   }),
   cookie: { 
