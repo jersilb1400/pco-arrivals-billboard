@@ -6,21 +6,6 @@
     "auditLog": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/.0edd305bf00f0793e5a47d770f92df347e2fb05a-audit.json",
     "files": [
         {
-            "date": 1746730818230,
-            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-08.log",
-            "hash": "46686eeb1eb01b2f3dc4007262b1c87c17c6caa6605adc44436efdf8949545d5"
-        },
-        {
-            "date": 1746804915827,
-            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-09.log",
-            "hash": "b975def1827316e6cf0600d53efeec178a842de04e158fca901ac7a9cd4720bb"
-        },
-        {
-            "date": 1747076501492,
-            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-12.log",
-            "hash": "f62c29a5a1b4fc351212dd3640043c960a82f5515175778505626d439e34205d"
-        },
-        {
             "date": 1747167545864,
             "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-13.log",
             "hash": "092d584de1cafc3963ff888bc6d37f8928541288ca87484602144247130edf07"
@@ -39,6 +24,16 @@
             "date": 1747939494514,
             "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-22.log",
             "hash": "e36b1aa97a45426e3e8ff89a76232f601d67579420392518f702cf25a630324e"
+        },
+        {
+            "date": 1748032132639,
+            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-23.log",
+            "hash": "4b47964cbd91649041dc9e114dae055740472fc74085877c526cd6225070f495"
+        },
+        {
+            "date": 1748370976083,
+            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-27.log",
+            "hash": "d1cceb17f5066aad1dcd6e47fcc818c790344f8df1224017510351cf3df94227"
         }
     ],
     "hashType": "sha256"

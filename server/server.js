@@ -37,7 +37,7 @@ const AUTHORIZED_USER_IDS = (process.env.AUTHORIZED_USERS || '').split(',').filt
 
 // Middleware
 app.use(cors({ 
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: true, // Allow all origins for local network testing
   credentials: true 
 }));
 app.use(express.json());
@@ -212,11 +212,12 @@ app.delete('/api/admin/users/:id', requireAuth, (req, res) => {
 
 // OAuth routes
 app.get('/auth/pco', (req, res) => {
-  // Store the "remember me" preference in the session
   req.session.rememberMe = req.query.remember === 'true';
-  
   const scopes = ['check_ins', 'people'];
-  const authUrl = `https://api.planningcenteronline.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${scopes.join(' ')}`;
+  const host = req.headers.host; // e.g., 'localhost:3001' or '192.168.29.101:3001'
+  const protocol = req.protocol; // 'http' or 'https'
+  const redirectUri = `${protocol}://${host}/auth/callback`;
+  const authUrl = `https://api.planningcenteronline.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scopes.join(' ')}`;
   res.redirect(authUrl);
 });
 
@@ -984,7 +985,7 @@ process.on('unhandledRejection', (err) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`PCO OAuth callback URL: ${REDIRECT_URI}`);
   if (authorizedUsers.length === 0) {
