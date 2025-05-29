@@ -6,21 +6,6 @@
     "auditLog": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/.0edd305bf00f0793e5a47d770f92df347e2fb05a-audit.json",
     "files": [
         {
-            "date": 1747167545864,
-            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-13.log",
-            "hash": "092d584de1cafc3963ff888bc6d37f8928541288ca87484602144247130edf07"
-        },
-        {
-            "date": 1747238404704,
-            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-14.log",
-            "hash": "00f5bbeadd5fd351b7964ebcd66142d87741883fbc96c7c674534f841e86a196"
-        },
-        {
-            "date": 1747321253902,
-            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-15.log",
-            "hash": "ceaf229b7477ccf4cc0a2b612c0ed154a406ff587ab99c6c0b2fb3228e44ae3e"
-        },
-        {
             "date": 1747939494514,
             "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-22.log",
             "hash": "e36b1aa97a45426e3e8ff89a76232f601d67579420392518f702cf25a630324e"
@@ -34,6 +19,11 @@
             "date": 1748370976083,
             "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-27.log",
             "hash": "d1cceb17f5066aad1dcd6e47fcc818c790344f8df1224017510351cf3df94227"
+        },
+        {
+            "date": 1748541322093,
+            "name": "/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/logs/application-2025-05-29.log",
+            "hash": "b01deb2674445dbff6ff63dbd0a725888a1de952c303b626bde25956c7c4f447"
         }
     ],
     "hashType": "sha256"

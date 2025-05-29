@@ -10,8 +10,8 @@ const connectDB = require('./db/config');
 const logger = require('./utils/logger');
 const { errorHandler } = require('./middleware/errorHandler');
 const { authLimiter, apiLimiter } = require('./middleware/rateLimiter');
-const swaggerUi = require('swagger-ui-express');
-const swaggerSpec = require('./config/swagger');
+// const swaggerUi = require('swagger-ui-express');
+// const swaggerSpec = require('./config/swagger');
 const MongoStore = require('connect-mongo');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
@@ -956,12 +956,12 @@ app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter);
 
 // Serve Swagger documentation
-app.use('/api-docs', swaggerUi.serve);
-app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: "PCO Arrivals Billboard API Documentation",
-  customfavIcon: "/favicon.ico"
-}));
+// app.use('/api-docs', swaggerUi.serve);
+// app.get('/api-docs', swaggerUi.setup(swaggerSpec, {
+//   customCss: '.swagger-ui .topbar { display: none }',
+//   customSiteTitle: "PCO Arrivals Billboard API Documentation",
+//   customfavIcon: "/favicon.ico"
+// }));
 
 // Request logging middleware
 app.use((req, res, next) => {
