@@ -21,6 +21,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^6.11.2",
     "express-session": "^1.18.1",
+    "json2csv": "^6.0.0-alpha.2",
     "mongoose": "^7.8.7",
     "react-router-dom": "^7.5.2",
     "socket.io-client": "^4.8.1",
