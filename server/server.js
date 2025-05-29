@@ -59,9 +59,9 @@ app.use(session({
 }));
 
 // Serve static files if in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
-}
+// if (process.env.NODE_ENV === 'production') {
+//   app.use(express.static(path.join(__dirname, '../client/build')));
+// }
 
 // Utility functions to load and save users
 function loadAuthorizedUsers() {
@@ -941,13 +941,6 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
   }
 });
 
-// Handle React routing in production
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
-  });
-}
-
 // Connect to MongoDB
 connectDB();
 
@@ -978,9 +971,10 @@ app.use((req, res, next) => {
 app.use(errorHandler);
 
 // Unhandled rejection handler
-process.on('unhandledRejection', (err) => {
+process.on('unhandledRejection', (reason, promise) => {
   logger.error('UNHANDLED REJECTION! 💥 Shutting down...');
-  logger.error(err);
+  logger.error('Reason:', reason);
+  logger.error('Promise:', promise);
   process.exit(1);
 });
 
