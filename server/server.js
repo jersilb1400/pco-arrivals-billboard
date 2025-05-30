@@ -36,9 +36,9 @@ const REMEMBER_ME_DAYS = 30; // Number of days to remember the user
 const AUTHORIZED_USER_IDS = (process.env.AUTHORIZED_USERS || '').split(',').filter(id => id);
 
 // Middleware
-app.use(cors({ 
-  origin: true, // Allow all origins for local network testing
-  credentials: true 
+app.use(cors({
+  origin: 'https://pco-arrivals-billboard-client.onrender.com',
+  credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -53,7 +53,8 @@ app.use(session({
     collectionName: 'sessions'
   }),
   cookie: { 
-    secure: process.env.NODE_ENV === 'production',
+    secure: true,
+    sameSite: 'none',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
