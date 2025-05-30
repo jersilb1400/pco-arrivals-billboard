@@ -214,9 +214,7 @@ app.delete('/api/admin/users/:id', requireAuth, (req, res) => {
 app.get('/auth/pco', (req, res) => {
   req.session.rememberMe = req.query.remember === 'true';
   const scopes = ['check_ins', 'people'];
-  const host = req.headers.host; // e.g., 'localhost:3001' or '192.168.29.101:3001'
-  const protocol = req.protocol; // 'http' or 'https'
-  const redirectUri = `${protocol}://${host}/auth/callback`;
+  const redirectUri = REDIRECT_URI;
   const authUrl = `https://api.planningcenteronline.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scopes.join(' ')}`;
   res.redirect(authUrl);
 });
