@@ -4,8 +4,6 @@ import api from '../utils/api';
 import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 
-axios.defaults.withCredentials = true;
-
 function LocationBillboard() {
   const location = useLocation();
   const navigate = useNavigate();
