@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 
@@ -29,8 +29,8 @@ function LocationBillboard() {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(
-        `http://localhost:3001/api/events/${eventId}/locations/${locationId}/active-checkins`,
+      const response = await api.get(
+        `/api/events/${eventId}/locations/${locationId}/active-checkins`,
         { params: { date } }
       );
       console.log('Received check-ins from backend:', response.data);

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../utils/api';
 
 const SessionContext = createContext();
 
@@ -13,7 +13,7 @@ export function SessionProvider({ children }) {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/auth-status');
+        const response = await api.get('/api/auth-status');
         setSession(response.data);
       } catch (error) {
         console.error('Session check failed:', error);
@@ -28,7 +28,7 @@ export function SessionProvider({ children }) {
 
   useEffect(() => {
     if (selectedEvent) {
-      axios.get(`http://localhost:3001/api/events/${selectedEvent}/event-times`)
+      api.get(`/api/events/${selectedEvent}/event-times`)
         .then(res => {
           console.log('Fetched Events:');
           res.data.forEach(event => {

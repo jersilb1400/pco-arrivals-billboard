@@ -1,7 +1,7 @@
 // src/components/AdminUsers.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import NavBar from './NavBar';
 
 function AdminUsers() {
@@ -22,11 +22,11 @@ function AdminUsers() {
         setLoading(true);
         
         // Get current user info
-        const userResponse = await axios.get('http://localhost:3001/api/user-info');
+        const userResponse = await api.get('/api/user-info');
         setCurrentUser(userResponse.data);
         
         // Get authorized users list
-        const response = await axios.get('http://localhost:3001/api/admin/users');
+        const response = await api.get('/api/admin/users');
         setUsers(response.data);
         
         setLoading(false);
@@ -53,7 +53,7 @@ function AdminUsers() {
     }
     
     try {
-      const response = await axios.post('http://localhost:3001/api/admin/users', {
+      const response = await api.post('/api/admin/users', {
         userId: newUserId,
         name: newUserName,
         email: newUserEmail
@@ -85,7 +85,7 @@ function AdminUsers() {
     }
     
     try {
-      await axios.delete(`http://localhost:3001/api/admin/users/${userId}`);
+      await api.delete(`/api/admin/users/${userId}`);
       
       // Remove user from the list
       setUsers(users.filter(user => user.id !== userId));

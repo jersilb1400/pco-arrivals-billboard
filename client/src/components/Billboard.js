@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import { getHouseholdTheme } from '../utils/colors';
 
 // Configure axios to send cookies with requests
-axios.defaults.withCredentials = true;
+api.defaults.withCredentials = true;
 
 function Billboard() {
   const location = useLocation();
@@ -23,7 +23,7 @@ function Billboard() {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/auth-status');
+        const response = await api.get('/api/auth-status');
         if (!response.data.authenticated || !response.data.user?.isAdmin) {
           navigate('/');
         } else {
@@ -46,7 +46,7 @@ function Billboard() {
     
     try {
       setRefreshing(true);
-      const response = await axios.post('http://localhost:3001/api/security-codes', {
+      const response = await api.post('/api/security-codes', {
         eventId,
         securityCodes
       });
@@ -107,11 +107,11 @@ function Billboard() {
   };
 
   const handleLogin = () => {
-    window.location.href = 'http://localhost:3001/auth/pco';
+    window.location.href = `${process.env.REACT_APP_API_BASE}/auth/pco`;
   };
   
   const handleLogout = () => {
-    window.location.href = 'http://localhost:3001/auth/logout';
+    window.location.href = `${process.env.REACT_APP_API_BASE}/auth/logout`;
   };
   
   // Group arrivals by security code and household

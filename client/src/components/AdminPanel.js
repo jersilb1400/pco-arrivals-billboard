@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 
 // Configure axios to send cookies with requests
-axios.defaults.withCredentials = true;
+api.defaults.withCredentials = true;
 
 function AdminPanel() {
   const location = useLocation();
@@ -98,7 +98,7 @@ function AdminPanel() {
       try {
         setDateLoading(true);
         const dateForApi = selectedDate;
-        const response = await axios.get(`http://localhost:3001/api/events-by-date?date=${dateForApi}`);
+        const response = await api.get(`/api/events-by-date?date=${dateForApi}`);
         setEvents(response.data);
         if (location.state?.fromBillboard && location.state?.eventId) {
           const eventExists = response.data.some(event => event.id === location.state.eventId);
@@ -132,7 +132,7 @@ function AdminPanel() {
     }
     const fetchLocations = async () => {
       try {
-        const response = await axios.get(`http://localhost:3001/api/events/${selectedEvent}/locations`);
+        const response = await api.get(`/api/events/${selectedEvent}/locations`);
         setLocations(response.data);
         setSelectedLocation('');
       } catch (err) {
@@ -171,7 +171,7 @@ function AdminPanel() {
         if (allSecurityCodes.length === 0) {
           return;
         }
-        const response = await axios.post('http://localhost:3001/api/security-codes', {
+        const response = await api.post('/api/security-codes', {
           eventId: selectedEvent,
           securityCodes: allSecurityCodes
         });

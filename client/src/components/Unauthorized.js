@@ -1,13 +1,15 @@
 import React from 'react';
+import { default as api } from '../utils/api';
+const API_BASE = process.env.REACT_APP_API_BASE;
 // Remove the unused Link import
 
 function Unauthorized() {
   const handleLogout = () => {
-    window.location.href = 'http://localhost:3001/auth/logout';
+    window.location.href = `${API_BASE}/auth/logout`;
   };
 
   const handleLogin = () => {
-    window.location.href = 'http://localhost:3001/auth/pco';
+    window.location.href = `${API_BASE}/auth/pco`;
   };
 
   return (

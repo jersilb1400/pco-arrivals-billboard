@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 
 // Configure axios to send cookies with requests
-axios.defaults.withCredentials = true;
+api.defaults.withCredentials = true;
 
 function Login() {
   const [authStatus, setAuthStatus] = useState('checking');
@@ -17,7 +17,7 @@ function Login() {
     // Check if user is already authenticated
     const checkAuthStatus = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/auth-status');
+        const response = await api.get('/api/auth-status');
         if (response.data.authenticated) {
           if (response.data.user?.isAdmin) {
             navigate('/admin');
@@ -42,7 +42,7 @@ function Login() {
     localStorage.setItem('rememberMe', rememberMe);
 
     // Redirect to your server's OAuth endpoint
-    window.location.href = `http://localhost:3001/auth/pco?remember=${rememberMe}&prompt=login`;
+    window.location.href = `${process.env.REACT_APP_API_BASE}/auth/pco?remember=${rememberMe}&prompt=login`;
   };
 
   const handleRememberMeChange = (e) => {

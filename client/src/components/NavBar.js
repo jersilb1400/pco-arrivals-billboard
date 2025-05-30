@@ -2,6 +2,9 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
+import { default as api } from '../utils/api';
+
+const API_BASE = process.env.REACT_APP_API_BASE;
 
 function NavBar({
   currentPage,
@@ -24,11 +27,11 @@ function NavBar({
   const user = session?.user;
 
   const handleLogout = () => {
-    window.location.href = 'http://localhost:3001/auth/logout';
+    window.location.href = `${API_BASE}/auth/logout`;
   };
   
   const handleLogin = () => {
-    window.location.href = 'http://localhost:3001/auth/pco';
+    window.location.href = `${API_BASE}/auth/pco`;
   };
 
   // Custom handler for Dashboard to preserve state

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 
@@ -16,14 +16,14 @@ function AuthorizedUsers() {
       return;
     }
 
-    axios.get('http://localhost:3001/api/admin/users')
+    api.get('/api/admin/users')
       .then(res => setUsers(res.data))
       .catch(() => setUsers([]));
   }, [session, loading, navigate]);
 
   const handleRemoveUser = (userId) => {
     if (!window.confirm('Are you sure you want to remove this user?')) return;
-    axios.delete(`http://localhost:3001/api/admin/users/${userId}`)
+    api.delete(`/api/admin/users/${userId}`)
       .then(() => setUsers(users.filter(user => user.id !== userId)))
       .catch(() => alert('Failed to remove user.'));
   };
