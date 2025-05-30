@@ -294,7 +294,7 @@ app.get('/auth/callback', async (req, res) => {
         req.session.user.isAdmin = true; // First user becomes admin
         
         console.log(`First user automatically authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
-        res.redirect(process.env.CLIENT_URL || 'http://localhost:3000/admin');
+        res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/admin`);
         return;
       }
       
@@ -316,13 +316,13 @@ app.get('/auth/callback', async (req, res) => {
         console.log(`User authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         
         // Redirect to admin panel
-        res.redirect(process.env.CLIENT_URL || 'http://localhost:3000/admin');
+        res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/admin`);
       } else {
         console.log(`User not authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         
         // Unauthorized user
         req.session.user.isAdmin = false;
-        res.redirect(process.env.CLIENT_URL || 'http://localhost:3000/unauthorized');
+        res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/unauthorized`);
       }
     } catch (userError) {
       console.error('Failed to fetch user data:', userError.response?.data || userError.message);
@@ -345,7 +345,7 @@ app.get('/auth/logout', (req, res) => {
     // Clear any additional cookies
     res.clearCookie('connect.sid');
     
-    res.redirect(process.env.CLIENT_URL || 'http://localhost:3000');
+    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/admin`);
   });
 });
 
