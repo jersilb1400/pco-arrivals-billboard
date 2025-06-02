@@ -22,7 +22,7 @@ const app = express();
 // Environment variables (from .env file)
 const CLIENT_ID = process.env.PCO_CLIENT_ID || 'YOUR_CLIENT_ID';
 const CLIENT_SECRET = process.env.PCO_CLIENT_SECRET || 'YOUR_CLIENT_SECRET'; 
-const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3001/auth/callback';
+const REDIRECT_URI = process.env.REDIRECT_URI || 'https://pco-arrivals-billboard-client.onrender.com/auth/callback';
 const PORT = process.env.PORT || 3001;
 const PCO_API_BASE = 'https://api.planningcenteronline.com/check-ins/v2';
 const ACCESS_TOKEN = process.env.PCO_ACCESS_TOKEN;
@@ -49,7 +49,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/pco-arrivals-billboard-sessions',
+    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb+srv://jeremy:<db_password>@pco-arrivals-dashboard.v8j7apq.mongodb.net/?retryWrites=true&w=majority&appName=pco-arrivals-dashboard',
     collectionName: 'sessions'
   }),
   cookie: { 
@@ -294,7 +294,7 @@ app.get('/auth/callback', async (req, res) => {
         
         console.log(`First user automatically authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         console.log('CLIENT_URL:', process.env.CLIENT_URL);
-        res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/admin`);
+        res.redirect(`${process.env.CLIENT_URL || 'https://pco-arrivals-billboard-client.onrender.com'}/admin`);
         return;
       }
       
