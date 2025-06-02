@@ -18,6 +18,7 @@ const { Parser } = require('json2csv'); // For CSV export (optional)
 
 // Create Express app instance
 const app = express();
+app.set('trust proxy', 1); // trust first proxy for secure cookies on Render
 
 // Environment variables (from .env file)
 const CLIENT_ID = process.env.PCO_CLIENT_ID || 'YOUR_CLIENT_ID';
