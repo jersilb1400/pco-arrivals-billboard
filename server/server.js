@@ -294,8 +294,13 @@ app.get('/auth/callback', async (req, res) => {
         
         console.log(`First user automatically authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         console.log('CLIENT_URL:', process.env.CLIENT_URL);
-        res.redirect('/auth/success');
-        return;
+        return req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+            return res.status(500).send('Session save failed');
+          }
+          res.redirect('/auth/success');
+        });
       }
       
       // Update user information if they're authorized
@@ -317,14 +322,26 @@ app.get('/auth/callback', async (req, res) => {
         
         // Redirect to admin panel
         console.log('CLIENT_URL:', process.env.CLIENT_URL);
-        res.redirect('/auth/success');
+        return req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+            return res.status(500).send('Session save failed');
+          }
+          res.redirect('/auth/success');
+        });
       } else {
         console.log(`User not authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         
         // Unauthorized user
         req.session.user.isAdmin = false;
         console.log('CLIENT_URL:', process.env.CLIENT_URL);
-        res.redirect('/auth/success');
+        return req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+            return res.status(500).send('Session save failed');
+          }
+          res.redirect('/auth/success');
+        });
       }
     } catch (userError) {
       console.error('Failed to fetch user data:', userError.response?.data || userError.message);
