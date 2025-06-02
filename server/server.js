@@ -974,6 +974,15 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
   }
 });
 
+// Test session route for debugging session/cookie issues
+app.get('/test-session', (req, res) => {
+  req.session.test = 'hello';
+  req.session.save((err) => {
+    if (err) return res.status(500).send('Session save failed');
+    res.send('Session set');
+  });
+});
+
 // Connect to MongoDB
 connectDB();
 
