@@ -10,14 +10,46 @@ A full-stack web application for displaying and managing Planning Center Online 
 - **Location-Based View:** See active check-ins filtered by PCO location.
 - **User Authentication:** Secure login via PCO OAuth (admin-only access).
 - **MongoDB Storage:** Session and user data stored securely.
-- **Self-Hosting Ready:** Easily deploy on your own internal server (see [SELF_HOSTING.md](SELF_HOSTING.md)).
+- **Self-Hosting Ready:** Easily deploy on your own internal server (see [SELF_HOSTING.md](SELF_HOSTING.md)). Several scripts are referrenced at the bottom of this readme.
+- **Cloud-Ready:** Prefer not to self-host, no problem! Easily deploy on Render.com with MongoDB Atlas (see below).
+
+---
+
+## Cloud Deployment (Render.com + MongoDB Atlas)
+
+The recommended way to deploy this app is using [Render.com](https://render.com/) for hosting and [MongoDB Atlas](https://www.mongodb.com/atlas) for your database.
+
+### Steps:
+
+1. **Fork/Clone this repository to your GitHub account.**
+2. **Create a new Web Service on Render.com:**
+   - Connect your GitHub repo.
+   - Set the build and start commands as needed (e.g., `npm install` and `node server.js` in `/server`).
+   - Set environment variables in the Render dashboard:
+     - `PCO_CLIENT_ID`, `PCO_CLIENT_SECRET`, etc.
+     - `MONGODB_URI` (use your Atlas connection string, including the database name)
+     - `COOKIE_SECRET`, `CLIENT_URL`, `REDIRECT_URI`, etc.
+   - **Important:** Your MongoDB URI should look like:  
+     `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<dbname>?retryWrites=true&w=majority`
+3. **Create a Static Site on Render.com for the frontend:**
+   - Point to the `/client` directory.
+   - Set the build command to `npm install && npm run build`.
+   - Set the publish directory to `build`.
+4. **In your Express app, make sure you have:**  
+   ```js
+   app.set('trust proxy', 1);
+   ```
+   before your session middleware.
+5. **No need to run MongoDB locally or use the provided shell/batch scripts for cloud deployment.**
+
+For more details, see [Render's Node.js deployment guide](https://render.com/docs/deploy-node-express-app) and [MongoDB Atlas setup](https://www.mongodb.com/docs/atlas/).
 
 ---
 
 ## Prerequisites
 - Node.js (LTS recommended)
 - npm
-- MongoDB (local or remote)
+- MongoDB (local or remote, or Atlas for cloud)
 - Planning Center Online account with API access
 - (Optional) Homebrew (for Mac OS deployment)
 
@@ -80,7 +112,7 @@ A full-stack web application for displaying and managing Planning Center Online 
 
 See `.env.example` for all required and optional environment variables. Key variables include:
 - `PCO_CLIENT_ID`, `PCO_CLIENT_SECRET`, `PCO_ACCESS_TOKEN`, `PCO_ACCESS_SECRET`
-- `MONGO_URI`
+- `MONGO_URI` or `MONGODB_URI` (for Atlas, include the database name)
 - `COOKIE_SECRET`
 - `CLIENT_URL`, `REDIRECT_URI`
 - `AUTHORIZED_USERS` (optional)
@@ -97,9 +129,10 @@ See `.env.example` for all required and optional environment variables. Key vari
 
 ## Troubleshooting
 - **Authentication Issues:** Ensure your PCO API credentials and redirect URIs are correct.
-- **MongoDB Errors:** Check that MongoDB is running and accessible at the URI specified.
+- **MongoDB Errors:** Check that MongoDB is running and accessible at the URI specified, or that your Atlas URI is correct and includes the database name.
 - **Port Conflicts:** Change `PORT` in your `.env` if 3001 is in use.
 - **Frontend/Backend Not Syncing:** Make sure both are running and environment variables are set correctly.
+- **Cloud Cookie Issues:** If deploying on Render or another cloud provider, ensure you have `app.set('trust proxy', 1);` before your session middleware in Express.
 
 ---
 
@@ -108,9 +141,9 @@ This project is for internal use by your organization. For external use or contr
 
 ---
 
-## Deployment Scripts
+## Deployment Scripts (Local/Self-Hosting Only)
 
-This project includes deployment scripts for common operating systems:
+> **Note:** The following scripts are for local or self-hosted deployment only. For cloud deployment, use Render.com and MongoDB Atlas as described above.
 
 - **Mac OS:**
   - `deploy_mac.sh`
