@@ -294,7 +294,7 @@ app.get('/auth/callback', async (req, res) => {
         
         console.log(`First user automatically authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         console.log('CLIENT_URL:', process.env.CLIENT_URL);
-        res.redirect(`${process.env.CLIENT_URL || 'https://pco-arrivals-billboard-client.onrender.com'}/admin`);
+        res.redirect('/auth/success');
         return;
       }
       
@@ -317,14 +317,14 @@ app.get('/auth/callback', async (req, res) => {
         
         // Redirect to admin panel
         console.log('CLIENT_URL:', process.env.CLIENT_URL);
-        res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/admin`);
+        res.redirect('/auth/success');
       } else {
         console.log(`User not authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         
         // Unauthorized user
         req.session.user.isAdmin = false;
         console.log('CLIENT_URL:', process.env.CLIENT_URL);
-        res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/unauthorized`);
+        res.redirect('/auth/success');
       }
     } catch (userError) {
       console.error('Failed to fetch user data:', userError.response?.data || userError.message);
@@ -335,6 +335,19 @@ app.get('/auth/callback', async (req, res) => {
     console.error('OAuth Error:', error.response?.data || error.message);
     res.status(500).send(`Authentication failed: ${error.message}`);
   }
+});
+
+// Intermediate success route to set cookie and redirect to client
+app.get('/auth/success', (req, res) => {
+  res.send(`
+    <html>
+      <body>
+        <script>
+          window.location.href = 'https://pco-arrivals-billboard-client.onrender.com/admin';
+        </script>
+      </body>
+    </html>
+  `);
 });
 
 // Update logout route to clear cookies properly
@@ -348,7 +361,7 @@ app.get('/auth/logout', (req, res) => {
     res.clearCookie('connect.sid');
     
     console.log('CLIENT_URL:', process.env.CLIENT_URL);
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/admin`);
+    res.redirect('/auth/success');
   });
 });
 
