@@ -245,8 +245,8 @@ function Billboard() {
           <button className="btn-primary" onClick={handleBackToAdmin} style={{ marginRight: 12 }}>
             ← Back to Admin
           </button>
-          <button className="btn-icon" onClick={handleManualRefresh} title="Refresh Now">
-            🔄
+          <button className="btn-icon" onClick={handleManualRefresh} title="Refresh Now" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            🔄 <span style={{fontSize: '1rem', fontWeight: 500}}>Refresh</span>
           </button>
         </div>
       </div>
