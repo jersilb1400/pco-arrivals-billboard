@@ -132,7 +132,7 @@ function AdminPanel() {
     }
     const fetchLocations = async () => {
       try {
-        const response = await api.get(`/api/events/${selectedEvent}/locations`);
+        const response = await api.get(`/events/${selectedEvent}/locations`);
         setLocations(response.data);
         setSelectedLocation('');
       } catch (err) {
