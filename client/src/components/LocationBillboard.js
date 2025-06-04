@@ -28,7 +28,7 @@ function LocationBillboard() {
     setError(null);
     try {
       const response = await api.get(
-        `/api/events/${eventId}/locations/${locationId}/active-checkins`,
+        `/events/${eventId}/locations/${locationId}/active-checkins`,
         { params: { date } }
       );
       console.log('Received check-ins from backend:', response.data);
