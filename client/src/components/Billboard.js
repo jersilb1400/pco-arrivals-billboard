@@ -267,14 +267,14 @@ function Billboard() {
           
           {/* Control buttons */}
           <div className="billboard-controls">
+            <button className="btn-primary" onClick={handleBackToAdmin} style={{ marginRight: 8 }}>
+              ← Back to Admin
+            </button>
             <button className="btn-icon" onClick={handleManualRefresh} title="Refresh Now">
               🔄
             </button>
             <button className="btn-icon" onClick={toggleFullscreen} title="Toggle Fullscreen">
               {isFullscreen ? '🗕' : '🗖'}
-            </button>
-            <button className="btn-icon" onClick={handleBackToAdmin} title="Back to Admin">
-              ⚙️
             </button>
           </div>
         </div>
