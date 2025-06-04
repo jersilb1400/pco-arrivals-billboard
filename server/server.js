@@ -361,7 +361,7 @@ app.get('/auth/success', (req, res) => {
     <html>
       <body>
         <script>
-          window.location.href = 'https://pco-arrivals-billboard-client.onrender.com/admin';
+          window.location.href = '/admin';
         </script>
       </body>
     </html>
