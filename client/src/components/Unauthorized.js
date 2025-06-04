@@ -5,11 +5,11 @@ const API_BASE = process.env.REACT_APP_API_BASE;
 
 function Unauthorized() {
   const handleLogout = () => {
-    window.location.href = `${API_BASE}/auth/logout`;
+    window.location.href = `/api/auth/logout`;
   };
 
   const handleLogin = () => {
-    window.location.href = `${API_BASE}/auth/pco`;
+    window.location.href = `/api/auth/pco`;
   };
 
   return (

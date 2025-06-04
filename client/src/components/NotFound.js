@@ -6,7 +6,7 @@ const API_BASE = process.env.REACT_APP_API_BASE;
 
 function NotFound() {
   const handleLogin = () => {
-    window.location.href = `${API_BASE}/auth/pco`;
+    window.location.href = `/api/auth/pco`;
   };
 
   return (

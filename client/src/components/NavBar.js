@@ -27,11 +27,11 @@ function NavBar({
   const user = session?.user;
 
   const handleLogout = () => {
-    window.location.href = `${API_BASE}/auth/logout`;
+    window.location.href = `/api/auth/logout`;
   };
   
   const handleLogin = () => {
-    window.location.href = `${API_BASE}/auth/pco`;
+    window.location.href = `/api/auth/pco`;
   };
 
   // Custom handler for Dashboard to preserve state

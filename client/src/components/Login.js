@@ -42,7 +42,7 @@ function Login() {
     localStorage.setItem('rememberMe', rememberMe);
 
     // Redirect to your server's OAuth endpoint
-    window.location.href = `${process.env.REACT_APP_API_BASE}/auth/pco?remember=${rememberMe}&prompt=login`;
+    window.location.href = `/api/auth/pco?remember=${rememberMe}&prompt=login`;
   };
 
   const handleRememberMeChange = (e) => {

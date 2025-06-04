@@ -38,7 +38,7 @@ const AUTHORIZED_USER_IDS = (process.env.AUTHORIZED_USERS || '').split(',').filt
 
 // Middleware
 app.use(cors({
-  origin: 'https://pco-arrivals-billboard-client.onrender.com',
+  origin: 'https://arrivals.gracefm.org',
   credentials: true
 }));
 app.use(express.json());
