@@ -158,7 +158,7 @@ app.get('/api/auth-status', (req, res) => {
   res.json({ 
     authenticated: isAuthenticated,
     user: userData,
-    loginUrl: isAuthenticated ? null : '/auth/pco',
+    loginUrl: isAuthenticated ? null : '/api/auth/pco',
     message: isAuthenticated 
       ? `Logged in as ${userData?.name || 'User'}` 
       : 'Not logged in'
@@ -213,7 +213,7 @@ app.delete('/api/admin/users/:id', requireAuth, (req, res) => {
 });
 
 // OAuth routes
-app.get('/auth/pco', (req, res) => {
+app.get('/api/auth/pco', (req, res) => {
   req.session.rememberMe = req.query.remember === 'true';
   const scopes = ['check_ins', 'people'];
   const redirectUri = REDIRECT_URI;
@@ -221,7 +221,7 @@ app.get('/auth/pco', (req, res) => {
   res.redirect(authUrl);
 });
 
-app.get('/auth/callback', async (req, res) => {
+app.get('/api/auth/callback', async (req, res) => {
   const { code } = req.query;
   
   if (!code) {
@@ -300,7 +300,7 @@ app.get('/auth/callback', async (req, res) => {
             console.error('Session save error:', err);
             return res.status(500).send('Session save failed');
           }
-          res.redirect('/auth/success');
+          res.redirect('/api/auth/success');
         });
       }
       
@@ -328,7 +328,7 @@ app.get('/auth/callback', async (req, res) => {
             console.error('Session save error:', err);
             return res.status(500).send('Session save failed');
           }
-          res.redirect('/auth/success');
+          res.redirect('/api/auth/success');
         });
       } else {
         console.log(`User not authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
@@ -341,7 +341,7 @@ app.get('/auth/callback', async (req, res) => {
             console.error('Session save error:', err);
             return res.status(500).send('Session save failed');
           }
-          res.redirect('/auth/success');
+          res.redirect('/api/auth/success');
         });
       }
     } catch (userError) {
@@ -356,7 +356,7 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 // Intermediate success route to set cookie and redirect to client
-app.get('/auth/success', (req, res) => {
+app.get('/api/auth/success', (req, res) => {
   res.send(`
     <html>
       <body>
@@ -369,7 +369,7 @@ app.get('/auth/success', (req, res) => {
 });
 
 // Update logout route to clear cookies properly
-app.get('/auth/logout', (req, res) => {
+app.get('/api/auth/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       console.error('Error destroying session:', err);
@@ -379,7 +379,7 @@ app.get('/auth/logout', (req, res) => {
     res.clearCookie('connect.sid');
     
     console.log('CLIENT_URL:', process.env.CLIENT_URL);
-    res.redirect('/auth/success');
+    res.redirect('/api/auth/success');
   });
 });
 
