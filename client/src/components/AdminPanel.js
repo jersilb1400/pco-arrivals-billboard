@@ -171,7 +171,7 @@ function AdminPanel() {
         if (allSecurityCodes.length === 0) {
           return;
         }
-        const response = await api.post('/api/security-codes', {
+        const response = await api.post('/security-codes', {
           eventId: selectedEvent,
           securityCodes: allSecurityCodes
         });
