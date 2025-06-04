@@ -23,7 +23,7 @@ function Billboard() {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const response = await api.get('/api/auth-status');
+        const response = await api.get('/auth-status');
         if (!response.data.authenticated || !response.data.user?.isAdmin) {
           navigate('/');
         } else {

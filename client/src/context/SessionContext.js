@@ -13,7 +13,7 @@ export function SessionProvider({ children }) {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await api.get('/api/auth-status');
+        const response = await api.get('/auth-status');
         setSession(response.data);
       } catch (error) {
         console.error('Session check failed:', error);

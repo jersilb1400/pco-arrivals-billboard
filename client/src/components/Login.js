@@ -17,7 +17,7 @@ function Login() {
     // Check if user is already authenticated
     const checkAuthStatus = async () => {
       try {
-        const response = await api.get('/api/auth-status');
+        const response = await api.get('/auth-status');
         if (response.data.authenticated) {
           if (response.data.user?.isAdmin) {
             navigate('/admin');
