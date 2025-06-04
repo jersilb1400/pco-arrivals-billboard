@@ -22,11 +22,11 @@ function AdminUsers() {
         setLoading(true);
         
         // Get current user info
-        const userResponse = await api.get('/api/user-info');
+        const userResponse = await api.get('/user-info');
         setCurrentUser(userResponse.data);
         
         // Get authorized users list
-        const response = await api.get('/api/admin/users');
+        const response = await api.get('/admin/users');
         setUsers(response.data);
         
         setLoading(false);
@@ -53,7 +53,7 @@ function AdminUsers() {
     }
     
     try {
-      const response = await api.post('/api/admin/users', {
+      const response = await api.post('/admin/users', {
         userId: newUserId,
         name: newUserName,
         email: newUserEmail
@@ -85,7 +85,7 @@ function AdminUsers() {
     }
     
     try {
-      await api.delete(`/api/admin/users/${userId}`);
+      await api.delete(`/admin/users/${userId}`);
       
       // Remove user from the list
       setUsers(users.filter(user => user.id !== userId));

@@ -98,7 +98,7 @@ function AdminPanel() {
       try {
         setDateLoading(true);
         const dateForApi = selectedDate;
-        const response = await api.get(`/api/events-by-date?date=${dateForApi}`);
+        const response = await api.get(`/events-by-date?date=${dateForApi}`);
         setEvents(response.data);
         if (location.state?.fromBillboard && location.state?.eventId) {
           const eventExists = response.data.some(event => event.id === location.state.eventId);

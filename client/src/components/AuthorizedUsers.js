@@ -16,7 +16,7 @@ function AuthorizedUsers() {
       return;
     }
 
-    api.get('/api/admin/users')
+    api.get('/admin/users')
       .then(res => setUsers(res.data))
       .catch(() => setUsers([]));
   }, [session, loading, navigate]);
