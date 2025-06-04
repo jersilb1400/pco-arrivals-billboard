@@ -1339,3 +1339,31 @@ p {
   font-size: 1rem;
   color: #222;
 }
+
+.billboard-header-bar.white-bar .last-updated,
+.billboard-header-bar.white-bar .security-code-count {
+  color: #111 !important;
+}
+
+.billboard-header-bar.white-bar .btn-icon {
+  background-color: var(--pco-blue-light) !important;
+  color: var(--pco-blue) !important;
+  border: 1px solid var(--pco-blue);
+}
+
+.billboard-header-bar.white-bar .btn-icon:hover {
+  background-color: var(--pco-blue) !important;
+  color: #fff !important;
+}
+
+.billboard-header-bar-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.billboard-header-bar.white-bar .billboard-header-bar-right > * {
+  width: 100%;
+  margin-bottom: 0;
+}
