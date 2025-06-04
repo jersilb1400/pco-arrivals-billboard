@@ -46,7 +46,7 @@ function Billboard() {
     
     try {
       setRefreshing(true);
-      const response = await api.post('/api/security-codes', {
+      const response = await api.post('/security-codes', {
         eventId,
         securityCodes
       });
