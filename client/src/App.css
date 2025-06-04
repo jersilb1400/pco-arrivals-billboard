@@ -1334,3 +1334,8 @@ p {
   box-shadow: 0 2px 8px rgba(16,24,40,0.04);
   margin-bottom: 16px;
 }
+
+.billboard-header-status {
+  font-size: 1rem;
+  color: #222;
+}
