@@ -248,6 +248,17 @@ function Billboard() {
           <button className="btn-icon" onClick={handleManualRefresh} title="Refresh Now" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             🔄 <span style={{fontSize: '1rem', fontWeight: 500}}>Refresh</span>
           </button>
+          <button
+            className="btn-icon"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            {isFullscreen ? '🗕' : '🗖'}
+            <span style={{fontSize: '1rem', fontWeight: 500}}>
+              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            </span>
+          </button>
         </div>
       </div>
       
