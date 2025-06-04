@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { getHouseholdTheme } from '../utils/colors';
+import NavBar from './NavBar';
 
 // Configure axios to send cookies with requests
 api.defaults.withCredentials = true;
@@ -225,60 +226,7 @@ function Billboard() {
   
   return (
     <div className={`billboard-container ${isFullscreen ? 'fullscreen' : ''}`}>
-      <div className="billboard-header">
-        <div className="billboard-title">
-          <div className="billboard-logo">
-            <img 
-              src="https://thechurchco-production.s3.amazonaws.com/uploads/sites/1824/2020/02/Website-Logo1.png" 
-              alt="Logo"
-              className="church-logo-billboard"
-            />
-            <h1>Check-Ins Arrivals: {eventName}</h1>
-          </div>
-          {eventDate && (
-            <div className="event-date">
-              {formatDateForDisplay(eventDate)}
-            </div>
-          )}
-          <div className="billboard-status">
-            <div className="last-updated">
-              {refreshing ? 'Updating...' : `Last updated: ${formatTime(lastUpdated)}`}
-            </div>
-            {error && <div className="refresh-error">{error}</div>}
-            <div className="security-code-count">
-              Monitoring {securityCodes.length} security code{securityCodes.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-        </div>
-
-        <div className="billboard-top-bar">
-          {/* User info in the top bar */}
-          {user && (
-            <div className="billboard-user-info">
-              <span className="user-name">{user.name}</span>
-              <button 
-                className="btn-logout-light" 
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
-            </div>
-          )}
-          
-          {/* Control buttons */}
-          <div className="billboard-controls">
-            <button className="btn-primary" onClick={handleBackToAdmin} style={{ marginRight: 8 }}>
-              ← Back to Admin
-            </button>
-            <button className="btn-icon" onClick={handleManualRefresh} title="Refresh Now">
-              🔄
-            </button>
-            <button className="btn-icon" onClick={toggleFullscreen} title="Toggle Fullscreen">
-              {isFullscreen ? '🗕' : '🗖'}
-            </button>
-          </div>
-        </div>
-      </div>
+      <NavBar currentPage="billboard" />
       
       <div className="billboard-content">
         {arrivals.length > 0 ? (
