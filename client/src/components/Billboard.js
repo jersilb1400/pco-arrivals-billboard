@@ -227,6 +227,31 @@ function Billboard() {
   return (
     <div className={`billboard-container ${isFullscreen ? 'fullscreen' : ''}`}>
       <NavBar currentPage="billboard" />
+      <div className="billboard-header-bar">
+        <div className="billboard-header-bar-left">
+          <button className="btn-primary" onClick={handleBackToAdmin} style={{ marginRight: 12 }}>
+            ← Back to Admin
+          </button>
+        </div>
+        <div className="billboard-header-bar-center">
+          <h1 className="billboard-header-title">
+            Check-Ins Arrivals: {eventName}
+          </h1>
+          <div className="billboard-header-status">
+            <div className="last-updated">
+              Last updated: {formatTime(lastUpdated)}
+            </div>
+            <div className="security-code-count">
+              Monitoring {securityCodes.length} security code{securityCodes.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </div>
+        <div className="billboard-header-bar-right">
+          <button className="btn-icon" onClick={handleManualRefresh} title="Refresh Now">
+            🔄
+          </button>
+        </div>
+      </div>
       
       <div className="billboard-content">
         {arrivals.length > 0 ? (
