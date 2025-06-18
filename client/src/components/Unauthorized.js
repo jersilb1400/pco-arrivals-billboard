@@ -1,7 +1,4 @@
 import React from 'react';
-import { default as api } from '../utils/api';
-const API_BASE = process.env.REACT_APP_API_BASE;
-// Remove the unused Link import
 
 function Unauthorized() {
   const handleLogout = () => {

@@ -568,6 +568,31 @@ p {
   color: var(--pco-gray);
 }
 
+.billboard-created-by {
+  margin: 4px 0 0 0 !important;
+  font-size: 12px !important;
+  color: var(--pco-gray-dark) !important;
+  font-style: italic;
+}
+
+.active-billboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clear-billboard {
+  background-color: #fef3f2;
+  color: #d92d20;
+  border-color: #fecaca;
+}
+
+.clear-billboard:hover {
+  background-color: #fecaca;
+  color: #b42318;
+  border-color: #fca5a5;
+}
+
 /* Security Code Management */
 .section-subtitle {
   font-size: 14px;

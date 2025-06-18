@@ -12,20 +12,25 @@ function Billboard() {
   const navigate = useNavigate();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [arrivals, setArrivals] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
+  const [globalBillboardState, setGlobalBillboardState] = useState(null);
   
-  // Get data from location state
-  const { eventId, securityCodes, eventName, eventDate } = location.state || {};
+  // Get data from location state (for backward compatibility) or global state
+  const { eventId: locationEventId, securityCodes: locationSecurityCodes, eventName: locationEventName, eventDate: locationEventDate } = location.state || {};
+  
+  // Use global state if available, otherwise fall back to location state
+  const eventId = globalBillboardState?.activeBillboard?.eventId || locationEventId;
+  const securityCodes = globalBillboardState?.activeBillboard?.securityCodes || locationSecurityCodes;
+  const eventName = globalBillboardState?.activeBillboard?.eventName || locationEventName;
+  const eventDate = globalBillboardState?.activeBillboard?.eventDate || locationEventDate;
   
   // Verify user is authenticated
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
         const response = await api.get('/auth-status');
-        if (!response.data.authenticated || !response.data.user?.isAdmin) {
+        if (!response.data.authenticated) {
           navigate('/');
         } else {
           setUser(response.data.user);
@@ -38,6 +43,20 @@ function Billboard() {
     
     checkAuthStatus();
   }, [navigate]);
+
+  // Fetch global billboard state
+  useEffect(() => {
+    const fetchGlobalBillboardState = async () => {
+      try {
+        const response = await api.get('/global-billboard');
+        setGlobalBillboardState(response.data);
+      } catch (error) {
+        console.error('Error fetching global billboard state:', error);
+      }
+    };
+
+    fetchGlobalBillboardState();
+  }, []);
   
   // Function to refresh the arrival data
   const refreshData = useCallback(async () => {
@@ -46,7 +65,6 @@ function Billboard() {
     }
     
     try {
-      setRefreshing(true);
       const response = await api.post('/security-codes', {
         eventId,
         securityCodes
@@ -55,22 +73,17 @@ function Billboard() {
       // Update arrivals with only active check-ins
       setArrivals(response.data.filter(item => !item.error && !item.checkedOut));
       setLastUpdated(new Date());
-      setError(null);
     } catch (error) {
       console.error('Failed to refresh data:', error);
       if (error.response?.status === 401 || error.response?.status === 403) {
         navigate('/');
-      } else {
-        setError('Error refreshing data. Will retry automatically.');
       }
-    } finally {
-      setRefreshing(false);
     }
   }, [eventId, securityCodes, navigate]);
   
   // Set up auto-refresh of data
   useEffect(() => {
-    // Initial state from navigation
+    // Initial state from navigation (for backward compatibility)
     if (location.state?.arrivals) {
       setArrivals(location.state.arrivals);
     }
@@ -109,10 +122,6 @@ function Billboard() {
 
   const handleLogin = () => {
     window.location.href = `${process.env.REACT_APP_API_BASE}/auth/pco`;
-  };
-  
-  const handleLogout = () => {
-    window.location.href = `${process.env.REACT_APP_API_BASE}/auth/logout`;
   };
   
   // Group arrivals by security code and household
@@ -178,48 +187,6 @@ function Billboard() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
   
-  // Format date for display
-  const formatDateForDisplay = (dateString) => {
-    if (!dateString) return '';
-    
-    try {
-      // If it's YYYY-MM-DD format
-      if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
-        const date = new Date(year, month - 1, day, 12, 0, 0);
-        
-        if (isNaN(date.getTime())) {
-          return 'Invalid date';
-        }
-        
-        return date.toLocaleDateString(undefined, { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        });
-      }
-      
-      // For other date formats
-      const date = new Date(dateString);
-      
-      if (isNaN(date.getTime())) {
-        return 'Invalid date';
-      }
-      
-      return date.toLocaleDateString(undefined, { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Error formatting date';
-    }
-  };
-  
-  // Force manual refresh of data
   const handleManualRefresh = () => {
     refreshData();
   };

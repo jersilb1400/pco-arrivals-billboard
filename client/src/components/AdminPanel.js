@@ -22,6 +22,7 @@ function AdminPanel() {
   const [dateLoading, setDateLoading] = useState(false);
   const [locations, setLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState('');
+  const [globalBillboardState, setGlobalBillboardState] = useState(null);
 
   // Helper function to get today's date in YYYY-MM-DD format
   function getTodayDate() {
@@ -31,10 +32,34 @@ function AdminPanel() {
 
   // Check authentication
   useEffect(() => {
-    if (!sessionLoading && (!session?.authenticated || !session?.user?.isAdmin)) {
+    if (!sessionLoading && !session?.authenticated) {
       navigate('/');
     }
   }, [session, sessionLoading, navigate]);
+
+  // Fetch global billboard state
+  useEffect(() => {
+    const fetchGlobalBillboardState = async () => {
+      try {
+        const response = await api.get('/global-billboard');
+        setGlobalBillboardState(response.data);
+        
+        // If there's an active global billboard, update local state
+        if (response.data.activeBillboard) {
+          setActiveBillboard(response.data.activeBillboard);
+          setSelectedEvent(response.data.activeBillboard.eventId);
+          setSelectedDate(response.data.activeBillboard.eventDate || getTodayDate());
+          setExistingSecurityCodes(response.data.activeBillboard.securityCodes || []);
+        }
+      } catch (error) {
+        console.error('Error fetching global billboard state:', error);
+      }
+    };
+
+    if (session?.authenticated) {
+      fetchGlobalBillboardState();
+    }
+  }, [session]);
 
   // Update display date whenever selectedDate changes
   useEffect(() => {
@@ -171,11 +196,13 @@ function AdminPanel() {
         if (allSecurityCodes.length === 0) {
           return;
         }
+        const eventName = events.find(e => e.id === selectedEvent)?.attributes?.name || 'Event';
         const response = await api.post('/security-codes', {
           eventId: selectedEvent,
-          securityCodes: allSecurityCodes
+          securityCodes: allSecurityCodes,
+          eventName: eventName,
+          eventDate: selectedDate
         });
-        const eventName = events.find(e => e.id === selectedEvent)?.attributes?.name || 'Event';
         const locationObj = locations.find(l => l.id === selectedLocation);
         navigate('/billboard', { 
           state: { 
@@ -191,6 +218,17 @@ function AdminPanel() {
       } catch (error) {
         console.error('Failed to launch billboard:', error);
       }
+    }
+  };
+
+  const handleClearBillboard = async () => {
+    try {
+      await api.delete('/global-billboard');
+      setActiveBillboard(null);
+      setGlobalBillboardState(null);
+      setExistingSecurityCodes([]);
+    } catch (error) {
+      console.error('Failed to clear billboard:', error);
     }
   };
 
@@ -243,13 +281,31 @@ function AdminPanel() {
             <span className="active-status">Active Billboard</span>
             <h3>{activeBillboard.eventName}</h3>
             <p>{existingSecurityCodes.length} security codes added</p>
+            {globalBillboardState?.createdBy && (
+              <p className="billboard-created-by">
+                Created by {globalBillboardState.createdBy.name} on{' '}
+                {globalBillboardState.lastUpdated ? 
+                  new Date(globalBillboardState.lastUpdated).toLocaleString() : 
+                  'Unknown time'
+                }
+              </p>
+            )}
           </div>
-          <button 
-            className="btn-primary return-to-billboard"
-            onClick={handleLaunchBillboard}
-          >
-            Return to Billboard
-          </button>
+          <div className="active-billboard-actions">
+            <button 
+              className="btn-primary return-to-billboard"
+              onClick={handleLaunchBillboard}
+            >
+              Return to Billboard
+            </button>
+            <button 
+              className="btn-secondary clear-billboard"
+              onClick={handleClearBillboard}
+              style={{ marginLeft: '8px' }}
+            >
+              Clear Billboard
+            </button>
+          </div>
         </div>
       )}
       

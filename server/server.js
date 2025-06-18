@@ -36,6 +36,41 @@ const REMEMBER_ME_DAYS = 30; // Number of days to remember the user
 // Either hardcode them here or load from environment variables
 const AUTHORIZED_USER_IDS = (process.env.AUTHORIZED_USERS || '').split(',').filter(id => id);
 
+// Global billboard state manager
+let globalBillboardState = {
+  activeBillboard: null,
+  lastUpdated: null,
+  createdBy: null
+};
+
+// Function to update global billboard state
+function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName) {
+  globalBillboardState = {
+    activeBillboard: {
+      eventId,
+      eventName,
+      securityCodes: securityCodes || [],
+      eventDate
+    },
+    lastUpdated: new Date(),
+    createdBy: {
+      id: userId,
+      name: userName
+    }
+  };
+  console.log('Global billboard state updated:', globalBillboardState);
+}
+
+// Function to clear global billboard state
+function clearGlobalBillboardState() {
+  globalBillboardState = {
+    activeBillboard: null,
+    lastUpdated: null,
+    createdBy: null
+  };
+  console.log('Global billboard state cleared');
+}
+
 // Middleware
 app.use(cors({
   origin: 'https://arrivals.gracefm.org',
@@ -97,6 +132,15 @@ function requireAuth(req, res, next) {
   // Check if user is authorized (admin)
   if (!req.session.user || !req.session.user.isAdmin) {
     return res.status(403).json({ error: 'Not authorized' });
+  }
+  
+  next();
+}
+
+// Middleware that only requires authentication (not admin access)
+function requireAuthOnly(req, res, next) {
+  if (!req.session.accessToken) {
+    return res.status(401).json({ error: 'Not authenticated' });
   }
   
   next();
@@ -421,7 +465,7 @@ app.get('/api/events', requireAuth, async (req, res) => {
 });
 
 // Fetch events by date endpoint with archived filter
-app.get('/api/events-by-date', requireAuth, async (req, res) => {
+app.get('/api/events-by-date', requireAuthOnly, async (req, res) => {
   try {
     const accessToken = await ensureValidToken(req);
     if (!accessToken) {
@@ -479,14 +523,14 @@ app.get('/api/events-by-date', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/security-codes', requireAuth, async (req, res) => {
+app.post('/api/security-codes', requireAuthOnly, async (req, res) => {
   try {
     const accessToken = await ensureValidToken(req);
     if (!accessToken) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const { eventId, securityCodes } = req.body;
+    const { eventId, securityCodes, eventName, eventDate } = req.body;
     
     if (!eventId) {
       return res.status(400).json({ error: 'Event ID is required' });
@@ -568,6 +612,14 @@ app.post('/api/security-codes', requireAuth, async (req, res) => {
           });
         }
       }
+      
+      // Update global billboard state if eventName is provided
+      if (eventName) {
+        const userId = req.session.user?.id;
+        const userName = req.session.user?.name;
+        updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName);
+      }
+      
       res.json(results);
     } else {
       // No securityCodes provided: fetch all check-ins for the event
@@ -611,7 +663,7 @@ app.post('/api/security-codes', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/events/:eventId/active-people', requireAuth, async (req, res) => {
+app.get('/api/events/:eventId/active-people', requireAuthOnly, async (req, res) => {
   try {
     const { eventId } = req.params;
     const { date } = req.query; // YYYY-MM-DD
@@ -869,7 +921,7 @@ app.get('/api/events/:eventId/remaining-checkins', requireAuth, async (req, res)
 });
 
 // GET /api/events/:eventId/locations
-app.get('/api/events/:eventId/locations', requireAuth, async (req, res) => {
+app.get('/api/events/:eventId/locations', requireAuthOnly, async (req, res) => {
   try {
     const { eventId } = req.params;
     const accessToken = await ensureValidToken(req);
@@ -896,7 +948,7 @@ app.get('/api/events/:eventId/locations', requireAuth, async (req, res) => {
 });
 
 // GET /api/events/:eventId/locations/:locationId/active-checkins?date=YYYY-MM-DD
-app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAuth, async (req, res) => {
+app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAuthOnly, async (req, res) => {
   try {
     const { eventId, locationId } = req.params;
     const { date } = req.query;
@@ -972,6 +1024,44 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
   } catch (error) {
     console.error('API Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch active check-ins' });
+  }
+});
+
+// Global billboard state endpoints
+app.get('/api/global-billboard', requireAuthOnly, (req, res) => {
+  try {
+    res.json(globalBillboardState);
+  } catch (error) {
+    console.error('Error getting global billboard state:', error);
+    res.status(500).json({ error: 'Failed to get global billboard state' });
+  }
+});
+
+app.post('/api/global-billboard', requireAuthOnly, async (req, res) => {
+  try {
+    const { eventId, eventName, securityCodes, eventDate } = req.body;
+    const userId = req.session.user?.id;
+    const userName = req.session.user?.name;
+    
+    if (!eventId || !eventName) {
+      return res.status(400).json({ error: 'Event ID and event name are required' });
+    }
+    
+    updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName);
+    res.json(globalBillboardState);
+  } catch (error) {
+    console.error('Error setting global billboard state:', error);
+    res.status(500).json({ error: 'Failed to set global billboard state' });
+  }
+});
+
+app.delete('/api/global-billboard', requireAuthOnly, (req, res) => {
+  try {
+    clearGlobalBillboardState();
+    res.json({ message: 'Global billboard state cleared' });
+  } catch (error) {
+    console.error('Error clearing global billboard state:', error);
+    res.status(500).json({ error: 'Failed to clear global billboard state' });
   }
 });
 

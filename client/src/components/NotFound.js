@@ -1,8 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { default as api } from '../utils/api';
-
-const API_BASE = process.env.REACT_APP_API_BASE;
 
 function NotFound() {
   const handleLogin = () => {

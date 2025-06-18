@@ -3432,3 +3432,91 @@ Error: Cannot find module '/Users/jeremysilbernagel/Downloads/pco-arrivals-billb
 }
 
 Node.js v22.15.0
+node:internal/bootstrap/switches/does_own_process_state:142
+    cachedCwd = rawMethods.cwd();
+                           ^
+
+Error: EPERM: operation not permitted, uv_cwd
+    at process.wrappedCwd [as cwd] (node:internal/bootstrap/switches/does_own_process_state:142:28)
+    at node:path:1171:24
+    at Object.resolve (node:path:1199:19)
+    at resolveMainPath (node:internal/modules/run_main:39:38)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:162:20)
+    at node:internal/main/run_main_module:36:49 {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'uv_cwd'
+}
+
+Node.js v22.15.0
+node:internal/modules/cjs/loader:1404
+  throw err;
+  ^
+
+Error: Cannot find module '/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/utils/fetchAndStoreCheckins.js'
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1401:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1057:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1062:22)
+    at Function._load (node:internal/modules/cjs/loader:1211:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
+    at node:internal/main/run_main_module:36:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v22.15.0
+node:internal/modules/cjs/loader:1404
+  throw err;
+  ^
+
+Error: Cannot find module '/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/utils/fetchAndStoreCheckins.js'
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1401:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1057:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1062:22)
+    at Function._load (node:internal/modules/cjs/loader:1211:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
+    at node:internal/main/run_main_module:36:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v22.15.0
+node:internal/modules/cjs/loader:1404
+  throw err;
+  ^
+
+Error: Cannot find module '/Users/jeremysilbernagel/Downloads/pco-arrivals-billboard/server/utils/fetchAndStoreCheckins.js'
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1401:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1057:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1062:22)
+    at Function._load (node:internal/modules/cjs/loader:1211:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
+    at node:internal/main/run_main_module:36:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v22.15.0
+node:internal/bootstrap/switches/does_own_process_state:142
+    cachedCwd = rawMethods.cwd();
+                           ^
+
+Error: EPERM: operation not permitted, uv_cwd
+    at process.wrappedCwd [as cwd] (node:internal/bootstrap/switches/does_own_process_state:142:28)
+    at node:path:1171:24
+    at Object.resolve (node:path:1199:19)
+    at resolveMainPath (node:internal/modules/run_main:39:38)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:162:20)
+    at node:internal/main/run_main_module:36:49 {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'uv_cwd'
+}
+
+Node.js v22.15.0

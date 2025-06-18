@@ -2,9 +2,6 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
-import { default as api } from '../utils/api';
-
-const API_BASE = process.env.REACT_APP_API_BASE;
 
 function NavBar({
   currentPage,
@@ -67,13 +64,15 @@ function NavBar({
         </span>
       </div>
       <div className="navbar-center">
-        <a
-          href="/admin"
-          onClick={handleDashboardClick}
-          className={`navbar-link ${currentPage === 'admin' ? 'active' : ''}`}
-        >
-          Dashboard
-        </a>
+        {user && (
+          <a
+            href="/admin"
+            onClick={handleDashboardClick}
+            className={`navbar-link ${currentPage === 'admin' ? 'active' : ''}`}
+          >
+            Dashboard
+          </a>
+        )}
         {user?.isAdmin && (
           <Link 
             to="/admin/users" 
