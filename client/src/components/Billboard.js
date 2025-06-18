@@ -193,7 +193,7 @@ function Billboard() {
   
   return (
     <div className={`billboard-container ${isFullscreen ? 'fullscreen' : ''}`}>
-      <NavBar currentPage="billboard" />
+      {!isFullscreen && <NavBar currentPage="billboard" />}
       <div className="billboard-header-bar white-bar">
         <div className="billboard-header-bar-left">
           <h1 className="billboard-header-title">
@@ -209,9 +209,11 @@ function Billboard() {
           </div>
         </div>
         <div className="billboard-header-bar-right">
-          <button className="btn-primary" onClick={handleBackToAdmin} style={{ marginRight: 12 }}>
-            ← Back to Admin
-          </button>
+          {!isFullscreen && (
+            <button className="btn-primary" onClick={handleBackToAdmin} style={{ marginRight: 12 }}>
+              ← Back to Admin
+            </button>
+          )}
           <button className="btn-icon" onClick={handleManualRefresh} title="Refresh Now" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             🔄 <span style={{fontSize: '1rem', fontWeight: 500}}>Refresh</span>
           </button>
@@ -238,7 +240,6 @@ function Billboard() {
                 <th>First Name</th>
                 <th>Last Name</th>
                 <th>Household</th>
-                <th>Event</th>
                 <th>Security Code</th>
               </tr>
             </thead>
@@ -246,7 +247,7 @@ function Billboard() {
               {Object.entries(groupedArrivals).map(([securityCode, households]) => (
                 <React.Fragment key={securityCode}>
                   <tr className="security-code-header">
-                    <td colSpan="6">
+                    <td colSpan="5">
                       Security Code: {securityCode}
                     </td>
                   </tr>
@@ -268,7 +269,6 @@ function Billboard() {
                         </td>
                         <td>{arrival.lastName || '-'}</td>
                         <td>{householdName}</td>
-                        <td>{arrival.eventName || '-'}</td>
                         <td className="security-code">{securityCode}</td>
                       </tr>
                     ));
