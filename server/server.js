@@ -304,11 +304,8 @@ app.get('/api/auth/callback', async (req, res) => {
     // Fetch user information
     try {
       const userResponse = await axios.get('https://api.planningcenteronline.com/people/v2/me', {
-        auth: {
-          username: process.env.PCO_ACCESS_TOKEN,
-          password: process.env.PCO_ACCESS_SECRET
-        },
         headers: {
+          'Authorization': `Bearer ${req.session.accessToken}`,
           'Accept': 'application/json'
         }
       });
