@@ -108,7 +108,7 @@ function LocationBillboard() {
         console.error('LocationBillboard: Error during refresh cycle:', error);
         // Don't throw the error, just log it and continue
       }
-    }, 120000); // Increased from 60 seconds to 120 seconds (2 minutes) to reduce API calls
+    }, 300000); // Increased from 120 seconds to 300 seconds (5 minutes) to reduce API calls further
     
     return () => clearInterval(interval);
   }, [checkAuthStatus, fetchCheckIns]);

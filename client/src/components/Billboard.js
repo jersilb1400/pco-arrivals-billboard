@@ -162,7 +162,7 @@ function Billboard() {
         console.error('Billboard: Error during refresh cycle:', error);
         // Don't throw the error, just log it and continue
       }
-    }, 30000); // Increased from 10 seconds to 30 seconds to reduce API calls
+    }, 60000); // Increased from 30 seconds to 60 seconds to reduce API calls further
     
     // Clean up on unmount
     return () => clearInterval(intervalId);

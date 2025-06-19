@@ -43,6 +43,14 @@ let globalBillboardState = {
   createdBy: null
 };
 
+// Simple cache for check-in data to reduce API calls
+let checkInCache = {
+  data: null,
+  eventId: null,
+  lastUpdated: null,
+  cacheTimeout: 30000 // 30 seconds cache
+};
+
 // Function to update global billboard state
 function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName) {
   globalBillboardState = {
@@ -69,6 +77,27 @@ function clearGlobalBillboardState() {
     createdBy: null
   };
   console.log('Global billboard state cleared');
+}
+
+// Function to get cached check-in data
+function getCachedCheckInData(eventId) {
+  if (checkInCache.eventId === eventId && 
+      checkInCache.data && 
+      checkInCache.lastUpdated && 
+      (Date.now() - checkInCache.lastUpdated.getTime()) < checkInCache.cacheTimeout) {
+    return checkInCache.data;
+  }
+  return null;
+}
+
+// Function to update check-in cache
+function updateCheckInCache(eventId, data) {
+  checkInCache = {
+    data,
+    eventId,
+    lastUpdated: new Date(),
+    cacheTimeout: 30000
+  };
 }
 
 // Middleware
@@ -533,14 +562,22 @@ app.post('/api/security-codes', requireAuthOnly, async (req, res) => {
       return res.status(400).json({ error: 'Event ID is required' });
     }
     
-    // If securityCodes is provided and non-empty, use existing logic
+    // If securityCodes is provided and non-empty, use optimized logic
     if (securityCodes && securityCodes.length > 0) {
-      const results = [];
-      for (const code of securityCodes) {
-        try {
-          // Get all check-ins for this security code
+      try {
+        // Check cache first
+        let allCheckIns, included;
+        const cachedData = getCachedCheckInData(eventId);
+        
+        if (cachedData) {
+          console.log('Using cached check-in data for event:', eventId);
+          allCheckIns = cachedData.data;
+          included = cachedData.included;
+        } else {
+          console.log('Fetching fresh check-in data for event:', eventId);
+          // Make a single API call to get all check-ins for the event
           const checkInResponse = await axios.get(
-            `${PCO_API_BASE}/events/${eventId}/check_ins?where[security_code]=${code}&include=person,household`, {
+            `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,household`, {
             auth: {
               username: process.env.PCO_ACCESS_TOKEN,
               password: process.env.PCO_ACCESS_SECRET
@@ -550,74 +587,120 @@ app.post('/api/security-codes', requireAuthOnly, async (req, res) => {
             }
           });
           
-          if (checkInResponse.data.data.length > 0) {
-            const checkIns = checkInResponse.data.data;
-            const included = checkInResponse.data.included || [];
-            
-            // Group check-ins by household
-            const householdGroups = {};
-            
-            checkIns.forEach(checkIn => {
-              const person = included.find(item => 
-                item.type === 'Person' && 
-                item.id === checkIn.relationships.person?.data?.id
-              );
-              
-              const household = included.find(item =>
-                item.type === 'Household' &&
-                item.id === person?.relationships?.household?.data?.id
-              );
-              
-              const householdId = household?.id || 'no-household';
-              const householdName = household?.attributes?.name || person?.attributes?.last_name + ' Household';
-              
-              if (!householdGroups[householdId]) {
-                householdGroups[householdId] = {
-                  householdName,
-                  members: []
-                };
-              }
-              
-              householdGroups[householdId].members.push({
-                id: checkIn.id,
-                firstName: person?.attributes?.first_name || 'Unknown',
-                lastName: person?.attributes?.last_name || 'Unknown',
-                eventName: checkIn.attributes.event_times_name || checkIn.attributes.event_name,
-                securityCode: code,
-                checkedOut: !!checkIn.attributes.checked_out_at,
-                checkInTime: checkIn.attributes.created_at,
-                checkOutTime: checkIn.attributes.checked_out_at,
-                householdName
-              });
-            });
-            
-            // Add all grouped members to results
-            Object.values(householdGroups).forEach(group => {
-              results.push(...group.members);
-            });
-          } else {
+          allCheckIns = checkInResponse.data.data;
+          included = checkInResponse.data.included || [];
+          
+          // Cache the data
+          updateCheckInCache(eventId, { data: allCheckIns, included });
+        }
+        
+        // Filter check-ins by the requested security codes
+        const filteredCheckIns = allCheckIns.filter(checkIn => 
+          securityCodes.includes(checkIn.attributes.security_code?.toLowerCase())
+        );
+        
+        const results = [];
+        
+        // Group check-ins by security code and household
+        const groupedCheckIns = {};
+        
+        filteredCheckIns.forEach(checkIn => {
+          const securityCode = checkIn.attributes.security_code?.toLowerCase();
+          if (!groupedCheckIns[securityCode]) {
+            groupedCheckIns[securityCode] = {};
+          }
+          
+          const person = included.find(item => 
+            item.type === 'Person' && 
+            item.id === checkIn.relationships.person?.data?.id
+          );
+          
+          const household = included.find(item =>
+            item.type === 'Household' &&
+            item.id === person?.relationships?.household?.data?.id
+          );
+          
+          const householdId = household?.id || 'no-household';
+          const householdName = household?.attributes?.name || person?.attributes?.last_name + ' Household';
+          
+          if (!groupedCheckIns[securityCode][householdId]) {
+            groupedCheckIns[securityCode][householdId] = {
+              householdName,
+              members: []
+            };
+          }
+          
+          groupedCheckIns[securityCode][householdId].members.push({
+            id: checkIn.id,
+            firstName: person?.attributes?.first_name || 'Unknown',
+            lastName: person?.attributes?.last_name || 'Unknown',
+            eventName: checkIn.attributes.event_times_name || checkIn.attributes.event_name,
+            securityCode: checkIn.attributes.security_code,
+            checkedOut: !!checkIn.attributes.checked_out_at,
+            checkInTime: checkIn.attributes.created_at,
+            checkOutTime: checkIn.attributes.checked_out_at,
+            householdName
+          });
+        });
+        
+        // Add all grouped members to results
+        Object.values(groupedCheckIns).forEach(securityCodeGroup => {
+          Object.values(securityCodeGroup).forEach(group => {
+            results.push(...group.members);
+          });
+        });
+        
+        // Add error entries for security codes that weren't found
+        const foundSecurityCodes = new Set(filteredCheckIns.map(ci => ci.attributes.security_code?.toLowerCase()));
+        securityCodes.forEach(code => {
+          if (!foundSecurityCodes.has(code.toLowerCase())) {
             results.push({
               securityCode: code,
               error: 'No check-in found with this security code'
             });
           }
-        } catch (codeError) {
-          console.error(`Error fetching code ${code}:`, codeError.message);
-          results.push({
-            securityCode: code,
-            error: codeError.message
-          });
+        });
+        
+        // Update global billboard state if eventName is provided
+        if (eventName) {
+          const userId = req.session.user?.id;
+          const userName = req.session.user?.name;
+          updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName);
+        }
+        
+        res.json(results);
+      } catch (apiError) {
+        console.error('PCO API Error:', apiError.response?.data || apiError.message);
+        
+        // If we hit rate limiting, return cached data if available
+        if (apiError.response?.status === 429) {
+          console.log('Rate limited by PCO API, returning cached data if available');
+          const cachedData = getCachedCheckInData(eventId);
+          if (cachedData) {
+            // Process cached data
+            const filteredCheckIns = cachedData.data.filter(checkIn => 
+              securityCodes.includes(checkIn.attributes.security_code?.toLowerCase())
+            );
+            // Return basic results from cache
+            res.json(filteredCheckIns.map(checkIn => ({
+              id: checkIn.id,
+              firstName: checkIn.attributes.first_name || 'Unknown',
+              lastName: checkIn.attributes.last_name || 'Unknown',
+              securityCode: checkIn.attributes.security_code,
+              checkedOut: !!checkIn.attributes.checked_out_at,
+              checkInTime: checkIn.attributes.created_at
+            })));
+          } else {
+            // No cache available, return error
+            res.json(securityCodes.map(code => ({
+              securityCode: code,
+              error: 'Rate limited - please try again in a few seconds'
+            })));
+          }
+        } else {
+          res.status(500).json({ error: 'Failed to fetch security code data' });
         }
       }
-      
-      // Update global billboard state if eventName is provided
-      if (eventName) {
-        const userId = req.session.user?.id;
-        const userName = req.session.user?.name;
-        updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName);
-      }
-      
-      res.json(results);
     } else {
       // No securityCodes provided: fetch all check-ins for the event
       const checkInResponse = await axios.get(

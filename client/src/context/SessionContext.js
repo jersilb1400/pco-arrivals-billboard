@@ -45,7 +45,7 @@ export function SessionProvider({ children }) {
         console.error('Session check error:', error);
         // Don't throw the error, just log it and continue
       }
-    }, 60000); // Increased from 30 seconds to 60 seconds to reduce API calls
+    }, 120000); // Increased from 60 seconds to 120 seconds (2 minutes) to reduce API calls further
     
     return () => clearInterval(intervalId);
   }, [checkSession, session?.authenticated]);
