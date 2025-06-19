@@ -56,6 +56,14 @@ function LocationBillboard() {
         `/events/${eventId}/locations/${locationId}/active-checkins`,
         { params: { date } }
       );
+      
+      // Handle rate limiting response
+      if (response.status === 429) {
+        console.log('LocationBillboard: Rate limited, skipping check-ins fetch');
+        setLoading(false);
+        return;
+      }
+      
       console.log('Received check-ins from backend:', response.data);
       setCheckIns(response.data);
       setLastUpdated(new Date());
@@ -85,17 +93,22 @@ function LocationBillboard() {
     const interval = setInterval(async () => {
       console.log('LocationBillboard: Starting periodic refresh cycle...');
       
-      const isAuthenticated = await checkAuthStatus();
-      console.log('LocationBillboard: Authentication check result:', isAuthenticated);
-      
-      if (isAuthenticated) {
-        console.log('LocationBillboard: User authenticated, fetching check-ins...');
-        await fetchCheckIns();
-        console.log('LocationBillboard: Refresh cycle completed');
-      } else {
-        console.log('LocationBillboard: User not authenticated, skipping refresh');
+      try {
+        const isAuthenticated = await checkAuthStatus();
+        console.log('LocationBillboard: Authentication check result:', isAuthenticated);
+        
+        if (isAuthenticated) {
+          console.log('LocationBillboard: User authenticated, fetching check-ins...');
+          await fetchCheckIns();
+          console.log('LocationBillboard: Refresh cycle completed');
+        } else {
+          console.log('LocationBillboard: User not authenticated, skipping refresh');
+        }
+      } catch (error) {
+        console.error('LocationBillboard: Error during refresh cycle:', error);
+        // Don't throw the error, just log it and continue
       }
-    }, 60000); // auto-refresh every 60s
+    }, 120000); // Increased from 60 seconds to 120 seconds (2 minutes) to reduce API calls
     
     return () => clearInterval(interval);
   }, [checkAuthStatus, fetchCheckIns]);

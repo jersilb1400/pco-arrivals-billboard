@@ -33,14 +33,19 @@ export function SessionProvider({ children }) {
   // Set up periodic session checks to detect when users log in independently
   useEffect(() => {
     const intervalId = setInterval(async () => {
-      const currentSession = await checkSession();
-      
-      // If authentication status changed, trigger a refresh
-      if (currentSession.authenticated && session?.authenticated !== currentSession.authenticated) {
-        console.log('Authentication status changed, session refreshed');
-        // You could emit an event here or use a callback to notify components
+      try {
+        const currentSession = await checkSession();
+        
+        // If authentication status changed, trigger a refresh
+        if (currentSession.authenticated && session?.authenticated !== currentSession.authenticated) {
+          console.log('Authentication status changed, session refreshed');
+          // You could emit an event here or use a callback to notify components
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+        // Don't throw the error, just log it and continue
       }
-    }, 30000); // Check every 30 seconds
+    }, 60000); // Increased from 30 seconds to 60 seconds to reduce API calls
     
     return () => clearInterval(intervalId);
   }, [checkSession, session?.authenticated]);

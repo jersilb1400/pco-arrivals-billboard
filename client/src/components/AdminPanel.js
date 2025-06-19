@@ -124,6 +124,14 @@ function AdminPanel() {
         setDateLoading(true);
         const dateForApi = selectedDate;
         const response = await api.get(`/events-by-date?date=${dateForApi}`);
+        
+        // Handle rate limiting response
+        if (response.status === 429) {
+          console.log('AdminPanel: Rate limited, skipping events fetch');
+          setDateLoading(false);
+          return;
+        }
+        
         setEvents(response.data);
         if (location.state?.fromBillboard && location.state?.eventId) {
           const eventExists = response.data.some(event => event.id === location.state.eventId);
@@ -140,6 +148,8 @@ function AdminPanel() {
           navigate('/');
         } else {
           setDateLoading(false);
+          // Set empty events array on error to prevent UI issues
+          setEvents([]);
         }
       }
     };
@@ -158,9 +168,17 @@ function AdminPanel() {
     const fetchLocations = async () => {
       try {
         const response = await api.get(`/events/${selectedEvent}/locations`);
+        
+        // Handle rate limiting response
+        if (response.status === 429) {
+          console.log('AdminPanel: Rate limited, skipping locations fetch');
+          return;
+        }
+        
         setLocations(response.data);
         setSelectedLocation('');
       } catch (err) {
+        console.error('Error fetching locations:', err);
         setLocations([]);
         setSelectedLocation('');
       }

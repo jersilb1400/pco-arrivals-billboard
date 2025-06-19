@@ -10,10 +10,22 @@ const authLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  max: 200, // Increased from 100 to 200 requests per minute
   message: 'Too many requests from this IP, please try again after a minute',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for authenticated users on certain endpoints
+    if (req.session?.user) {
+      const skipEndpoints = [
+        '/api/auth-status',
+        '/api/global-billboard',
+        '/api/billboard-updates'
+      ];
+      return skipEndpoints.some(endpoint => req.path.startsWith(endpoint));
+    }
+    return false;
+  }
 });
 
 module.exports = { authLimiter, apiLimiter }; 

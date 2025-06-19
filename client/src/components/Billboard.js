@@ -69,6 +69,12 @@ function Billboard() {
         securityCodes
       });
       
+      // Handle rate limiting response
+      if (response.status === 429) {
+        console.log('Billboard: Rate limited, skipping data refresh');
+        return;
+      }
+      
       // Update arrivals with only active check-ins
       setArrivals(response.data.filter(item => !item.error && !item.checkedOut));
       setLastUpdated(new Date());
@@ -89,6 +95,12 @@ function Billboard() {
           eventId: eventId
         }
       });
+      
+      // Handle rate limiting response
+      if (response.status === 429) {
+        console.log('Billboard: Rate limited, skipping update check');
+        return;
+      }
       
       const { hasUpdates, lastUpdated, activeBillboard } = response.data;
       
@@ -127,25 +139,30 @@ function Billboard() {
     const intervalId = setInterval(async () => {
       console.log('Billboard: Starting periodic refresh cycle...');
       
-      // Check auth status first
-      const isAuthenticated = await checkAuthStatus();
-      console.log('Billboard: Authentication check result:', isAuthenticated);
-      
-      if (isAuthenticated) {
-        console.log('Billboard: User authenticated, checking for updates...');
+      try {
+        // Check auth status first
+        const isAuthenticated = await checkAuthStatus();
+        console.log('Billboard: Authentication check result:', isAuthenticated);
         
-        // Check for billboard updates from other users
-        await checkBillboardUpdates();
-        // Also refresh global billboard state to detect changes from other users
-        await fetchGlobalBillboardState();
-        // Refresh arrival data
-        await refreshData();
-        
-        console.log('Billboard: Refresh cycle completed');
-      } else {
-        console.log('Billboard: User not authenticated, skipping refresh');
+        if (isAuthenticated) {
+          console.log('Billboard: User authenticated, checking for updates...');
+          
+          // Check for billboard updates from other users
+          await checkBillboardUpdates();
+          // Also refresh global billboard state to detect changes from other users
+          await fetchGlobalBillboardState();
+          // Refresh arrival data
+          await refreshData();
+          
+          console.log('Billboard: Refresh cycle completed');
+        } else {
+          console.log('Billboard: User not authenticated, skipping refresh');
+        }
+      } catch (error) {
+        console.error('Billboard: Error during refresh cycle:', error);
+        // Don't throw the error, just log it and continue
       }
-    }, 10000); // Refresh every 10 seconds
+    }, 30000); // Increased from 10 seconds to 30 seconds to reduce API calls
     
     // Clean up on unmount
     return () => clearInterval(intervalId);
