@@ -9,6 +9,8 @@ import Billboard from './components/Billboard';
 import Unauthorized from './components/Unauthorized';
 import NotFound from './components/NotFound';
 import LocationBillboard from './components/LocationBillboard';
+import SecurityCodeEntry from './components/SecurityCodeEntry';
+import SimpleBillboard from './components/SimpleBillboard';
 import './App.css';
 
 function App() {
@@ -16,10 +18,14 @@ function App() {
     <SessionProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Login />} />
+          {/* Simplified routes (no authentication required) */}
+          <Route path="/" element={<SecurityCodeEntry />} />
+          <Route path="/billboard" element={<SimpleBillboard />} />
+          
+          {/* Admin routes (authentication required) */}
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/billboard" element={<Billboard />} />
+          <Route path="/admin/billboard" element={<Billboard />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="/404" element={<NotFound />} />
           <Route path="/location-billboard" element={<LocationBillboard />} />

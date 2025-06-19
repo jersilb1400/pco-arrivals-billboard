@@ -51,6 +51,9 @@ let checkInCache = {
   cacheTimeout: 30000 // 30 seconds cache
 };
 
+// Simple notification system for child pickup
+let activeNotifications = [];
+
 // Function to update global billboard state
 function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName) {
   globalBillboardState = {
@@ -1191,6 +1194,286 @@ app.get('/test-session', (req, res) => {
     if (err) return res.status(500).send('Session save failed');
     res.send('Session set');
   });
+});
+
+// POST /api/security-code-entry - Volunteers enter security codes from parents
+app.post('/api/security-code-entry', async (req, res) => {
+  try {
+    const { securityCode } = req.body;
+    
+    if (!securityCode) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Security code is required' 
+      });
+    }
+
+    // Search for active check-ins with this security code
+    const checkInResponse = await axios.get(
+      `${PCO_API_BASE}/check_ins?where[security_code]=${securityCode}&include=person,locations`, {
+      auth: {
+        username: process.env.PCO_ACCESS_TOKEN,
+        password: process.env.PCO_ACCESS_SECRET
+      },
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    const checkIns = checkInResponse.data.data;
+    const included = checkInResponse.data.included || [];
+
+    // Find active (not checked out) check-ins
+    const activeCheckIn = checkIns.find(checkIn => !checkIn.attributes.checked_out_at);
+
+    if (!activeCheckIn) {
+      return res.json({ 
+        success: false, 
+        message: 'No active check-in found with this security code. The child may have already been checked out.' 
+      });
+    }
+
+    // Get person and location information
+    const person = included.find(item => 
+      item.type === 'Person' && 
+      item.id === activeCheckIn.relationships.person?.data?.id
+    );
+
+    const location = included.find(item =>
+      item.type === 'Location' &&
+      item.id === activeCheckIn.relationships.locations?.data?.[0]?.id
+    );
+
+    const childName = person ? 
+      `${person.attributes.first_name} ${person.attributes.last_name}` : 
+      'Unknown Child';
+
+    const locationName = location?.attributes?.name || 'Unknown Location';
+
+    // Check if notification already exists
+    const existingNotification = activeNotifications.find(n => 
+      n.checkInId === activeCheckIn.id
+    );
+
+    if (existingNotification) {
+      return res.json({ 
+        success: false, 
+        message: `${childName} is already on the pickup list` 
+      });
+    }
+
+    // Create new notification
+    const notification = {
+      id: Date.now().toString(),
+      checkInId: activeCheckIn.id,
+      securityCode: securityCode.toUpperCase(),
+      childName,
+      locationName,
+      notifiedAt: new Date().toISOString(),
+      checkInTime: activeCheckIn.attributes.created_at,
+      personId: person?.id,
+      locationId: location?.id
+    };
+
+    activeNotifications.push(notification);
+
+    console.log(`New pickup request: ${childName} (${securityCode}) from ${locationName}`);
+
+    res.json({ 
+      success: true, 
+      childName,
+      locationName,
+      message: `${childName} has been added to the pickup list` 
+    });
+
+  } catch (error) {
+    console.error('Error processing security code entry:', error);
+    
+    if (error.response?.status === 429) {
+      res.status(429).json({ 
+        success: false, 
+        message: 'Service temporarily unavailable. Please try again in a moment.' 
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: 'An error occurred. Please try again.' 
+      });
+    }
+  }
+});
+
+// GET /api/active-notifications - Get all active notifications
+app.get('/api/active-notifications', (req, res) => {
+  try {
+    res.json(activeNotifications);
+  } catch (error) {
+    console.error('Error getting active notifications:', error);
+    res.status(500).json({ error: 'Failed to get notifications' });
+  }
+});
+
+// POST /api/checkout-notification - Remove notification when child is checked out
+app.post('/api/checkout-notification', async (req, res) => {
+  try {
+    const { checkInId } = req.body;
+    
+    if (!checkInId) {
+      return res.status(400).json({ error: 'Check-in ID is required' });
+    }
+
+    // Remove notification from active list
+    const initialLength = activeNotifications.length;
+    activeNotifications = activeNotifications.filter(n => n.checkInId !== checkInId);
+    
+    const removed = initialLength !== activeNotifications.length;
+    
+    if (removed) {
+      console.log(`Removed notification for check-in: ${checkInId}`);
+    }
+
+    res.json({ 
+      success: true, 
+      removed,
+      message: removed ? 'Notification removed' : 'Notification not found' 
+    });
+
+  } catch (error) {
+    console.error('Error checking out notification:', error);
+    res.status(500).json({ error: 'Failed to checkout notification' });
+  }
+});
+
+// Cleanup old notifications and check for checked-out children (run every 2 minutes)
+setInterval(async () => {
+  try {
+    const currentTime = new Date();
+    const tenMinutesAgo = new Date(currentTime.getTime() - 10 * 60 * 1000);
+    
+    // Remove notifications older than 10 minutes
+    const initialLength = activeNotifications.length;
+    activeNotifications = activeNotifications.filter(notification => {
+      const notificationTime = new Date(notification.notifiedAt);
+      return notificationTime > tenMinutesAgo;
+    });
+    
+    const removedByTime = initialLength - activeNotifications.length;
+    if (removedByTime > 0) {
+      console.log(`Cleaned up ${removedByTime} old notifications`);
+    }
+
+    // Check if any children have been checked out in PCO
+    if (activeNotifications.length > 0) {
+      const checkInIds = activeNotifications.map(n => n.checkInId);
+      
+      try {
+        const checkInResponse = await axios.get(
+          `${PCO_API_BASE}/check_ins?where[id]=${checkInIds.join(',')}`, {
+          auth: {
+            username: process.env.PCO_ACCESS_TOKEN,
+            password: process.env.PCO_ACCESS_SECRET
+          },
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        const checkIns = checkInResponse.data.data;
+        const checkedOutIds = checkIns
+          .filter(checkIn => checkIn.attributes.checked_out_at)
+          .map(checkIn => checkIn.id);
+
+        if (checkedOutIds.length > 0) {
+          const beforeCount = activeNotifications.length;
+          activeNotifications = activeNotifications.filter(n => 
+            !checkedOutIds.includes(n.checkInId)
+          );
+          const afterCount = activeNotifications.length;
+          
+          if (beforeCount !== afterCount) {
+            console.log(`Removed ${beforeCount - afterCount} notifications for checked-out children`);
+          }
+        }
+      } catch (apiError) {
+        console.error('Error checking PCO for checked-out children:', apiError.message);
+      }
+    }
+  } catch (error) {
+    console.error('Error in cleanup interval:', error);
+  }
+}, 2 * 60 * 1000); // 2 minutes
+
+// GET /api/location-status - Get all locations with remaining children
+app.get('/api/location-status', async (req, res) => {
+  try {
+    // Get all active check-ins
+    const checkInResponse = await axios.get(
+      `${PCO_API_BASE}/check_ins?where[checked_out_at]=null&include=person,locations`, {
+      auth: {
+        username: process.env.PCO_ACCESS_TOKEN,
+        password: process.env.PCO_ACCESS_SECRET
+      },
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    const checkIns = checkInResponse.data.data;
+    const included = checkInResponse.data.included || [];
+
+    // Group check-ins by location
+    const locationMap = new Map();
+
+    checkIns.forEach(checkIn => {
+      const location = included.find(item =>
+        item.type === 'Location' &&
+        item.id === checkIn.relationships.locations?.data?.[0]?.id
+      );
+
+      const person = included.find(item => 
+        item.type === 'Person' && 
+        item.id === checkIn.relationships.person?.data?.id
+      );
+
+      if (location && person) {
+        const locationId = location.id;
+        const locationName = location.attributes.name;
+        
+        if (!locationMap.has(locationId)) {
+          locationMap.set(locationId, {
+            id: locationId,
+            name: locationName,
+            childCount: 0,
+            children: []
+          });
+        }
+
+        const locationData = locationMap.get(locationId);
+        locationData.childCount++;
+        locationData.children.push({
+          id: checkIn.id,
+          name: `${person.attributes.first_name} ${person.attributes.last_name}`,
+          securityCode: checkIn.attributes.security_code,
+          checkInTime: checkIn.attributes.created_at
+        });
+      }
+    });
+
+    // Convert to array and sort by child count
+    const locations = Array.from(locationMap.values())
+      .sort((a, b) => b.childCount - a.childCount);
+
+    res.json(locations);
+
+  } catch (error) {
+    console.error('Error fetching location status:', error);
+    
+    if (error.response?.status === 429) {
+      res.status(429).json({ error: 'Rate limited. Please try again later.' });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch location status' });
+    }
+  }
 });
 
 // Connect to MongoDB
