@@ -1,6 +1,115 @@
 # PCO Arrivals Billboard
 
-A full-stack web application for displaying and managing Planning Center Online (PCO) check-ins in a secure, user-friendly, and real-time "billboard" format. Designed for churches and organizations using PCO Check-Ins, this app helps staff and volunteers monitor arrivals, manage security codes, and view check-in activity by event and location.
+A real-time billboard application for displaying check-ins from Planning Center Online (PCO). The application allows multiple users to log in independently and view real-time updates of check-ins for selected events and security codes.
+
+## Features
+
+### Real-Time Updates
+- **Automatic Data Refresh**: Billboards automatically refresh data every 10-60 seconds
+- **Independent User Logins**: Multiple users can log in independently and see real-time updates
+- **Global State Synchronization**: Changes made by one user are automatically reflected for all other users
+- **Authentication Status Monitoring**: Continuous monitoring of authentication status to ensure data access
+
+### Billboard Components
+- **Main Billboard**: Displays check-ins grouped by security codes and households
+- **Location Billboard**: Shows active check-ins for specific locations
+- **Real-time Updates**: Both billboards automatically detect and display new check-ins
+- **User Status Display**: Shows which user is currently logged in
+
+### Authentication & Session Management
+- **OAuth2 Integration**: Secure authentication with Planning Center Online
+- **Session Persistence**: Users remain logged in across browser sessions
+- **Independent Sessions**: Each user maintains their own session
+- **Automatic Re-authentication**: Handles token refresh and session validation
+
+## Technical Implementation
+
+### Real-Time Update Mechanism
+1. **Periodic Polling**: Components check for updates every 10-60 seconds
+2. **Authentication Checks**: Each refresh cycle validates user authentication
+3. **Global State Monitoring**: Checks for changes in global billboard state
+4. **Data Synchronization**: Automatically fetches latest check-in data
+
+### Server-Side Features
+- **Global Billboard State**: Centralized state management for active billboards
+- **Update Detection**: Endpoint to check for billboard updates
+- **Session Management**: Robust session handling with cookie-based authentication
+- **Rate Limiting**: API rate limiting to prevent abuse
+
+### Client-Side Features
+- **Session Context**: React context for managing authentication state
+- **Automatic Refresh**: Components automatically refresh data and authentication status
+- **Error Handling**: Graceful handling of authentication failures
+- **User Feedback**: Visual indicators for authentication status and data updates
+
+## Usage
+
+### Starting a Billboard
+1. Log in to the admin panel
+2. Select an event and date
+3. Add security codes to monitor
+4. Launch the billboard
+
+### Independent User Access
+- Multiple users can log in independently
+- Each user will see the same real-time data
+- Changes made by any user are automatically reflected for all users
+- Authentication status is continuously monitored
+
+### Real-Time Features
+- **Automatic Refresh**: Data refreshes every 10 seconds (main billboard) or 60 seconds (location billboard)
+- **Live Updates**: New check-ins appear automatically without manual refresh
+- **State Synchronization**: Global billboard state is synchronized across all users
+- **Authentication Monitoring**: Continuous validation of user sessions
+
+## Configuration
+
+### Environment Variables
+- `PCO_CLIENT_ID`: Planning Center OAuth client ID
+- `PCO_CLIENT_SECRET`: Planning Center OAuth client secret
+- `PCO_ACCESS_TOKEN`: Planning Center API access token
+- `PCO_ACCESS_SECRET`: Planning Center API access secret
+- `COOKIE_SECRET`: Secret for session cookies
+- `CLIENT_URL`: URL of the client application
+
+### Session Configuration
+- **Remember Me**: 30-day session persistence
+- **Secure Cookies**: HTTPS-only cookie transmission
+- **Session Validation**: Continuous authentication status checking
+
+## Troubleshooting
+
+### Data Not Updating
+1. Check browser console for authentication errors
+2. Verify user is still authenticated
+3. Check network connectivity to PCO API
+4. Ensure security codes are correctly configured
+
+### Authentication Issues
+1. Clear browser cookies and re-authenticate
+2. Check OAuth configuration
+3. Verify user is in authorized users list
+4. Check server logs for authentication errors
+
+### Real-Time Sync Issues
+1. Check browser console for update detection logs
+2. Verify global billboard state is being updated
+3. Check network connectivity to server
+4. Ensure polling intervals are not blocked by browser
+
+## Development
+
+### Adding New Real-Time Features
+1. Update server endpoints to include timestamp information
+2. Add client-side polling mechanisms
+3. Implement update detection logic
+4. Add appropriate error handling and logging
+
+### Testing Real-Time Updates
+1. Open multiple browser windows/tabs
+2. Log in with different users
+3. Make changes in one window
+4. Verify changes appear in other windows automatically
 
 ---
 
@@ -124,15 +233,6 @@ See `.env.example` for all required and optional environment variables. Key vari
 - Pull the latest changes from GitHub before making updates.
 - Use feature branches and submit pull requests for contributions.
 - Keep sensitive data out of commits.
-
----
-
-## Troubleshooting
-- **Authentication Issues:** Ensure your PCO API credentials and redirect URIs are correct.
-- **MongoDB Errors:** Check that MongoDB is running and accessible at the URI specified, or that your Atlas URI is correct and includes the database name.
-- **Port Conflicts:** Change `PORT` in your `.env` if 3001 is in use.
-- **Frontend/Backend Not Syncing:** Make sure both are running and environment variables are set correctly.
-- **Cloud Cookie Issues:** If deploying on Render or another cloud provider, ensure you have `app.set('trust proxy', 1);` before your session middleware in Express.
 
 ---
 

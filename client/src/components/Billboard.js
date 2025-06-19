@@ -15,6 +15,7 @@ function Billboard() {
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [user, setUser] = useState(null);
   const [globalBillboardState, setGlobalBillboardState] = useState(null);
+  const [authStatus, setAuthStatus] = useState(null);
   
   // Get data from location state (for backward compatibility) or global state
   const { eventId: locationEventId, securityCodes: locationSecurityCodes, eventName: locationEventName, eventDate: locationEventDate } = location.state || {};
@@ -25,38 +26,58 @@ function Billboard() {
   const eventName = globalBillboardState?.activeBillboard?.eventName || locationEventName;
   const eventDate = globalBillboardState?.activeBillboard?.eventDate || locationEventDate;
   
-  // Verify user is authenticated
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const response = await api.get('/auth-status');
-        if (!response.data.authenticated) {
-          navigate('/');
-        } else {
-          setUser(response.data.user);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
+  // Verify user is authenticated and check auth status
+  const checkAuthStatus = useCallback(async () => {
+    try {
+      const response = await api.get('/auth-status');
+      const newAuthStatus = response.data;
+      setAuthStatus(newAuthStatus);
+      
+      if (!newAuthStatus.authenticated) {
         navigate('/');
+        return false;
+      } else {
+        setUser(newAuthStatus.user);
+        return true;
       }
-    };
-    
-    checkAuthStatus();
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      navigate('/');
+      return false;
+    }
   }, [navigate]);
 
   // Fetch global billboard state
-  useEffect(() => {
-    const fetchGlobalBillboardState = async () => {
-      try {
-        const response = await api.get('/global-billboard');
-        setGlobalBillboardState(response.data);
-      } catch (error) {
-        console.error('Error fetching global billboard state:', error);
-      }
-    };
-
-    fetchGlobalBillboardState();
+  const fetchGlobalBillboardState = useCallback(async () => {
+    try {
+      const response = await api.get('/global-billboard');
+      setGlobalBillboardState(response.data);
+    } catch (error) {
+      console.error('Error fetching global billboard state:', error);
+    }
   }, []);
+
+  // Check for billboard updates
+  const checkBillboardUpdates = useCallback(async () => {
+    try {
+      const response = await api.get('/billboard-updates', {
+        params: {
+          lastUpdate: globalBillboardState?.lastUpdated,
+          eventId: eventId
+        }
+      });
+      
+      const { hasUpdates, lastUpdated, activeBillboard } = response.data;
+      
+      if (hasUpdates && activeBillboard) {
+        console.log('Billboard updates detected, refreshing data...');
+        setGlobalBillboardState({ activeBillboard, lastUpdated });
+        await refreshData();
+      }
+    } catch (error) {
+      console.error('Error checking billboard updates:', error);
+    }
+  }, [globalBillboardState?.lastUpdated, eventId, refreshData]);
   
   // Function to refresh the arrival data
   const refreshData = useCallback(async () => {
@@ -81,22 +102,54 @@ function Billboard() {
     }
   }, [eventId, securityCodes, navigate]);
   
-  // Set up auto-refresh of data
+  // Initial setup and authentication check
   useEffect(() => {
-    // Initial state from navigation (for backward compatibility)
-    if (location.state?.arrivals) {
-      setArrivals(location.state.arrivals);
-    }
+    const initializeComponent = async () => {
+      const isAuthenticated = await checkAuthStatus();
+      if (isAuthenticated) {
+        await fetchGlobalBillboardState();
+        
+        // Initial state from navigation (for backward compatibility)
+        if (location.state?.arrivals) {
+          setArrivals(location.state.arrivals);
+        }
+        
+        // Initial data load
+        await refreshData();
+      }
+    };
     
-    // Initial data load
-    refreshData();
-    
-    // Set up interval for refreshing data
-    const intervalId = setInterval(refreshData, 10000); // Refresh every 10 seconds
+    initializeComponent();
+  }, [checkAuthStatus, fetchGlobalBillboardState, refreshData, location.state]);
+  
+  // Set up auto-refresh of data and auth status
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      console.log('Billboard: Starting periodic refresh cycle...');
+      
+      // Check auth status first
+      const isAuthenticated = await checkAuthStatus();
+      console.log('Billboard: Authentication check result:', isAuthenticated);
+      
+      if (isAuthenticated) {
+        console.log('Billboard: User authenticated, checking for updates...');
+        
+        // Check for billboard updates from other users
+        await checkBillboardUpdates();
+        // Also refresh global billboard state to detect changes from other users
+        await fetchGlobalBillboardState();
+        // Refresh arrival data
+        await refreshData();
+        
+        console.log('Billboard: Refresh cycle completed');
+      } else {
+        console.log('Billboard: User not authenticated, skipping refresh');
+      }
+    }, 10000); // Refresh every 10 seconds
     
     // Clean up on unmount
     return () => clearInterval(intervalId);
-  }, [location.state, refreshData]);
+  }, [checkAuthStatus, checkBillboardUpdates, fetchGlobalBillboardState, refreshData]);
   
   // Function to check if the component received proper data
   const hasValidData = () => {
@@ -206,6 +259,11 @@ function Billboard() {
             <div className="security-code-count">
               Monitoring {securityCodes.length} security code{securityCodes.length !== 1 ? 's' : ''}
             </div>
+            {authStatus?.user && (
+              <div className="user-info" style={{ fontSize: '0.9rem', color: '#666', marginTop: '4px' }}>
+                Logged in as: {authStatus.user.name}
+              </div>
+            )}
           </div>
         </div>
         <div className="billboard-header-bar-right">
@@ -232,51 +290,37 @@ function Billboard() {
       </div>
       
       <div className="billboard-content">
-        {arrivals.length > 0 ? (
-          <table className="arrivals-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>First Name</th>
-                <th>Last Name</th>
-                <th>Household</th>
-                <th>Security Code</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(groupedArrivals).map(([securityCode, households]) => (
-                <React.Fragment key={securityCode}>
-                  <tr className="security-code-header">
-                    <td colSpan="5">
-                      Security Code: {securityCode}
-                    </td>
-                  </tr>
-                  
-                  {Object.entries(households).map(([householdName, householdMembers]) => {
-                    const theme = getHouseholdTheme(householdName);
-                    return householdMembers.map((arrival, index) => (
-                      <tr 
-                        key={`${arrival.id}-${index}`}
-                        className="household-row"
-                        style={{
-                          '--household-color': theme.color
-                        }}
-                      >
-                        <td>{arrival.id || '-'}</td>
-                        <td>
-                          <span className="household-icon">{theme.icon}</span>
-                          {arrival.firstName || '-'}
-                        </td>
-                        <td>{arrival.lastName || '-'}</td>
-                        <td>{householdName}</td>
-                        <td className="security-code">{securityCode}</td>
-                      </tr>
-                    ));
-                  })}
-                </React.Fragment>
+        {Object.keys(groupedArrivals).length > 0 ? (
+          Object.entries(groupedArrivals).map(([securityCode, households]) => (
+            <div key={securityCode} className="security-code-section">
+              <h2 className="security-code-header" style={{ color: getHouseholdTheme(securityCode) }}>
+                Security Code: {securityCode}
+              </h2>
+              {Object.entries(households).map(([householdName, householdArrivals]) => (
+                <div key={householdName} className="household-section">
+                  <h3 className="household-name">{householdName}</h3>
+                  <div className="arrivals-grid">
+                    {householdArrivals.map((arrival, index) => (
+                      <div key={index} className="arrival-card">
+                        <div className="arrival-name">
+                          {arrival.firstName} {arrival.lastName}
+                        </div>
+                        <div className="arrival-time">
+                          {arrival.checkInTime ? 
+                            new Date(arrival.checkInTime).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            }) : 
+                            'Time not available'
+                          }
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          ))
         ) : (
           <div className="no-arrivals">
             <h2>No Arrivals to Display</h2>

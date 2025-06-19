@@ -12,6 +12,7 @@ function LocationBillboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [authStatus, setAuthStatus] = useState(null);
 
   // Get data from location.state or query params
   const state = location.state || {};
@@ -21,9 +22,33 @@ function LocationBillboard() {
   const eventName = state.eventName;
   const date = state.date;
 
+  // Check authentication status
+  const checkAuthStatus = useCallback(async () => {
+    try {
+      const response = await api.get('/auth-status');
+      const newAuthStatus = response.data;
+      setAuthStatus(newAuthStatus);
+      
+      if (!newAuthStatus.authenticated) {
+        navigate('/');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      navigate('/');
+      return false;
+    }
+  }, [navigate]);
+
   // Fetch check-ins for the location
   const fetchCheckIns = useCallback(async () => {
     if (!eventId || !locationId || !date) return;
+    
+    // Check authentication first
+    const isAuthenticated = await checkAuthStatus();
+    if (!isAuthenticated) return;
+    
     setLoading(true);
     setError(null);
     try {
@@ -39,13 +64,41 @@ function LocationBillboard() {
     } finally {
       setLoading(false);
     }
-  }, [eventId, locationId, date]);
+  }, [eventId, locationId, date, checkAuthStatus]);
 
+  // Initial setup
   useEffect(() => {
-    fetchCheckIns();
-    const interval = setInterval(fetchCheckIns, 60000); // auto-refresh every 60s
+    const initializeComponent = async () => {
+      const isAuthenticated = await checkAuthStatus();
+      if (isAuthenticated) {
+        await fetchCheckIns();
+      }
+    };
+    
+    if (!sessionLoading) {
+      initializeComponent();
+    }
+  }, [sessionLoading, checkAuthStatus, fetchCheckIns]);
+
+  // Set up auto-refresh with authentication checks
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      console.log('LocationBillboard: Starting periodic refresh cycle...');
+      
+      const isAuthenticated = await checkAuthStatus();
+      console.log('LocationBillboard: Authentication check result:', isAuthenticated);
+      
+      if (isAuthenticated) {
+        console.log('LocationBillboard: User authenticated, fetching check-ins...');
+        await fetchCheckIns();
+        console.log('LocationBillboard: Refresh cycle completed');
+      } else {
+        console.log('LocationBillboard: User not authenticated, skipping refresh');
+      }
+    }, 60000); // auto-refresh every 60s
+    
     return () => clearInterval(interval);
-  }, [fetchCheckIns]);
+  }, [checkAuthStatus, fetchCheckIns]);
 
   // Back to admin, preserve selection
   const handleBack = () => {
@@ -95,6 +148,11 @@ function LocationBillboard() {
             <div className="security-code-count">
               Monitoring {checkIns.length} check-in{checkIns.length !== 1 ? 's' : ''}
             </div>
+            {authStatus?.user && (
+              <div className="user-info" style={{ fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.7)', marginTop: '4px' }}>
+                Logged in as: {authStatus.user.name}
+              </div>
+            )}
           </div>
         </div>
         <div className="billboard-controls">

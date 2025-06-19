@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 
 const SessionContext = createContext();
@@ -10,21 +10,40 @@ export function SessionProvider({ children }) {
   const [selectedEvent, setSelectedEvent] = useState('');
   const [selectedEventTime, setSelectedEventTime] = useState('');
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await api.get('/auth-status');
-        setSession(response.data);
-      } catch (error) {
-        console.error('Session check failed:', error);
-        setSession({ authenticated: false });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkSession();
+  const checkSession = useCallback(async () => {
+    try {
+      const response = await api.get('/auth-status');
+      const newSession = response.data;
+      setSession(newSession);
+      return newSession;
+    } catch (error) {
+      console.error('Session check failed:', error);
+      const errorSession = { authenticated: false };
+      setSession(errorSession);
+      return errorSession;
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
+
+  // Set up periodic session checks to detect when users log in independently
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      const currentSession = await checkSession();
+      
+      // If authentication status changed, trigger a refresh
+      if (currentSession.authenticated && session?.authenticated !== currentSession.authenticated) {
+        console.log('Authentication status changed, session refreshed');
+        // You could emit an event here or use a callback to notify components
+      }
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(intervalId);
+  }, [checkSession, session?.authenticated]);
 
   useEffect(() => {
     if (selectedEvent) {
@@ -53,7 +72,8 @@ export function SessionProvider({ children }) {
     selectedEvent,
     setSelectedEvent,
     selectedEventTime,
-    setSelectedEventTime
+    setSelectedEventTime,
+    checkSession // Expose the checkSession function for components to use
   };
 
   return (

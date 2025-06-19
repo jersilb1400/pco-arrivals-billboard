@@ -1062,6 +1062,45 @@ app.delete('/api/global-billboard', requireAuthOnly, (req, res) => {
   }
 });
 
+// Check for billboard updates endpoint
+app.get('/api/billboard-updates', requireAuthOnly, async (req, res) => {
+  try {
+    const { lastUpdate, eventId } = req.query;
+    
+    // If no global billboard state, return empty
+    if (!globalBillboardState.activeBillboard) {
+      return res.json({
+        hasUpdates: false,
+        lastUpdated: null,
+        activeBillboard: null
+      });
+    }
+    
+    // Check if the event matches
+    if (eventId && globalBillboardState.activeBillboard.eventId !== eventId) {
+      return res.json({
+        hasUpdates: false,
+        lastUpdated: globalBillboardState.lastUpdated,
+        activeBillboard: globalBillboardState.activeBillboard
+      });
+    }
+    
+    // Check if there are updates since last check
+    const hasUpdates = !lastUpdate || 
+      new Date(globalBillboardState.lastUpdated) > new Date(lastUpdate);
+    
+    res.json({
+      hasUpdates,
+      lastUpdated: globalBillboardState.lastUpdated,
+      activeBillboard: globalBillboardState.activeBillboard,
+      createdBy: globalBillboardState.createdBy
+    });
+  } catch (error) {
+    console.error('Error checking billboard updates:', error);
+    res.status(500).json({ error: 'Failed to check billboard updates' });
+  }
+});
+
 // Test session route for debugging session/cookie issues
 app.get('/test-session', (req, res) => {
   req.session.test = 'hello';

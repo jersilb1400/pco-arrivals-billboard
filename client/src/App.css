@@ -410,6 +410,78 @@ p {
   overflow: auto;
 }
 
+/* Security Code Sections */
+.security-code-section {
+  margin-bottom: 32px;
+  background: var(--pco-white);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.1);
+}
+
+.security-code-header {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 3px solid currentColor;
+  text-align: center;
+}
+
+.household-section {
+  margin-bottom: 24px;
+}
+
+.household-section:last-child {
+  margin-bottom: 0;
+}
+
+.household-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--pco-gray-dark);
+  margin-bottom: 16px;
+  padding: 8px 16px;
+  background-color: var(--pco-gray-lightest);
+  border-radius: 8px;
+  border-left: 4px solid var(--pco-blue);
+}
+
+.arrivals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-left: 16px;
+}
+
+.arrival-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.arrival-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--pco-blue-light);
+}
+
+.arrival-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--pco-gray-dark);
+  margin-bottom: 8px;
+}
+
+.arrival-time {
+  font-size: 16px;
+  color: var(--pco-gray);
+  font-weight: 500;
+}
+
 /* Enhanced Table Styles for TV Visibility */
 .arrivals-table {
   width: 100%;
