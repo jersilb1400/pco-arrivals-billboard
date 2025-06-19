@@ -16,6 +16,7 @@ function Billboard() {
   const [user, setUser] = useState(null);
   const [globalBillboardState, setGlobalBillboardState] = useState(null);
   const [authStatus, setAuthStatus] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Get data from location state (for backward compatibility) or global state
   const { eventId: locationEventId, securityCodes: locationSecurityCodes, eventName: locationEventName, eventDate: locationEventDate } = location.state || {};
@@ -57,35 +58,6 @@ function Billboard() {
     }
   }, []);
 
-  // Function to refresh the arrival data
-  const refreshData = useCallback(async () => {
-    if (!eventId || !securityCodes || !securityCodes.length) {
-      return;
-    }
-    
-    try {
-      const response = await api.post('/security-codes', {
-        eventId,
-        securityCodes
-      });
-      
-      // Handle rate limiting response
-      if (response.status === 429) {
-        console.log('Billboard: Rate limited, skipping data refresh');
-        return;
-      }
-      
-      // Update arrivals with only active check-ins
-      setArrivals(response.data.filter(item => !item.error && !item.checkedOut));
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Failed to refresh data:', error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        navigate('/');
-      }
-    }
-  }, [eventId, securityCodes, navigate]);
-
   // Check for billboard updates
   const checkBillboardUpdates = useCallback(async () => {
     try {
@@ -99,20 +71,76 @@ function Billboard() {
       // Handle rate limiting response
       if (response.status === 429) {
         console.log('Billboard: Rate limited, skipping update check');
-        return;
+        return false; // Indicate no updates
       }
       
       const { hasUpdates, lastUpdated, activeBillboard } = response.data;
       
       if (hasUpdates && activeBillboard) {
-        console.log('Billboard updates detected, refreshing data...');
+        console.log('Billboard updates detected, updating state...');
         setGlobalBillboardState({ activeBillboard, lastUpdated });
-        await refreshData();
+        return true; // Indicate updates were found
       }
+      return false; // No updates
     } catch (error) {
       console.error('Error checking billboard updates:', error);
+      return false;
     }
-  }, [globalBillboardState?.lastUpdated, eventId, refreshData]);
+  }, [globalBillboardState?.lastUpdated, eventId]);
+
+  // Function to refresh the arrival data
+  const refreshData = useCallback(async () => {
+    if (!eventId || !securityCodes || !securityCodes.length || isRefreshing) {
+      return;
+    }
+    
+    try {
+      setIsRefreshing(true);
+      const response = await api.post('/security-codes', {
+        eventId,
+        securityCodes
+      });
+      
+      // Handle rate limiting response
+      if (response.status === 429) {
+        console.log('Billboard: Rate limited, skipping data refresh');
+        return;
+      }
+      
+      // Update arrivals with only active check-ins
+      const newArrivals = response.data.filter(item => !item.error && !item.checkedOut);
+      
+      // Only update state if data actually changed
+      setArrivals(prevArrivals => {
+        const prevIds = new Set(prevArrivals.map(a => a.id));
+        const newIds = new Set(newArrivals.map(a => a.id));
+        
+        // Check if arrays are different
+        if (prevArrivals.length !== newArrivals.length) {
+          return newArrivals;
+        }
+        
+        // Check if any IDs are different
+        for (const id of newIds) {
+          if (!prevIds.has(id)) {
+            return newArrivals;
+          }
+        }
+        
+        // Data is the same, don't update
+        return prevArrivals;
+      });
+      
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        navigate('/');
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [eventId, securityCodes, navigate, isRefreshing]);
   
   // Initial setup and authentication check
   useEffect(() => {
@@ -148,11 +176,19 @@ function Billboard() {
           console.log('Billboard: User authenticated, checking for updates...');
           
           // Check for billboard updates from other users
-          await checkBillboardUpdates();
-          // Also refresh global billboard state to detect changes from other users
-          await fetchGlobalBillboardState();
-          // Refresh arrival data
-          await refreshData();
+          const hasUpdates = await checkBillboardUpdates();
+          
+          // Only refresh data if there were updates or if it's been a while
+          const shouldRefreshData = hasUpdates || 
+            !lastUpdated || 
+            (Date.now() - lastUpdated.getTime()) > 300000; // 5 minutes
+          
+          if (shouldRefreshData) {
+            console.log('Billboard: Refreshing arrival data...');
+            await refreshData();
+          } else {
+            console.log('Billboard: Skipping data refresh (no updates needed)');
+          }
           
           console.log('Billboard: Refresh cycle completed');
         } else {
@@ -162,11 +198,11 @@ function Billboard() {
         console.error('Billboard: Error during refresh cycle:', error);
         // Don't throw the error, just log it and continue
       }
-    }, 60000); // Increased from 30 seconds to 60 seconds to reduce API calls further
+    }, 60000); // 60 seconds
     
     // Clean up on unmount
     return () => clearInterval(intervalId);
-  }, [checkAuthStatus, checkBillboardUpdates, fetchGlobalBillboardState, refreshData]);
+  }, [checkAuthStatus, checkBillboardUpdates, refreshData, lastUpdated]);
   
   // Function to check if the component received proper data
   const hasValidData = () => {
@@ -289,8 +325,23 @@ function Billboard() {
               ← Back to Admin
             </button>
           )}
-          <button className="btn-icon" onClick={handleManualRefresh} title="Refresh Now" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            🔄 <span style={{fontSize: '1rem', fontWeight: 500}}>Refresh</span>
+          <button 
+            className="btn-icon" 
+            onClick={handleManualRefresh} 
+            disabled={isRefreshing}
+            title={isRefreshing ? "Refreshing..." : "Refresh Now"} 
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              opacity: isRefreshing ? 0.6 : 1,
+              cursor: isRefreshing ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isRefreshing ? '⏳' : '🔄'} 
+            <span style={{fontSize: '1rem', fontWeight: 500}}>
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </span>
           </button>
           <button
             className="btn-icon"
@@ -307,6 +358,17 @@ function Billboard() {
       </div>
       
       <div className="billboard-content">
+        {isRefreshing && (
+          <div className="refreshing-indicator" style={{
+            textAlign: 'center',
+            padding: '20px',
+            color: '#666',
+            fontSize: '1.1rem'
+          }}>
+            ⏳ Refreshing data...
+          </div>
+        )}
+        
         {Object.keys(groupedArrivals).length > 0 ? (
           Object.entries(groupedArrivals).map(([securityCode, households]) => (
             <div key={securityCode} className="security-code-section">
