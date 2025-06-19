@@ -57,28 +57,6 @@ function Billboard() {
     }
   }, []);
 
-  // Check for billboard updates
-  const checkBillboardUpdates = useCallback(async () => {
-    try {
-      const response = await api.get('/billboard-updates', {
-        params: {
-          lastUpdate: globalBillboardState?.lastUpdated,
-          eventId: eventId
-        }
-      });
-      
-      const { hasUpdates, lastUpdated, activeBillboard } = response.data;
-      
-      if (hasUpdates && activeBillboard) {
-        console.log('Billboard updates detected, refreshing data...');
-        setGlobalBillboardState({ activeBillboard, lastUpdated });
-        await refreshData();
-      }
-    } catch (error) {
-      console.error('Error checking billboard updates:', error);
-    }
-  }, [globalBillboardState?.lastUpdated, eventId, refreshData]);
-  
   // Function to refresh the arrival data
   const refreshData = useCallback(async () => {
     if (!eventId || !securityCodes || !securityCodes.length) {
@@ -101,6 +79,28 @@ function Billboard() {
       }
     }
   }, [eventId, securityCodes, navigate]);
+
+  // Check for billboard updates
+  const checkBillboardUpdates = useCallback(async () => {
+    try {
+      const response = await api.get('/billboard-updates', {
+        params: {
+          lastUpdate: globalBillboardState?.lastUpdated,
+          eventId: eventId
+        }
+      });
+      
+      const { hasUpdates, lastUpdated, activeBillboard } = response.data;
+      
+      if (hasUpdates && activeBillboard) {
+        console.log('Billboard updates detected, refreshing data...');
+        setGlobalBillboardState({ activeBillboard, lastUpdated });
+        await refreshData();
+      }
+    } catch (error) {
+      console.error('Error checking billboard updates:', error);
+    }
+  }, [globalBillboardState?.lastUpdated, eventId, refreshData]);
   
   // Initial setup and authentication check
   useEffect(() => {
