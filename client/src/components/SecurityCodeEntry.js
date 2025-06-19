@@ -161,7 +161,7 @@ function SecurityCodeEntry() {
               📺 View Pickup Billboard
             </a>
             <a 
-              href="/location-billboard" 
+              href="/location-status" 
               style={{ 
                 color: '#1976d2', 
                 textDecoration: 'none',

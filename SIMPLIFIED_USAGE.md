@@ -54,7 +54,8 @@ This system provides a streamlined way for volunteers to manage child pickup not
 
 - **Check-In Station**: `http://your-domain/security-code-entry`
 - **Pickup Billboard**: `http://your-domain/billboard`
-- **Location Status**: `http://your-domain/location-billboard`
+- **Location Status**: `http://your-domain/location-status`
+- **Admin Panel**: `http://your-domain/admin` (requires login)
 
 ## Setup
 

@@ -1,47 +1,148 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import NavBar from './NavBar';
+import { useSession } from '../context/SessionContext';
 
 function LocationBillboard() {
-  const [locations, setLocations] = useState([]);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { loading: sessionLoading } = useSession();
+  const [checkIns, setCheckIns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [authStatus, setAuthStatus] = useState(null);
 
-  // Fetch all locations with remaining children
-  const fetchLocations = async () => {
+  // Get data from location.state or query params
+  const state = location.state || {};
+  const eventId = state.eventId;
+  const locationId = state.locationId;
+  const locationName = state.locationName;
+  const eventName = state.eventName;
+  const date = state.date;
+
+  // Check authentication status
+  const checkAuthStatus = useCallback(async () => {
     try {
-      const response = await api.get('/location-status');
-      setLocations(response.data);
-      setLastUpdated(new Date());
+      const response = await api.get('/auth-status');
+      const newAuthStatus = response.data;
+      setAuthStatus(newAuthStatus);
+      
+      if (!newAuthStatus.authenticated) {
+        navigate('/');
+        return false;
+      }
+      return true;
     } catch (error) {
-      console.error('Error fetching location status:', error);
+      console.error('Auth check failed:', error);
+      navigate('/');
+      return false;
+    }
+  }, [navigate]);
+
+  // Fetch check-ins for the location
+  const fetchCheckIns = useCallback(async () => {
+    if (!eventId || !locationId || !date) return;
+    
+    // Check authentication first
+    const isAuthenticated = await checkAuthStatus();
+    if (!isAuthenticated) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get(
+        `/events/${eventId}/locations/${locationId}/active-checkins`,
+        { params: { date } }
+      );
+      
+      // Handle rate limiting response
+      if (response.status === 429) {
+        console.log('LocationBillboard: Rate limited, skipping check-ins fetch');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Received check-ins from backend:', response.data);
+      setCheckIns(response.data);
+      setLastUpdated(new Date());
+    } catch (err) {
+      setError('Failed to fetch active check-ins for this location.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId, locationId, date, checkAuthStatus]);
 
-  // Initial load
+  // Initial setup
   useEffect(() => {
-    fetchLocations();
-  }, []);
+    const initializeComponent = async () => {
+      const isAuthenticated = await checkAuthStatus();
+      if (isAuthenticated) {
+        await fetchCheckIns();
+      }
+    };
+    
+    if (!sessionLoading) {
+      initializeComponent();
+    }
+  }, [sessionLoading, checkAuthStatus, fetchCheckIns]);
 
-  // Simple polling every 30 seconds
+  // Set up auto-refresh with authentication checks
   useEffect(() => {
-    const interval = setInterval(fetchLocations, 30000);
+    const interval = setInterval(async () => {
+      console.log('LocationBillboard: Starting periodic refresh cycle...');
+      
+      try {
+        const isAuthenticated = await checkAuthStatus();
+        console.log('LocationBillboard: Authentication check result:', isAuthenticated);
+        
+        if (isAuthenticated) {
+          console.log('LocationBillboard: User authenticated, fetching check-ins...');
+          await fetchCheckIns();
+          console.log('LocationBillboard: Refresh cycle completed');
+        } else {
+          console.log('LocationBillboard: User not authenticated, skipping refresh');
+        }
+      } catch (error) {
+        console.error('LocationBillboard: Error during refresh cycle:', error);
+        // Don't throw the error, just log it and continue
+      }
+    }, 300000); // Increased from 120 seconds to 300 seconds (5 minutes) to reduce API calls further
+    
     return () => clearInterval(interval);
-  }, []);
+  }, [checkAuthStatus, fetchCheckIns]);
 
-  const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+  // Back to admin, preserve selection
+  const handleBack = () => {
+    navigate('/admin', {
+      state: {
+        eventId,
+        selectedLocation: locationId,
+        locationName,
+        eventName,
+        fromLocationBillboard: true,
+        securityCodes: state.securityCodes || [],
+        existingSecurityCodes: state.existingSecurityCodes || [],
+        selectedDate: date
+      }
     });
   };
 
-  // Sort locations by number of children (descending)
-  const sortedLocations = [...locations].sort((a, b) => b.childCount - a.childCount);
+  if (sessionLoading) {
+    return (
+      <div className="container">
+        <div className="loading-message">
+          <h2>Loading...</h2>
+          <p>Checking authentication status</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="billboard-container">
+      <NavBar currentPage="location-billboard" />
       <div className="billboard-header">
         <div className="billboard-title">
           <div className="billboard-logo">
@@ -50,96 +151,65 @@ function LocationBillboard() {
               alt="Logo"
               className="church-logo-billboard"
             />
-            <h1>Location Status Overview</h1>
+            <h1>Active Check-Ins: {locationName || 'Location'}{eventName ? ` (${eventName})` : ''}</h1>
           </div>
           <div className="billboard-status">
             <div className="last-updated">
-              {loading ? 'Loading...' : `Last updated: ${formatTime(lastUpdated)}`}
+              {loading ? 'Updating...' : `Last updated: ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
             </div>
-            <div className="total-children">
-              {locations.reduce((total, loc) => total + loc.childCount, 0)} total children in care
+            {error && <div className="refresh-error">{error}</div>}
+            <div className="security-code-count">
+              Monitoring {checkIns.length} check-in{checkIns.length !== 1 ? 's' : ''}
             </div>
+            {authStatus?.user && (
+              <div className="user-info" style={{ fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.7)', marginTop: '4px' }}>
+                Logged in as: {authStatus.user.name}
+              </div>
+            )}
           </div>
         </div>
         <div className="billboard-controls">
-          <button 
-            className="btn-icon" 
-            onClick={fetchLocations} 
-            title="Refresh Now"
-            disabled={loading}
-          >
+          <button className="btn-primary" onClick={handleBack} style={{ marginRight: 8 }}>
+            ← Back to Admin
+          </button>
+          <button className="btn-icon" onClick={fetchCheckIns} title="Refresh Now">
             🔄
           </button>
         </div>
       </div>
-
       <div className="billboard-content">
-        {loading ? (
-          <div className="loading-message">
-            <h2>Loading location status...</h2>
-          </div>
-        ) : sortedLocations.length > 0 ? (
-          <div className="locations-grid">
-            {sortedLocations.map((location) => (
-              <div key={location.id} className="location-card">
-                <div className="location-header">
-                  <h2 className="location-name">{location.name}</h2>
-                  <div className="child-count-badge">
-                    {location.childCount} child{location.childCount !== 1 ? 'ren' : ''}
-                  </div>
-                </div>
-                
-                {location.childCount > 0 ? (
-                  <div className="children-list">
-                    {location.children.map((child) => (
-                      <div key={child.id} className="child-item">
-                        <div className="child-info">
-                          <span className="child-name">{child.name}</span>
-                          <span className="checkin-time">
-                            ⏰ {formatTime(child.checkInTime)}
-                          </span>
-                        </div>
-                        <div className="security-code">
-                          {child.securityCode}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="no-children">
-                    <p>No children currently in this location</p>
-                  </div>
-                )}
-              </div>
-            ))}
+        {checkIns.length > 0 ? (
+          <table className="arrivals-table">
+            <thead>
+              <tr>
+                <th>Security Code</th>
+                <th>Name</th>
+                <th>Check-In Time</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              {checkIns.map(ci => (
+                <tr key={ci.id}>
+                  <td style={{ fontWeight: 700, color: '#6db56d', fontSize: 22 }}>{ci.security_code || '-'}</td>
+                  <td style={{ fontWeight: 700, color: '#2e77bb' }}>{ci.name || '-'}</td>
+                  <td>{ci.created_at ? new Date(ci.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                  <td>{ci.location_name || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : loading ? (
+          <div className="no-arrivals">
+            <h2>Loading...</h2>
+            <p>Fetching active check-ins for this location.</p>
           </div>
         ) : (
-          <div className="no-locations">
-            <h2>No Active Locations</h2>
-            <p>No children are currently checked in to any locations.</p>
+          <div className="no-arrivals">
+            <h2>No Active Check-Ins</h2>
+            <p>There are currently no active check-ins for this location.</p>
           </div>
         )}
-      </div>
-
-      <div style={{ 
-        marginTop: '30px', 
-        textAlign: 'center',
-        padding: '20px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '8px',
-        maxWidth: '600px',
-        margin: '30px auto 0'
-      }}>
-        <h3 style={{ marginBottom: '15px', color: '#333' }}>Location Status Instructions:</h3>
-        <div style={{ textAlign: 'left', fontSize: '14px', color: '#666' }}>
-          <ul style={{ margin: 0, paddingLeft: '20px' }}>
-            <li>This page shows all locations with children currently checked in</li>
-            <li>Locations are sorted by number of children (most first)</li>
-            <li>When parents arrive, children will appear on the pickup billboard</li>
-            <li>Once checked out, children will be removed from both displays</li>
-            <li>Data refreshes automatically every 30 seconds</li>
-          </ul>
-        </div>
       </div>
     </div>
   );
