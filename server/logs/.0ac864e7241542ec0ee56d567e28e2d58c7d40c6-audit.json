@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/jeremysilbernagel/Documents/pco-arrivals-billboard/server/logs/.0ac864e7241542ec0ee56d567e28e2d58c7d40c6-audit.json",
+    "files": [
+        {
+            "date": 1750866204432,
+            "name": "/Users/jeremysilbernagel/Documents/pco-arrivals-billboard/server/logs/application-2025-06-25.log",
+            "hash": "640411c0525c1ca9b4b08cc96ed481fbfa7a4a4c2a2bf08a63c43cc137e142a9"
+        }
+    ],
+    "hashType": "sha256"
+}

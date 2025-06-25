@@ -13,6 +13,7 @@ function LocationBillboard() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [authStatus, setAuthStatus] = useState(null);
+  const [globalBillboard, setGlobalBillboard] = useState(null);
 
   // Get data from location.state or query params
   const state = location.state || {};
@@ -112,6 +113,20 @@ function LocationBillboard() {
     
     return () => clearInterval(interval);
   }, [checkAuthStatus, fetchCheckIns]);
+
+  useEffect(() => {
+    const fetchGlobalBillboard = async () => {
+      try {
+        const response = await api.get('/global-billboard');
+        setGlobalBillboard(response.data.activeBillboard || null);
+      } catch (error) {
+        setGlobalBillboard(null);
+      }
+    };
+    fetchGlobalBillboard();
+    const interval = setInterval(fetchGlobalBillboard, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Back to admin, preserve selection
   const handleBack = () => {

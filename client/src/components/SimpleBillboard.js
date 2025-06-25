@@ -10,6 +10,7 @@ function SimpleBillboard() {
   const fetchActiveNotifications = async () => {
     try {
       const response = await api.get('/active-notifications');
+      console.log('SimpleBillboard: Received notifications:', response.data);
       setActiveNotifications(response.data);
       setLastUpdated(new Date());
     } catch (error) {
@@ -24,9 +25,9 @@ function SimpleBillboard() {
     fetchActiveNotifications();
   }, []);
 
-  // Simple polling every 30 seconds
+  // Polling every 10 seconds for faster updates
   useEffect(() => {
-    const interval = setInterval(fetchActiveNotifications, 30000);
+    const interval = setInterval(fetchActiveNotifications, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -76,38 +77,50 @@ function SimpleBillboard() {
             <h2>Loading pickup requests...</h2>
           </div>
         ) : activeNotifications.length > 0 ? (
-          <div className="notifications-grid">
-            {activeNotifications.map((notification) => (
-              <div key={notification.id} className="notification-card">
-                <div className="security-code-display">
-                  {notification.securityCode}
-                </div>
-                <div className="child-info">
-                  <div className="child-name">
-                    {notification.childName}
+          <div className="locations-grid" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginTop: '2rem' }}>
+            {(() => {
+              // Group notifications by location
+              const locationGroups = {};
+              activeNotifications.forEach(notification => {
+                const loc = notification.locationName || 'Unknown Location';
+                if (!locationGroups[loc]) locationGroups[loc] = [];
+                locationGroups[loc].push(notification);
+              });
+              return Object.entries(locationGroups).map(([locationName, notifications]) => (
+                <div key={locationName} style={{ width: '100%' }}>
+                  <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#2e77bb', marginBottom: '1.2rem', letterSpacing: '1px', textAlign: 'left', borderBottom: '3px solid #2e77bb', paddingBottom: '0.5rem' }}>
+                    {locationName}
                   </div>
-                  <div className="location-info">
-                    📍 {notification.locationName}
-                  </div>
-                  <div className="notification-time">
-                    ⏰ Requested at: {formatTime(notification.notifiedAt)}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {notifications.map((notification, idx) => (
+                      <div key={notification.id + '-' + idx} className="notification-card" style={{
+                        background: '#fff',
+                        border: '3px solid #e0e7ef',
+                        borderRadius: '16px',
+                        boxShadow: '0 4px 16px rgba(46,119,187,0.08)',
+                        padding: '1.2rem 2rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        minHeight: '80px',
+                        width: '100%',
+                        gap: '2rem',
+                      }}>
+                        <div style={{ fontSize: '2rem', fontWeight: 900, color: '#101828', flex: 1, textAlign: 'left' }}>
+                          {notification.childName}
+                        </div>
+                        <div style={{ fontSize: '2rem', fontWeight: 800, color: '#2e77bb', flex: 1, textAlign: 'center', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                          {notification.securityCode}
+                        </div>
+                        <div style={{ fontSize: '2rem', color: '#888', fontWeight: 500, flex: 1, textAlign: 'right' }}>
+                          {notification.notifiedAt ? formatTime(notification.notifiedAt) : ''}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="pickup-instructions" style={{
-                  marginTop: '12px',
-                  padding: '8px 12px',
-                  backgroundColor: '#fff3cd',
-                  border: '1px solid #ffeaa7',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  color: '#856404',
-                  textAlign: 'center',
-                  fontWeight: '500'
-                }}>
-                  🚶‍♀️ Please bring to pickup area
-                </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         ) : (
           <div className="no-notifications">

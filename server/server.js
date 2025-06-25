@@ -15,6 +15,12 @@ const swaggerSpec = require('./config/swagger');
 const MongoStore = require('connect-mongo');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
+const { requireAuth, requireAuthOnly } = require('./middleware/auth');
+
+// Import routes
+const billboardRoutes = require('./routes/billboard.routes');
+const authRoutes = require('./routes/auth.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 // Create Express app instance
 const app = express();
@@ -105,7 +111,25 @@ function updateCheckInCache(eventId, data) {
 
 // Middleware
 app.use(cors({
-  origin: 'https://arrivals.gracefm.org',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Define allowed origins
+    const allowedOrigins = [
+      'https://arrivals.gracefm.org',
+      'http://localhost:3000',
+      'http://localhost:3001'
+    ];
+    
+    // Check if origin is allowed
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -121,9 +145,10 @@ app.use(session({
     collectionName: 'sessions'
   }),
   cookie: { 
-    secure: true,
-    sameSite: 'none',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    secure: process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true', // Use secure in production or when forced
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Use 'none' only in production, 'lax' in development
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    httpOnly: true
   }
 }));
 
@@ -156,27 +181,7 @@ if (AUTHORIZED_USER_IDS.length > 0) {
 }
 
 // Authentication middleware
-function requireAuth(req, res, next) {
-  if (!req.session.accessToken) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-  
-  // Check if user is authorized (admin)
-  if (!req.session.user || !req.session.user.isAdmin) {
-    return res.status(403).json({ error: 'Not authorized' });
-  }
-  
-  next();
-}
-
-// Middleware that only requires authentication (not admin access)
-function requireAuthOnly(req, res, next) {
-  if (!req.session.accessToken) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-  
-  next();
-}
+// (removed requireAuth and requireAuthOnly, now imported from middleware/auth.js)
 
 // Utility function to ensure token is valid
 async function ensureValidToken(req) {
@@ -223,10 +228,20 @@ async function ensureValidToken(req) {
   return req.session.accessToken;
 }
 
-// Routes
+// Mount routes
+app.use('/api/billboard', billboardRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Auth status endpoint
 app.get('/api/auth-status', (req, res) => {
+  console.log('Auth status check - Session:', {
+    hasAccessToken: !!req.session.accessToken,
+    hasUser: !!req.session.user,
+    userIsAdmin: req.session.user?.isAdmin,
+    sessionId: req.sessionID
+  });
+  
   const isAuthenticated = !!req.session.accessToken;
   const userData = req.session.user || null;
   
@@ -297,12 +312,17 @@ app.get('/api/auth/pco', (req, res) => {
   res.redirect(authUrl);
 });
 
-app.get('/api/auth/callback', async (req, res) => {
+// Add the callback route without /api prefix for Planning Center redirects
+app.get('/auth/callback', async (req, res) => {
+  console.log('🔵 /auth/callback hit with query:', req.query);
   const { code } = req.query;
   
   if (!code) {
+    console.log('❌ No authorization code provided');
     return res.status(400).send('Authorization code missing');
   }
+  
+  console.log('🟢 Processing authorization code:', code.substring(0, 10) + '...');
   
   try {
     // Form data for token request
@@ -313,6 +333,7 @@ app.get('/api/auth/callback', async (req, res) => {
     params.append('client_secret', CLIENT_SECRET);
     params.append('redirect_uri', REDIRECT_URI);
     
+    console.log('🟢 Exchanging code for token...');
     const tokenResponse = await axios.post(
       'https://api.planningcenteronline.com/oauth/token', 
       params.toString(),
@@ -322,6 +343,8 @@ app.get('/api/auth/callback', async (req, res) => {
         }
       }
     );
+    
+    console.log('🟢 Token exchange successful');
     
     // Store tokens in session
     req.session.accessToken = tokenResponse.data.access_token;
@@ -335,6 +358,7 @@ app.get('/api/auth/callback', async (req, res) => {
     
     // Fetch user information
     try {
+      console.log('🟢 Fetching user information...');
       const userResponse = await axios.get('https://api.planningcenteronline.com/people/v2/me', {
         headers: {
           'Authorization': `Bearer ${req.session.accessToken}`,
@@ -354,6 +378,8 @@ app.get('/api/auth/callback', async (req, res) => {
         isAdmin: false // Default to non-admin
       };
       
+      console.log('🟢 User data fetched:', req.session.user.name, 'ID:', userId);
+      
       // Check if user is authorized
       const isAuthorized = authorizedUsers.some(user => user.id === userId);
       
@@ -366,13 +392,14 @@ app.get('/api/auth/callback', async (req, res) => {
         });
         req.session.user.isAdmin = true; // First user becomes admin
         
-        console.log(`First user automatically authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
-        console.log('CLIENT_URL:', process.env.CLIENT_URL);
+        console.log(`🟢 First user automatically authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
+        console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
         return req.session.save((err) => {
           if (err) {
-            console.error('Session save error:', err);
+            console.error('❌ Session save error:', err);
             return res.status(500).send('Session save failed');
           }
+          console.log('🟢 Session saved, redirecting to /api/auth/success');
           res.redirect('/api/auth/success');
         });
       }
@@ -392,49 +419,62 @@ app.get('/api/auth/callback', async (req, res) => {
         }
         
         req.session.user.isAdmin = true; // All authorized users are admins for simplicity
-        console.log(`User authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
+        console.log(`🟢 User authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         
         // Redirect to admin panel
-        console.log('CLIENT_URL:', process.env.CLIENT_URL);
+        console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
         return req.session.save((err) => {
           if (err) {
-            console.error('Session save error:', err);
+            console.error('❌ Session save error:', err);
             return res.status(500).send('Session save failed');
           }
+          console.log('🟢 Session saved, redirecting to /api/auth/success');
           res.redirect('/api/auth/success');
         });
       } else {
-        console.log(`User not authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
+        console.log(`🟡 User not authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         
         // Unauthorized user
         req.session.user.isAdmin = false;
-        console.log('CLIENT_URL:', process.env.CLIENT_URL);
+        console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
         return req.session.save((err) => {
           if (err) {
-            console.error('Session save error:', err);
+            console.error('❌ Session save error:', err);
             return res.status(500).send('Session save failed');
           }
+          console.log('🟢 Session saved, redirecting to /api/auth/success');
           res.redirect('/api/auth/success');
         });
       }
     } catch (userError) {
-      console.error('Failed to fetch user data:', userError.response?.data || userError.message);
+      console.error('❌ Failed to fetch user data:', userError.response?.data || userError.message);
       req.session.destroy();
       res.status(500).send('Authentication successful but failed to retrieve user data. Please try again.');
     }
   } catch (error) {
-    console.error('OAuth Error:', error.response?.data || error.message);
+    console.error('❌ OAuth Error:', error.response?.data || error.message);
     res.status(500).send(`Authentication failed: ${error.message}`);
   }
 });
 
+// Keep the API callback route for backward compatibility but make it redirect to the main callback
+app.get('/api/auth/callback', async (req, res) => {
+  console.log('🟡 /api/auth/callback hit - redirecting to /auth/callback');
+  const queryString = req.url.split('?')[1] || '';
+  res.redirect(`/auth/callback?${queryString}`);
+});
+
 // Intermediate success route to set cookie and redirect to client
 app.get('/api/auth/success', (req, res) => {
+  console.log('🟡 /api/auth/success hit');
+  console.log('🟡 Session user:', req.session.user);
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+  console.log('🟡 Redirecting to client URL:', clientUrl + '/admin');
   res.send(`
     <html>
       <body>
         <script>
-          window.location.href = '/admin';
+          window.location.href = '${clientUrl}/admin';
         </script>
       </body>
     </html>
@@ -451,8 +491,8 @@ app.get('/api/auth/logout', (req, res) => {
     // Clear any additional cookies
     res.clearCookie('connect.sid');
     
-    console.log('CLIENT_URL:', process.env.CLIENT_URL);
-    res.redirect('/api/auth/success');
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    res.redirect(`${clientUrl}/login`);
   });
 });
 
@@ -1063,8 +1103,8 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
       nextPage = links && links.next ? links.next : null;
     }
 
-    console.log('[PCO API] First 2 raw check-ins from PCO:', JSON.stringify(allCheckIns.slice(0,2), null, 2));
-    console.log(`[PCO API] Total check-ins returned from PCO: ${allCheckIns.length}`);
+    console.log(`[DEBUG] PCO returned check-ins:`, JSON.stringify(allCheckIns, null, 2));
+    console.log(`[DEBUG] PCO returned ${allCheckIns.length} check-ins`);
     const locationCount = allIncluded.filter(item => item.type === 'Location').length;
     console.log(`[PCO API] Total locations in 'included': ${locationCount}`);
 
@@ -1110,8 +1150,65 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
   }
 });
 
+// Get all active check-ins
+app.get('/api/check-ins', requireAuth, async (req, res) => {
+  try {
+    const { locationId } = req.query;
+    
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    // Get check-ins from PCO API
+    const response = await axios.get(`${PCO_API_BASE}/check_ins?include=person,locations`, {
+      auth: {
+        username: process.env.PCO_ACCESS_TOKEN,
+        password: process.env.PCO_ACCESS_SECRET
+      },
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    const allCheckIns = response.data.data;
+    const allIncluded = response.data.included || [];
+
+    // Build a map of locationId -> locationName
+    const locationMap = {};
+    allIncluded
+      .filter(item => item.type === 'Location')
+      .forEach(loc => {
+        locationMap[loc.id] = loc.attributes.name;
+      });
+
+    // Format check-ins, filtering by locationId and only active (not checked out)
+    const formatted = allCheckIns
+      .filter(ci =>
+        !ci.attributes.checked_out_at && // Only active check-ins
+        Array.isArray(ci.relationships?.locations?.data) &&
+        ci.relationships.locations.data.some(loc => loc.id === locationId)
+      )
+      .map(ci => {
+        const locId = ci.relationships.locations.data.find(loc => loc.id === locationId)?.id || null;
+        return {
+          id: ci.id,
+          security_code: ci.attributes.security_code,
+          name: ci.attributes.person_name || [ci.attributes.first_name, ci.attributes.last_name].filter(Boolean).join(' ') || 'Unknown',
+          created_at: ci.attributes.created_at,
+          location_id: locId,
+          location_name: locId ? locationMap[locId] || 'Unknown' : 'Unknown'
+        };
+      });
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching check-ins:', error);
+    res.status(500).json({ error: 'Failed to fetch check-ins' });
+  }
+});
+
 // Global billboard state endpoints
-app.get('/api/global-billboard', requireAuthOnly, (req, res) => {
+app.get('/api/global-billboard', (req, res) => {
   try {
     res.json(globalBillboardState);
   } catch (error) {
@@ -1223,72 +1320,69 @@ app.post('/api/security-code-entry', async (req, res) => {
     const checkIns = checkInResponse.data.data;
     const included = checkInResponse.data.included || [];
 
-    // Find active (not checked out) check-ins
-    const activeCheckIn = checkIns.find(checkIn => !checkIn.attributes.checked_out_at);
+    // Find all active (not checked out) check-ins
+    const activeCheckIns = checkIns.filter(checkIn => !checkIn.attributes.checked_out_at);
 
-    if (!activeCheckIn) {
+    if (activeCheckIns.length === 0) {
       return res.json({ 
         success: false, 
         message: 'No active check-in found with this security code. The child may have already been checked out.' 
       });
     }
 
-    // Get person and location information
-    const person = included.find(item => 
-      item.type === 'Person' && 
-      item.id === activeCheckIn.relationships.person?.data?.id
-    );
+    const addedChildren = [];
+    for (const activeCheckIn of activeCheckIns) {
+      // Get person and location information
+      const person = included.find(item => 
+        item.type === 'Person' && 
+        item.id === activeCheckIn.relationships.person?.data?.id
+      );
+      const location = included.find(item =>
+        item.type === 'Location' &&
+        item.id === activeCheckIn.relationships.locations?.data?.[0]?.id
+      );
+      const childName = person ? 
+        `${person.attributes.first_name} ${person.attributes.last_name}` : 
+        'Unknown Child';
+      const locationName = location?.attributes?.name || 'Unknown Location';
+      // Check if notification already exists
+      const existingNotification = activeNotifications.find(n => 
+        n.checkInId === activeCheckIn.id
+      );
+      if (!existingNotification) {
+        // Create new notification
+        const notification = {
+          id: Date.now().toString() + Math.floor(Math.random() * 10000),
+          checkInId: activeCheckIn.id,
+          securityCode: securityCode.toUpperCase(),
+          childName,
+          locationName,
+          notifiedAt: new Date().toISOString(),
+          checkInTime: activeCheckIn.attributes.created_at,
+          personId: person?.id,
+          locationId: location?.id
+        };
+        activeNotifications.push(notification);
+        addedChildren.push({ childName, locationName });
+        console.log(`New pickup request: ${childName} (${securityCode}) from ${locationName}`);
+      }
+    }
 
-    const location = included.find(item =>
-      item.type === 'Location' &&
-      item.id === activeCheckIn.relationships.locations?.data?.[0]?.id
-    );
-
-    const childName = person ? 
-      `${person.attributes.first_name} ${person.attributes.last_name}` : 
-      'Unknown Child';
-
-    const locationName = location?.attributes?.name || 'Unknown Location';
-
-    // Check if notification already exists
-    const existingNotification = activeNotifications.find(n => 
-      n.checkInId === activeCheckIn.id
-    );
-
-    if (existingNotification) {
-      return res.json({ 
+    if (addedChildren.length > 0) {
+      res.json({ 
+        success: true, 
+        addedChildren,
+        message: `${addedChildren.length} child(ren) have been added to the pickup list.` 
+      });
+    } else {
+      res.json({ 
         success: false, 
-        message: `${childName} is already on the pickup list` 
+        message: 'All children with this security code are already on the pickup list.' 
       });
     }
 
-    // Create new notification
-    const notification = {
-      id: Date.now().toString(),
-      checkInId: activeCheckIn.id,
-      securityCode: securityCode.toUpperCase(),
-      childName,
-      locationName,
-      notifiedAt: new Date().toISOString(),
-      checkInTime: activeCheckIn.attributes.created_at,
-      personId: person?.id,
-      locationId: location?.id
-    };
-
-    activeNotifications.push(notification);
-
-    console.log(`New pickup request: ${childName} (${securityCode}) from ${locationName}`);
-
-    res.json({ 
-      success: true, 
-      childName,
-      locationName,
-      message: `${childName} has been added to the pickup list` 
-    });
-
   } catch (error) {
     console.error('Error processing security code entry:', error);
-    
     if (error.response?.status === 429) {
       res.status(429).json({ 
         success: false, 
@@ -1304,8 +1398,63 @@ app.post('/api/security-code-entry', async (req, res) => {
 });
 
 // GET /api/active-notifications - Get all active notifications
-app.get('/api/active-notifications', (req, res) => {
+app.get('/api/active-notifications', async (req, res) => {
   try {
+    console.log(`[DEBUG] /api/active-notifications called with ${activeNotifications.length} notifications`);
+    
+    // Filter out checked-out children in real-time
+    if (activeNotifications.length > 0) {
+      const checkInIds = activeNotifications.map(n => n.checkInId);
+      console.log(`[DEBUG] Checking PCO for ${checkInIds.length} check-in IDs:`, checkInIds);
+      try {
+        // Fetch each check-in individually
+        const checkInResults = await Promise.all(
+          checkInIds.map(async (id) => {
+            try {
+              const resp = await axios.get(
+                `${PCO_API_BASE}/check_ins/${id}`,
+                {
+                  auth: {
+                    username: process.env.PCO_ACCESS_TOKEN,
+                    password: process.env.PCO_ACCESS_SECRET
+                  },
+                  headers: { 'Accept': 'application/json' }
+                }
+              );
+              return resp.data.data;
+            } catch (err) {
+              console.error(`[DEBUG] Error fetching check-in ${id}:`, err.message);
+              return null;
+            }
+          })
+        );
+        // Remove checked-out check-ins
+        const checkedOutIds = checkInResults
+          .filter(ci => ci && ci.attributes && ci.attributes.checked_out_at)
+          .map(ci => ci.id);
+        console.log(`[DEBUG] Individually found ${checkedOutIds.length} checked-out check-ins:`, checkedOutIds);
+        if (checkedOutIds.length > 0) {
+          const beforeCount = activeNotifications.length;
+          activeNotifications = activeNotifications.filter(n => 
+            !checkedOutIds.includes(n.checkInId)
+          );
+          const afterCount = activeNotifications.length;
+          if (beforeCount !== afterCount) {
+            console.log(`[DEBUG] Removed ${beforeCount - afterCount} notifications for checked-out children (individual fetch)`);
+          } else {
+            console.log(`[DEBUG] No notifications were removed despite finding checked-out check-ins`);
+          }
+        } else {
+          console.log(`[DEBUG] No checked-out check-ins found (individual fetch)`);
+        }
+      } catch (apiError) {
+        console.error('[DEBUG] Error checking PCO for checked-out children (individual fetch):', apiError.message);
+        // Continue with existing notifications if API call fails
+      }
+    } else {
+      console.log(`[DEBUG] No active notifications to check`);
+    }
+    console.log(`[DEBUG] Returning ${activeNotifications.length} notifications`);
     res.json(activeNotifications);
   } catch (error) {
     console.error('Error getting active notifications:', error);
@@ -1344,7 +1493,7 @@ app.post('/api/checkout-notification', async (req, res) => {
   }
 });
 
-// Cleanup old notifications and check for checked-out children (run every 2 minutes)
+// Cleanup old notifications and check for checked-out children (run every 1 minute)
 setInterval(async () => {
   try {
     const currentTime = new Date();
@@ -1401,14 +1550,23 @@ setInterval(async () => {
   } catch (error) {
     console.error('Error in cleanup interval:', error);
   }
-}, 2 * 60 * 1000); // 2 minutes
+}, 1 * 60 * 1000); // 1 minute
 
-// GET /api/location-status - Get all locations with remaining children
+// GET /api/location-status - Get all locations with remaining children for a specific event/date
 app.get('/api/location-status', async (req, res) => {
   try {
-    // Get all active check-ins
-    const checkInResponse = await axios.get(
-      `${PCO_API_BASE}/check_ins?where[checked_out_at]=null&include=person,locations`, {
+    console.log(`[DEBUG] /api/location-status called`);
+    const { eventId, date } = req.query;
+    if (!eventId) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+    // Build the PCO API URL for the selected event and date
+    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations`;
+    if (date) {
+      url += `&where[created_at]=${date}`;
+    }
+    // Get all active check-ins for the event/date
+    const checkInResponse = await axios.get(url, {
       auth: {
         username: process.env.PCO_ACCESS_TOKEN,
         password: process.env.PCO_ACCESS_SECRET
@@ -1417,14 +1575,14 @@ app.get('/api/location-status', async (req, res) => {
         'Accept': 'application/json'
       }
     });
-
-    const checkIns = checkInResponse.data.data;
+    const checkIns = checkInResponse.data.data.filter(ci => !ci.attributes.checked_out_at);
     const included = checkInResponse.data.included || [];
-
     // Group check-ins by location
     const locationMap = new Map();
+    let checkInsWithLocations = 0;
+    let checkInsWithoutLocations = 0;
 
-    checkIns.forEach(checkIn => {
+    checkIns.forEach((checkIn, index) => {
       const location = included.find(item =>
         item.type === 'Location' &&
         item.id === checkIn.relationships.locations?.data?.[0]?.id
@@ -1436,6 +1594,7 @@ app.get('/api/location-status', async (req, res) => {
       );
 
       if (location && person) {
+        checkInsWithLocations++;
         const locationId = location.id;
         const locationName = location.attributes.name;
         
@@ -1456,12 +1615,34 @@ app.get('/api/location-status', async (req, res) => {
           securityCode: checkIn.attributes.security_code,
           checkInTime: checkIn.attributes.created_at
         });
+      } else {
+        checkInsWithoutLocations++;
+        if (index < 3) { // Log first 3 check-ins without locations
+          console.log(`[DEBUG] Location-status: Check-in ${index} has no location or person:`, {
+            checkInId: checkIn.id,
+            hasLocations: !!checkIn.relationships.locations,
+            locationData: checkIn.relationships.locations,
+            hasPerson: !!checkIn.relationships.person,
+            personData: checkIn.relationships.person
+          });
+        }
       }
     });
+
+    console.log(`[DEBUG] Location-status: Check-ins with locations: ${checkInsWithLocations}`);
+    console.log(`[DEBUG] Location-status: Check-ins without locations: ${checkInsWithoutLocations}`);
+    console.log(`[DEBUG] Location-status: Unique location IDs found:`, Array.from(locationMap.keys()));
+    console.log(`[DEBUG] Location-status: Location details:`, Array.from(locationMap.entries()).map(([id, data]) => ({
+      id,
+      name: data.name,
+      childCount: data.childCount
+    })));
 
     // Convert to array and sort by child count
     const locations = Array.from(locationMap.values())
       .sort((a, b) => b.childCount - a.childCount);
+
+    console.log(`[DEBUG] Location-status: Returning ${locations.length} locations with total ${locations.reduce((sum, loc) => sum + loc.childCount, 0)} children`);
 
     res.json(locations);
 
@@ -1473,6 +1654,31 @@ app.get('/api/location-status', async (req, res) => {
     } else {
       res.status(500).json({ error: 'Failed to fetch location status' });
     }
+  }
+});
+
+// POST /api/set-global-billboard - Set the global billboard state directly
+app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
+  try {
+    const { eventId, eventName, securityCodes, eventDate } = req.body;
+    
+    if (!eventId || !eventName) {
+      return res.status(400).json({ error: 'Event ID and Event Name are required' });
+    }
+    
+    const userId = req.session.user?.id;
+    const userName = req.session.user?.name;
+    
+    updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName);
+    
+    res.json({ 
+      success: true, 
+      message: 'Global billboard state updated successfully',
+      globalBillboardState 
+    });
+  } catch (error) {
+    console.error('Error setting global billboard state:', error);
+    res.status(500).json({ error: 'Failed to set global billboard state' });
   }
 });
 

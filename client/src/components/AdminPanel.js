@@ -23,6 +23,9 @@ function AdminPanel() {
   const [locations, setLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [globalBillboardState, setGlobalBillboardState] = useState(null);
+  const [checkIns, setCheckIns] = useState([]);
+  const [loadingCheckIns, setLoadingCheckIns] = useState(false);
+  const [checkInError, setCheckInError] = useState('');
 
   // Helper function to get today's date in YYYY-MM-DD format
   function getTodayDate() {
@@ -37,27 +40,29 @@ function AdminPanel() {
     }
   }, [session, sessionLoading, navigate]);
 
-  // Fetch global billboard state
+  // Helper to sync local state with global billboard
+  const syncWithGlobalBillboard = (global) => {
+    if (global?.activeBillboard) {
+      setActiveBillboard(global.activeBillboard);
+      setSelectedEvent(global.activeBillboard.eventId);
+      setSelectedDate(global.activeBillboard.eventDate || getTodayDate());
+      setExistingSecurityCodes(global.activeBillboard.securityCodes || []);
+    }
+  };
+
+  // Fetch global billboard state on mount and when returning from another page
   useEffect(() => {
-    const fetchGlobalBillboardState = async () => {
+    const fetchGlobalBillboard = async () => {
       try {
         const response = await api.get('/global-billboard');
         setGlobalBillboardState(response.data);
-        
-        // If there's an active global billboard, update local state
-        if (response.data.activeBillboard) {
-          setActiveBillboard(response.data.activeBillboard);
-          setSelectedEvent(response.data.activeBillboard.eventId);
-          setSelectedDate(response.data.activeBillboard.eventDate || getTodayDate());
-          setExistingSecurityCodes(response.data.activeBillboard.securityCodes || []);
-        }
+        syncWithGlobalBillboard(response.data);
       } catch (error) {
-        console.error('Error fetching global billboard state:', error);
+        setGlobalBillboardState(null);
       }
     };
-
     if (session?.authenticated) {
-      fetchGlobalBillboardState();
+      fetchGlobalBillboard();
     }
   }, [session]);
 
@@ -186,25 +191,96 @@ function AdminPanel() {
     fetchLocations();
   }, [selectedEvent]);
 
-  const handleDateChange = (e) => {
-    const newDate = e.target.value;
-    setSelectedDate(newDate);
-    setDisplayDate(formatSelectedDateForDisplay(newDate));
-  };
-
-  const handleAddSecurityCode = () => {
-    if (securityCode && !securityCodes.includes(securityCode) && !existingSecurityCodes.includes(securityCode)) {
-      setSecurityCodes([...securityCodes, securityCode]);
-      setSecurityCode('');
+  // Function to set global billboard state
+  const setGlobalState = async (eventId, eventName, securityCodes = [], eventDate) => {
+    if (eventId && eventName) {
+      try {
+        console.log('AdminPanel: Setting global state:', { eventId, eventName, securityCodes, eventDate });
+        await api.post('/set-global-billboard', {
+          eventId: eventId,
+          eventName: eventName,
+          securityCodes: securityCodes,
+          eventDate: eventDate
+        });
+        
+        // Re-fetch global state to ensure it's updated
+        const response = await api.get('/global-billboard');
+        console.log('AdminPanel: Global state updated:', response.data);
+        setGlobalBillboardState(response.data);
+        syncWithGlobalBillboard(response.data);
+      } catch (error) {
+        console.error('Failed to set global billboard state:', error);
+      }
     }
   };
 
-  const handleRemoveSecurityCode = (codeToRemove) => {
-    setSecurityCodes(securityCodes.filter(code => code !== codeToRemove));
+  const handleDateChange = async (e) => {
+    const newDate = e.target.value;
+    setSelectedDate(newDate);
+    setDisplayDate(formatSelectedDateForDisplay(newDate));
+    
+    // Update global state when date changes
+    if (selectedEvent) {
+      const eventName = events.find(e => e.id === selectedEvent)?.attributes?.name || 'Event';
+      const allSecurityCodes = [...new Set([...existingSecurityCodes, ...securityCodes])];
+      await setGlobalState(selectedEvent, eventName, allSecurityCodes, newDate);
+    }
   };
 
-  const handleRemoveExistingCode = (codeToRemove) => {
+  const handleEventChange = async (e) => {
+    const newEventId = e.target.value;
+    setSelectedEvent(newEventId);
+    
+    // Update global state when event changes
+    if (newEventId && selectedDate) {
+      const eventName = events.find(e => e.id === newEventId)?.attributes?.name || 'Event';
+      const allSecurityCodes = [...new Set([...existingSecurityCodes, ...securityCodes])];
+      await setGlobalState(newEventId, eventName, allSecurityCodes, selectedDate);
+    }
+  };
+
+  const handleAddSecurityCode = async () => {
+    if (securityCode && !securityCodes.includes(securityCode) && !existingSecurityCodes.includes(securityCode)) {
+      setSecurityCodes([...securityCodes, securityCode]);
+      
+      // Also create an actual notification record by calling the security-code-entry endpoint
+      try {
+        const response = await api.post('/security-code-entry', {
+          securityCode: securityCode.trim().toUpperCase(),
+          eventId: selectedEvent,
+          eventDate: selectedDate
+        });
+        
+        if (response.data.success) {
+          console.log(`Successfully created notification for ${response.data.childName}`);
+        } else {
+          console.log(`Security code entry failed: ${response.data.message}`);
+        }
+      } catch (error) {
+        console.error('Error creating notification record:', error);
+      }
+      
+      // After update, re-fetch global state
+      const response = await api.get('/global-billboard');
+      setGlobalBillboardState(response.data);
+      syncWithGlobalBillboard(response.data);
+    }
+  };
+
+  const handleRemoveSecurityCode = async (codeToRemove) => {
+    setSecurityCodes(securityCodes.filter(code => code !== codeToRemove));
+    // After update, re-fetch global state
+    const response = await api.get('/global-billboard');
+    setGlobalBillboardState(response.data);
+    syncWithGlobalBillboard(response.data);
+  };
+
+  const handleRemoveExistingCode = async (codeToRemove) => {
     setExistingSecurityCodes(existingSecurityCodes.filter(code => code !== codeToRemove));
+    // After update, re-fetch global state
+    const response = await api.get('/global-billboard');
+    setGlobalBillboardState(response.data);
+    syncWithGlobalBillboard(response.data);
   };
 
   const handleLaunchBillboard = async () => {
@@ -215,16 +291,11 @@ function AdminPanel() {
           return;
         }
         const eventName = events.find(e => e.id === selectedEvent)?.attributes?.name || 'Event';
-        const response = await api.post('/security-codes', {
-          eventId: selectedEvent,
-          securityCodes: allSecurityCodes,
-          eventName: eventName,
-          eventDate: selectedDate
-        });
+        
+        // Global state is already set when event/date changes, just navigate
         const locationObj = locations.find(l => l.id === selectedLocation);
         navigate('/billboard', { 
           state: { 
-            arrivals: response.data.filter(item => !item.error && !item.checkedOut),
             eventId: selectedEvent,
             securityCodes: allSecurityCodes,
             eventName: eventName,
@@ -247,6 +318,39 @@ function AdminPanel() {
       setExistingSecurityCodes([]);
     } catch (error) {
       console.error('Failed to clear billboard:', error);
+    }
+  };
+
+  const handleFetchCheckIns = async () => {
+    if (!selectedEvent) {
+      setCheckInError('Please select an event first.');
+      return;
+    }
+
+    setLoadingCheckIns(true);
+    setCheckInError('');
+    setCheckIns([]);
+
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append('eventId', selectedEvent);
+      if (selectedLocation) {
+        params.append('locationId', selectedLocation);
+      } else {
+        params.append('locationId', 'all');
+      }
+      if (selectedDate) {
+        params.append('date', selectedDate);
+      }
+      
+      const response = await api.get(`/billboard/check-ins?${params.toString()}`);
+      setCheckIns(response.data);
+    } catch (error) {
+      console.error('Error fetching check-ins:', error);
+      setCheckInError('Failed to fetch check-ins. Please try again.');
+    } finally {
+      setLoadingCheckIns(false);
     }
   };
 
@@ -298,7 +402,7 @@ function AdminPanel() {
           <div className="active-billboard-info">
             <span className="active-status">Active Billboard</span>
             <h3>{activeBillboard.eventName}</h3>
-            <p>{existingSecurityCodes.length} security codes added</p>
+            <p>{existingSecurityCodes.length + securityCodes.length} security code{(existingSecurityCodes.length + securityCodes.length) !== 1 ? 's' : ''} added</p>
             {globalBillboardState?.createdBy && (
               <p className="billboard-created-by">
                 Created by {globalBillboardState.createdBy.name} on{' '}
@@ -312,7 +416,7 @@ function AdminPanel() {
           <div className="active-billboard-actions">
             <button 
               className="btn-primary return-to-billboard"
-              onClick={handleLaunchBillboard}
+              onClick={() => navigate('/billboard')}
             >
               Return to Billboard
             </button>
@@ -360,7 +464,7 @@ function AdminPanel() {
             <select 
               id="event-select"
               value={selectedEvent} 
-              onChange={(e) => setSelectedEvent(e.target.value)}
+              onChange={handleEventChange}
               className="select-input"
             >
               <option value="">-- Select an Event --</option>
@@ -371,6 +475,18 @@ function AdminPanel() {
               ))}
             </select>
             <p className="event-count">Showing {events.length} active events</p>
+            {selectedEvent && selectedDate && (
+              <button 
+                onClick={async () => {
+                  const eventName = events.find(e => e.id === selectedEvent)?.attributes?.name || 'Event';
+                  await setGlobalState(selectedEvent, eventName, [], selectedDate);
+                }}
+                className="btn-primary"
+                style={{ marginTop: '16px' }}
+              >
+                Set as Active Event
+              </button>
+            )}
           </>
         ) : (
           <p className="no-events-message">No active events found for the selected date.</p>
@@ -477,26 +593,67 @@ function AdminPanel() {
             </select>
             <button
               className="btn-primary"
-              onClick={() => {
-                const eventObj = events.find(e => e.id === selectedEvent);
-                const locationObj = locations.find(l => l.id === selectedLocation);
-                navigate('/location-billboard', {
-                  state: {
-                    eventId: selectedEvent,
-                    locationId: selectedLocation,
-                    locationName: locationObj ? locationObj.attributes.name : '',
-                    eventName: eventObj ? eventObj.attributes.name : '',
-                    date: selectedDate,
-                    securityCodes,
-                    existingSecurityCodes
-                  }
-                });
-              }}
-              disabled={!selectedLocation}
+              onClick={handleFetchCheckIns}
+              disabled={!selectedLocation || loadingCheckIns}
               style={{ marginBottom: '16px' }}
             >
-              Fetch Active Check-Ins
+              {loadingCheckIns ? 'Loading...' : 'Fetch Active Check-Ins'}
             </button>
+
+            {checkInError && (
+              <div className="error-message" style={{ 
+                color: '#dc2626', 
+                backgroundColor: '#fee2e2', 
+                padding: '12px', 
+                borderRadius: '6px', 
+                marginBottom: '16px' 
+              }}>
+                {checkInError}
+              </div>
+            )}
+
+            {checkIns.length > 0 && (
+              <div className="check-ins-list" style={{ 
+                marginTop: '16px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                overflow: 'hidden'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f9fafb' }}>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Name</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Security Code</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Check-in Time</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Location</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {checkIns.map(checkIn => (
+                      <tr key={checkIn.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                        <td style={{ padding: '12px 16px' }}>{checkIn.name}</td>
+                        <td style={{ padding: '12px 16px' }}>{checkIn.securityCode}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          {checkIn.checkInTime ? (() => { const d = new Date(checkIn.checkInTime); return isNaN(d.getTime()) ? '' : d.toLocaleString(); })() : ''}
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>{checkIn.locationName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {checkIns.length === 0 && !loadingCheckIns && !checkInError && selectedLocation && (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '24px', 
+                backgroundColor: '#f9fafb',
+                borderRadius: '8px'
+              }}>
+                <p style={{ color: '#6b7280', margin: 0 }}>No active check-ins found for this location.</p>
+              </div>
+            )}
           </>
         ) : (
           <p className="no-events-message">Select an event to load locations.</p>

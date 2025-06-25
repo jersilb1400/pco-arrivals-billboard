@@ -1,6 +1,21 @@
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_BASE || '/api';
+// Determine the API base URL based on environment
+let API_BASE;
+
+if (process.env.NODE_ENV === 'production') {
+  // In production, use the production URL from .env.production
+  API_BASE = process.env.REACT_APP_API_BASE || '/api';
+} else if (process.env.NODE_ENV === 'development') {
+  // In development, use localhost from .env.development
+  API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:3001/api';
+} else {
+  // For other environments (staging, etc.), use staging URL from .env.staging
+  API_BASE = process.env.REACT_APP_API_BASE || 'https://pco-arrivals-billboard.onrender.com/api';
+}
+
+console.log('Environment:', process.env.NODE_ENV);
+console.log('API Base URL:', API_BASE);
 
 const api = axios.create({
   baseURL: API_BASE,

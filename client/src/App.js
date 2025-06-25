@@ -3,12 +3,11 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SessionProvider } from './context/SessionContext';
 import Login from './components/Login';
+import ProtectedRoute from './components/ProtectedRoute';
 import AdminPanel from './components/AdminPanel';
 import AdminUsers from './components/AdminUsers';
-import Billboard from './components/Billboard';
 import Unauthorized from './components/Unauthorized';
 import NotFound from './components/NotFound';
-import LocationBillboard from './components/LocationBillboard';
 import LocationStatus from './components/LocationStatus';
 import SecurityCodeEntry from './components/SecurityCodeEntry';
 import SimpleBillboard from './components/SimpleBillboard';
@@ -19,18 +18,27 @@ function App() {
     <SessionProvider>
       <BrowserRouter>
         <Routes>
-          {/* Simplified routes (no authentication required) */}
+          {/* Public routes (no authentication required) */}
           <Route path="/" element={<SecurityCodeEntry />} />
           <Route path="/billboard" element={<SimpleBillboard />} />
           <Route path="/location-status" element={<LocationStatus />} />
+          <Route path="/login" element={<Login />} />
           
-          {/* Admin routes (authentication required) */}
-          <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/admin/billboard" element={<Billboard />} />
+          {/* Protected admin routes (authentication required) */}
+          <Route path="/admin" element={
+            <ProtectedRoute requireAdmin={true}>
+              <AdminPanel />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/users" element={
+            <ProtectedRoute requireAdmin={true}>
+              <AdminUsers />
+            </ProtectedRoute>
+          } />
+          
+          {/* Other routes */}
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="/404" element={<NotFound />} />
-          <Route path="/location-billboard" element={<LocationBillboard />} />
           <Route path="*" element={<Navigate to="/404" />} />
         </Routes>
       </BrowserRouter>

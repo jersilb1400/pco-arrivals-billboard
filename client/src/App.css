@@ -1474,19 +1474,19 @@ p {
 }
 
 .notification-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 3px solid #2e77bb;
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 2px solid #f39c12;
+  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.15);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
 }
 
 .notification-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 16px rgba(243, 156, 18, 0.25);
+  transform: translateY(-2px);
 }
 
 .notification-card::before {
@@ -1769,4 +1769,165 @@ p {
   .security-code {
     align-self: flex-end;
   }
+}
+
+/* Notification cards for pickup requests */
+.notification-card {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 2px solid #f39c12;
+  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.15);
+}
+
+.notification-card:hover {
+  box-shadow: 0 6px 16px rgba(243, 156, 18, 0.25);
+  transform: translateY(-2px);
+}
+
+.pickup-badge {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  color: white;
+  font-weight: 600;
+}
+
+.pickup-item {
+  background: rgba(255, 255, 255, 0.7);
+  border-left: 4px solid #f39c12;
+}
+
+.pickup-item .checkin-time {
+  color: #d68910;
+  font-weight: 600;
+}
+
+/* TV-Optimized Billboard Styles */
+.billboard-container.fullscreen .arrival-name {
+  font-size: 4rem !important;
+  font-weight: 700 !important;
+  color: #2e77bb !important;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
+  line-height: 1.2 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.billboard-container.fullscreen .arrival-time {
+  font-size: 2rem !important;
+  font-weight: 600 !important;
+  color: #666 !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.billboard-container.fullscreen .security-code-header {
+  font-size: 3rem !important;
+  font-weight: 800 !important;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.4) !important;
+  margin-bottom: 2rem !important;
+  padding: 1rem 0 !important;
+}
+
+.billboard-container.fullscreen .household-name {
+  font-size: 2.5rem !important;
+  font-weight: 700 !important;
+  color: #333 !important;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.billboard-container.fullscreen .arrival-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+  border: 4px solid #2e77bb !important;
+  border-radius: 20px !important;
+  padding: 2rem !important;
+  margin-bottom: 1.5rem !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+  transition: all 0.3s ease !important;
+}
+
+.billboard-container.fullscreen .arrival-card:hover {
+  transform: translateY(-8px) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25) !important;
+}
+
+.billboard-container.fullscreen .billboard-header-title {
+  font-size: 3.5rem !important;
+  font-weight: 800 !important;
+  color: #2e77bb !important;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.4) !important;
+  margin-bottom: 1rem !important;
+}
+
+.billboard-container.fullscreen .last-updated {
+  font-size: 1.5rem !important;
+  font-weight: 600 !important;
+  color: #666 !important;
+}
+
+.billboard-container.fullscreen .security-code-count {
+  font-size: 1.5rem !important;
+  font-weight: 600 !important;
+  color: #666 !important;
+}
+
+.billboard-container.fullscreen .billboard-content {
+  padding: 2rem !important;
+}
+
+.billboard-container.fullscreen .security-code-section {
+  margin-bottom: 3rem !important;
+}
+
+.billboard-container.fullscreen .household-section {
+  margin-bottom: 2rem !important;
+}
+
+.billboard-container.fullscreen .arrivals-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)) !important;
+  gap: 2rem !important;
+}
+
+/* Enhanced visibility for regular (non-fullscreen) billboard */
+.arrival-name {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2e77bb;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+}
+
+.arrival-time {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.security-code-header {
+  font-size: 2rem;
+  font-weight: 800;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  margin-bottom: 1.5rem;
+  padding: 0.5rem 0;
+}
+
+.household-name {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  margin-bottom: 1rem;
+}
+
+.arrival-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 3px solid #2e77bb;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.arrival-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }

@@ -90,16 +90,13 @@ function Billboard() {
 
   // Function to refresh the arrival data
   const refreshData = useCallback(async () => {
-    if (!eventId || !securityCodes || !securityCodes.length || isRefreshing) {
+    if (!eventId || isRefreshing) {
       return;
     }
     
     try {
       setIsRefreshing(true);
-      const response = await api.post('/security-codes', {
-        eventId,
-        securityCodes
-      });
+      const response = await api.get('/active-notifications');
       
       // Handle rate limiting response
       if (response.status === 429) {
@@ -107,8 +104,18 @@ function Billboard() {
         return;
       }
       
-      // Update arrivals with only active check-ins
-      const newArrivals = response.data.filter(item => !item.error && !item.checkedOut);
+      // Update arrivals with active notifications
+      const newArrivals = response.data.map(notification => ({
+        id: notification.id,
+        firstName: notification.childName.split(' ')[0] || 'Unknown',
+        lastName: notification.childName.split(' ').slice(1).join(' ') || 'Unknown',
+        childName: notification.childName,
+        securityCode: notification.securityCode,
+        locationName: notification.locationName,
+        checkInTime: notification.checkInTime,
+        notifiedAt: notification.notifiedAt,
+        householdName: notification.childName.split(' ').slice(1).join(' ') + ' Household'
+      }));
       
       // Only update state if data actually changed
       setArrivals(prevArrivals => {
@@ -140,7 +147,7 @@ function Billboard() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [eventId, securityCodes, navigate, isRefreshing]);
+  }, [eventId, navigate, isRefreshing]);
   
   // Initial setup and authentication check
   useEffect(() => {
@@ -198,7 +205,7 @@ function Billboard() {
         console.error('Billboard: Error during refresh cycle:', error);
         // Don't throw the error, just log it and continue
       }
-    }, 60000); // 60 seconds
+    }, 10000); // 10 seconds
     
     // Clean up on unmount
     return () => clearInterval(intervalId);
@@ -254,6 +261,29 @@ function Billboard() {
     
     return groups;
   }, [arrivals]);
+  
+  useEffect(() => {
+    const fetchGlobalBillboard = async () => {
+      try {
+        const response = await api.get('/global-billboard');
+        if (response.data.activeBillboard) {
+          // If eventId, eventDate, or securityCodes changed, refresh arrivals
+          const newBillboard = response.data.activeBillboard;
+          if (
+            newBillboard.eventId !== eventId ||
+            newBillboard.eventDate !== eventDate ||
+            JSON.stringify(newBillboard.securityCodes) !== JSON.stringify(securityCodes)
+          ) {
+            setGlobalBillboardState(response.data);
+            await refreshData();
+          }
+        }
+      } catch (error) {}
+    };
+    fetchGlobalBillboard();
+    const interval = setInterval(fetchGlobalBillboard, 10000);
+    return () => clearInterval(interval);
+  }, [eventId, eventDate, securityCodes, refreshData]);
   
   if (!hasValidData()) {
     // Redirect if no data is available
@@ -370,36 +400,55 @@ function Billboard() {
         )}
         
         {Object.keys(groupedArrivals).length > 0 ? (
-          Object.entries(groupedArrivals).map(([securityCode, households]) => (
-            <div key={securityCode} className="security-code-section">
-              <h2 className="security-code-header" style={{ color: getHouseholdTheme(securityCode) }}>
-                Security Code: {securityCode}
-              </h2>
-              {Object.entries(households).map(([householdName, householdArrivals]) => (
-                <div key={householdName} className="household-section">
-                  <h3 className="household-name">{householdName}</h3>
-                  <div className="arrivals-grid">
-                    {householdArrivals.map((arrival, index) => (
-                      <div key={index} className="arrival-card">
-                        <div className="arrival-name">
-                          {arrival.firstName} {arrival.lastName}
+          <div className="locations-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '2.5rem', marginTop: '2rem', alignItems: 'flex-start' }}>
+            {(() => {
+              // Group arrivals by location
+              const locationGroups = {};
+              Object.values(groupedArrivals).flatMap(households =>
+                Object.values(households).forEach(arrivalsArr => {
+                  arrivalsArr.forEach(arrival => {
+                    const loc = arrival.locationName || 'Unknown Location';
+                    if (!locationGroups[loc]) locationGroups[loc] = [];
+                    locationGroups[loc].push(arrival);
+                  });
+                })
+              );
+              return Object.entries(locationGroups).map(([locationName, arrivals]) => (
+                <div key={locationName} style={{ minWidth: 420, flex: 1, maxWidth: 600 }}>
+                  <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#2e77bb', marginBottom: '1.2rem', letterSpacing: '1px', textAlign: 'left', borderBottom: '3px solid #2e77bb', paddingBottom: '0.5rem' }}>
+                    {locationName}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    {arrivals.map((arrival, idx) => (
+                      <div key={arrival.id + '-' + idx} className="arrival-card" style={{
+                        background: '#fff',
+                        border: '3px solid #e0e7ef',
+                        borderRadius: '16px',
+                        boxShadow: '0 4px 16px rgba(46,119,187,0.08)',
+                        padding: '1.2rem 2rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        minHeight: '90px',
+                        maxWidth: 540,
+                        width: '100%',
+                        gap: '2.2rem',
+                      }}>
+                        <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#101828', flex: 2, minWidth: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          {arrival.childName}
                         </div>
-                        <div className="arrival-time">
-                          {arrival.checkInTime ? 
-                            new Date(arrival.checkInTime).toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            }) : 
-                            'Time not available'
-                          }
+                        <div style={{ fontSize: '2rem', fontWeight: 800, color: '#2e77bb', flex: 1, textAlign: 'center', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                          {arrival.securityCode}
+                        </div>
+                        <div style={{ fontSize: '1.1rem', color: '#888', fontWeight: 500, flex: 1, textAlign: 'right' }}>
+                          {arrival.notifiedAt ? `@ ${new Date(arrival.notifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          ))
+              ));
+            })()}
+          </div>
         ) : (
           <div className="no-arrivals">
             <h2>No Arrivals to Display</h2>
