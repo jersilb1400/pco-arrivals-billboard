@@ -150,7 +150,9 @@ function LocationStatus() {
             {sortedLocations.map((location) => (
               <div key={location.id} className="location-card" style={{ background: '#f8f9fa', border: '2px solid #e0e7ef', marginBottom: '18px' }}>
                 <div className="location-header">
-                  <h3 className="location-name" style={{ color: '#2e77bb', fontSize: '1.3rem' }}>{location.name}</h3>
+                  <h3 className="location-name" style={{ color: '#2e77bb', fontSize: '2.2rem', fontWeight: 900 }}>
+                    {location.name}
+                  </h3>
                   <div className="child-count-badge" style={{ background: '#e0e7ef', color: '#2e77bb' }}>
                     {location.children.length} code{location.children.length !== 1 ? 's' : ''}
                   </div>
@@ -184,7 +186,9 @@ function LocationStatus() {
                         >
                           {(child.securityCode && child.securityCode.trim()) ? child.securityCode.toUpperCase() : 'N/A'}
                         </span>
-                        <span className="child-name" style={{ fontSize: '1.1rem', color: '#333', fontWeight: 600 }}>{child.name}</span>
+                        <span className="child-name" style={{ fontSize: '2rem', color: '#333', fontWeight: 700 }}>
+                          {child.name}
+                        </span>
                         <span className="checkin-time" style={{ color: '#888', fontSize: '0.95rem', marginLeft: 'auto' }}>
                           ⏰ {formatTime(child.checkInTime)}
                         </span>

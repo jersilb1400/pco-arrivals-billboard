@@ -9,6 +9,11 @@
             "date": 1750866204432,
             "name": "/Users/jeremysilbernagel/Documents/pco-arrivals-billboard/server/logs/application-2025-06-25.log",
             "hash": "640411c0525c1ca9b4b08cc96ed481fbfa7a4a4c2a2bf08a63c43cc137e142a9"
+        },
+        {
+            "date": 1750945555663,
+            "name": "/Users/jeremysilbernagel/Documents/pco-arrivals-billboard/server/logs/application-2025-06-26.log",
+            "hash": "b912d13288b8a0594175bff15ef79c38d3d2d18fd54eba526e2838b180e63001"
         }
     ],
     "hashType": "sha256"
