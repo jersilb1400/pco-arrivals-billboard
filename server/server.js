@@ -314,6 +314,7 @@ app.get('/api/auth/pco', (req, res) => {
 
 // Add the callback route without /api prefix for Planning Center redirects
 app.get('/auth/callback', async (req, res) => {
+  console.log('==== /auth/callback route hit ====');
   console.log('🔵 /auth/callback hit with query:', req.query);
   const { code } = req.query;
   
