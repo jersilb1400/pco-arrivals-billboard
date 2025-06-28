@@ -394,12 +394,13 @@ app.get('/auth/callback', async (req, res) => {
         
         console.log(`🟢 First user automatically authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
+        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, req.session);
         return req.session.save((err) => {
           if (err) {
-            console.error('❌ Session save error:', err);
+            console.error('❌ [DEBUG] Session save error:', err);
             return res.status(500).send('Session save failed');
           }
-          console.log('🟢 Session saved, redirecting to /api/auth/success');
+          console.log('🟢 [DEBUG] After session.save:', req.sessionID, req.session);
           res.redirect('/api/auth/success');
         });
       }
@@ -423,12 +424,13 @@ app.get('/auth/callback', async (req, res) => {
         
         // Redirect to admin panel
         console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
+        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, req.session);
         return req.session.save((err) => {
           if (err) {
-            console.error('❌ Session save error:', err);
+            console.error('❌ [DEBUG] Session save error:', err);
             return res.status(500).send('Session save failed');
           }
-          console.log('🟢 Session saved, redirecting to /api/auth/success');
+          console.log('🟢 [DEBUG] After session.save:', req.sessionID, req.session);
           res.redirect('/api/auth/success');
         });
       } else {
@@ -437,12 +439,13 @@ app.get('/auth/callback', async (req, res) => {
         // Unauthorized user
         req.session.user.isAdmin = false;
         console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
+        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, req.session);
         return req.session.save((err) => {
           if (err) {
-            console.error('❌ Session save error:', err);
+            console.error('❌ [DEBUG] Session save error:', err);
             return res.status(500).send('Session save failed');
           }
-          console.log('🟢 Session saved, redirecting to /api/auth/success');
+          console.log('🟢 [DEBUG] After session.save:', req.sessionID, req.session);
           res.redirect('/api/auth/success');
         });
       }
