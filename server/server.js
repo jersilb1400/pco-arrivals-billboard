@@ -1732,6 +1732,30 @@ app.use((req, res, next) => {
   next();
 });
 
+// Catch-all route for debugging unmatched requests
+app.use('*', (req, res) => {
+  console.log('🔍 [CATCH-ALL] Unmatched request:', {
+    method: req.method,
+    originalUrl: req.originalUrl,
+    url: req.url,
+    path: req.path,
+    headers: req.headers,
+    ip: req.ip
+  });
+  res.status(404).json({ 
+    error: 'Route not found',
+    requestedPath: req.originalUrl,
+    availableRoutes: [
+      '/api/auth/pco',
+      '/auth/callback', 
+      '/api/auth/callback',
+      '/api/auth-status',
+      '/api/events',
+      '/api/security-codes'
+    ]
+  });
+});
+
 // Error handling middleware (should be last)
 app.use(errorHandler);
 
