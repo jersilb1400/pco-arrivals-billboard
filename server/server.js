@@ -262,9 +262,11 @@ app.get('/api/user-info', requireAuth, (req, res) => {
 });
 
 // User management endpoints
-app.get('/api/admin/users', (req, res) => {
-  console.log('Minimal admin users route hit');
-  res.json([{ id: 1, name: 'Test User' }]);
+app.get('/api/admin/users', requireAuth, (req, res) => {
+  if (!req.session.user?.isAdmin) {
+    return res.status(403).json({ error: 'Not authorized' });
+  }
+  res.json(authorizedUsers);
 });
 
 app.post('/api/admin/users', requireAuth, (req, res) => {
@@ -1747,13 +1749,4 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`Authorized users: ${authorizedUsers.length}`);
     console.log(`Remember Me duration: ${REMEMBER_ME_DAYS} days`);
   }
-});
-
-app.get('/api/test', (req, res) => {
-  console.log('Test endpoint hit');
-  res.json({ ok: true });
-});
-
-app.get('/api/debug', (req, res) => {
-  res.json({ routes: app._router.stack.map(r => r.route && r.route.path).filter(Boolean) });
 });

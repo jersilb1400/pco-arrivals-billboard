@@ -1,35 +1,6 @@
 // src/components/AdminUsers.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Container,
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  TextField,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Alert,
-  CircularProgress,
-  IconButton,
-  InputAdornment,
-  Chip
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
-  Person as PersonIcon,
-  Email as EmailIcon,
-  Badge as BadgeIcon
-} from '@mui/icons-material';
 import api from '../utils/api';
 import NavBar from './NavBar';
 
@@ -43,41 +14,28 @@ function AdminUsers() {
   const [currentUser, setCurrentUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [successMessage, setSuccessMessage] = useState(null);
-  const [addingUser, setAddingUser] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        setError(null);
         
-        console.log('Fetching user info...');
         // Get current user info
         const userResponse = await api.get('/user-info');
-        console.log('User info response:', userResponse.data);
         setCurrentUser(userResponse.data);
         
-        console.log('Fetching authorized users...');
         // Get authorized users list
-        console.log('Making API call to /admin/users...');
         const response = await api.get('/admin/users');
-        console.log('Authorized users response:', response.data);
         setUsers(response.data);
         
         setLoading(false);
       } catch (error) {
         console.error('Failed to fetch users:', error);
-        console.error('Error response:', error.response);
-        console.error('Error status:', error.response?.status);
-        console.error('Error data:', error.response?.data);
-        console.error('Error message:', error.message);
-        
         if (error.response?.status === 401 || error.response?.status === 403) {
-          console.log('Authentication error, redirecting to home...');
           navigate('/');
         } else {
-          setError(`Failed to load users: ${error.response?.data?.message || error.message}`);
+          setError('Failed to load users. Please try again.');
           setLoading(false);
         }
       }
@@ -95,9 +53,6 @@ function AdminUsers() {
     }
     
     try {
-      setAddingUser(true);
-      setError(null);
-      
       const response = await api.post('/admin/users', {
         userId: newUserId,
         name: newUserName,
@@ -119,8 +74,6 @@ function AdminUsers() {
     } catch (error) {
       console.error('Failed to add user:', error);
       setError(error.response?.data?.message || 'Failed to add user. Please try again.');
-    } finally {
-      setAddingUser(false);
     }
   };
 
@@ -156,208 +109,161 @@ function AdminUsers() {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <div className="container">
         <NavBar user={currentUser} currentPage="users" />
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 8 }}>
-            <CircularProgress size={60} />
-            <Typography variant="h5" color="text.secondary">
-              Loading...
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Fetching user data
-            </Typography>
-          </Box>
-        </Container>
-      </Box>
+        <div className="loading-message">
+          <h2>Loading...</h2>
+          <p>Fetching user data</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+    <div className="container">
       <NavBar user={currentUser} currentPage="users" />
       
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-            User Management
-          </Typography>
-          <Typography variant="h6" color="text.secondary">
-            Manage authorized users for the PCO Arrivals Billboard application
-          </Typography>
-        </Box>
-        
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-        
-        {successMessage && (
-          <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
-            {successMessage}
-          </Alert>
-        )}
-        
-        {/* Add New User Section */}
-        <Card sx={{ mb: 4, borderRadius: 2 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-              <AddIcon color="primary" />
-              <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
-                Add New User
-              </Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Add a new authorized user to access the application
-            </Typography>
-            
-            <Box component="form" onSubmit={handleAddUser} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
-                <TextField
-                  label="Planning Center User ID"
+      <div className="page-header">
+        <h1>User Management</h1>
+        <p>Manage authorized users for the PCO Arrivals Billboard application</p>
+      </div>
+      
+      {error && (
+        <div className="error-message">
+          <p>{error}</p>
+          <button 
+            onClick={() => setError(null)} 
+            className="error-dismiss"
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="success-message">
+          <p>{successMessage}</p>
+          <button 
+            onClick={() => setSuccessMessage(null)} 
+            className="success-dismiss"
+            aria-label="Dismiss message"
+          >
+            ×
+          </button>
+        </div>
+      )}
+      
+      <div className="admin-section">
+        <div className="card">
+          <h2>Add New User</h2>
+          <p className="section-subtitle">Add a new authorized user to access the application</p>
+          
+          <form onSubmit={handleAddUser} className="admin-form">
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="userId">Planning Center User ID <span className="required">*</span></label>
+                <input 
+                  type="text"
+                  id="userId"
                   value={newUserId}
                   onChange={(e) => setNewUserId(e.target.value)}
+                  className="text-input"
                   placeholder="e.g. 12345678"
                   required
-                  fullWidth
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BadgeIcon color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                  helperText="The numeric ID from the user's PCO account"
                 />
-                
-                <TextField
-                  label="User Name"
+                <small className="form-help">The numeric ID from the user's PCO account</small>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="userName">User Name</label>
+                <input 
+                  type="text"
+                  id="userName"
                   value={newUserName}
                   onChange={(e) => setNewUserName(e.target.value)}
+                  className="text-input"
                   placeholder="e.g. John Smith"
-                  fullWidth
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PersonIcon color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                  helperText="Optional: For your reference only"
                 />
-                
-                <TextField
-                  label="User Email"
+                <small className="form-help">Optional: For your reference only</small>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="userEmail">User Email</label>
+                <input 
                   type="email"
+                  id="userEmail"
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
+                  className="text-input"
                   placeholder="e.g. john@example.com"
-                  fullWidth
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <EmailIcon color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                  helperText="Optional: For your reference only"
                 />
-              </Box>
-              
-              <Button
-                type="submit"
-                variant="contained"
-                startIcon={<AddIcon />}
-                disabled={addingUser || !newUserId}
-                sx={{ alignSelf: 'flex-start' }}
-              >
-                {addingUser ? 'Adding...' : 'Add User'}
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-        
-        {/* Authorized Users Section */}
-        <Card sx={{ borderRadius: 2 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <PersonIcon color="primary" />
-                <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
-                  Authorized Users ({users.length})
-                </Typography>
-              </Box>
-              
-              <TextField
+                <small className="form-help">Optional: For your reference only</small>
+              </div>
+            </div>
+            
+            <button type="submit" className="btn-primary">
+              Add User
+            </button>
+          </form>
+        </div>
+      </div>
+      
+      <div className="admin-section">
+        <div className="card">
+          <div className="card-header-with-actions">
+            <h2>Authorized Users</h2>
+            <div className="search-container">
+              <input
+                type="text"
                 placeholder="Search users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                size="small"
-                sx={{ width: 300 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
+                className="search-input"
               />
-            </Box>
-            
+            </div>
+          </div>
+          
+          <div className="users-table-container">
             {filteredUsers.length > 0 ? (
-              <TableContainer component={Paper} variant="outlined">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>User ID</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredUsers.map(user => (
-                      <TableRow 
-                        key={user.id} 
-                        sx={user.id === currentUser?.id ? { bgcolor: 'action.hover' } : {}}
-                      >
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {user.id}
-                            {user.id === currentUser?.id && (
-                              <Chip label="You" size="small" color="primary" />
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell>{user.name || '-'}</TableCell>
-                        <TableCell>{user.email || '-'}</TableCell>
-                        <TableCell>
-                          <IconButton
-                            onClick={() => handleRemoveUser(user.id)}
-                            disabled={user.id === currentUser?.id}
-                            color="error"
-                            title={user.id === currentUser?.id ? "You cannot remove your own account" : "Remove user"}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map(user => (
+                    <tr key={user.id} className={user.id === currentUser?.id ? 'current-user-row' : ''}>
+                      <td>{user.id}</td>
+                      <td>{user.name || '-'}</td>
+                      <td>{user.email || '-'}</td>
+                      <td>
+                        <button 
+                          onClick={() => handleRemoveUser(user.id)}
+                          className="btn-danger btn-sm"
+                          disabled={user.id === currentUser?.id}
+                          title={user.id === currentUser?.id ? "You cannot remove your own account" : "Remove user"}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body1" color="text.secondary">
-                  {searchQuery ? 'No users found matching your search.' : 'No authorized users found.'}
-                </Typography>
-              </Box>
+              <div className="empty-state">
+                <p>No users found matching your search.</p>
+              </div>
             )}
-          </CardContent>
-        </Card>
-      </Container>
-    </Box>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
