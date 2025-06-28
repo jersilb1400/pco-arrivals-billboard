@@ -35,7 +35,7 @@ const PCO_API_BASE = 'https://api.planningcenteronline.com/check-ins/v2';
 const ACCESS_TOKEN = process.env.PCO_ACCESS_TOKEN;
 
 // Environment variables for cookie settings
-const COOKIE_SECRET = process.env.COOKIE_SECRET || 'pco-arrivals-session-secret';
+const COOKIE_SECRET = process.env.SESSION_SECRET || process.env.COOKIE_SECRET || 'pco-arrivals-session-secret';
 const REMEMBER_ME_DAYS = 30; // Number of days to remember the user
 
 // IDs of PCO users who are allowed to access the application
@@ -141,7 +141,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb+srv://jeremy:<db_password>@pco-arrivals-dashboard.v8j7apq.mongodb.net/?retryWrites=true&w=majority&appName=pco-arrivals-dashboard',
+    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb+srv://jeremy:4LEl7itFJRFUzaR8@pco-arrivals-dashboard.v8j7apq.mongodb.net/?retryWrites=true&w=majority&appName=pco-arrivals-dashboard',
     collectionName: 'sessions'
   }),
   cookie: { 
