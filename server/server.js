@@ -262,11 +262,9 @@ app.get('/api/user-info', requireAuth, (req, res) => {
 });
 
 // User management endpoints
-app.get('/api/admin/users', requireAuth, (req, res) => {
-  if (!req.session.user?.isAdmin) {
-    return res.status(403).json({ error: 'Not authorized' });
-  }
-  res.json(authorizedUsers);
+app.get('/api/admin/users', (req, res) => {
+  console.log('Minimal admin users route hit');
+  res.json([{ id: 1, name: 'Test User' }]);
 });
 
 app.post('/api/admin/users', requireAuth, (req, res) => {
@@ -487,11 +485,23 @@ app.get('/api/auth/logout', (req, res) => {
     if (err) {
       console.error('Error destroying session:', err);
     }
-    
-    // Clear any additional cookies
     res.clearCookie('connect.sid');
-    
+
+    // Support redirectTo query parameter
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    let redirectTo = req.query.redirectTo;
+    if (redirectTo) {
+      // Only allow redirects to the client URL or its subpaths for security
+      const allowedOrigins = [clientUrl, 'http://localhost:3000'];
+      try {
+        const url = new URL(redirectTo, clientUrl);
+        if (allowedOrigins.some(origin => url.origin === origin)) {
+          return res.redirect(url.href);
+        }
+      } catch (e) {
+        // Invalid URL, fall back to default
+      }
+    }
     res.redirect(`${clientUrl}/login`);
   });
 });
@@ -1369,9 +1379,17 @@ app.post('/api/security-code-entry', async (req, res) => {
     }
 
     if (addedChildren.length > 0) {
+      // Always include childName for frontend compatibility
+      let childName = '';
+      if (addedChildren.length === 1) {
+        childName = addedChildren[0].childName;
+      } else {
+        childName = addedChildren.map(c => c.childName).join(', ');
+      }
       res.json({ 
         success: true, 
         addedChildren,
+        childName,
         message: `${addedChildren.length} child(ren) have been added to the pickup list.` 
       });
     } else {
@@ -1729,4 +1747,13 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`Authorized users: ${authorizedUsers.length}`);
     console.log(`Remember Me duration: ${REMEMBER_ME_DAYS} days`);
   }
+});
+
+app.get('/api/test', (req, res) => {
+  console.log('Test endpoint hit');
+  res.json({ ok: true });
+});
+
+app.get('/api/debug', (req, res) => {
+  res.json({ routes: app._router.stack.map(r => r.route && r.route.path).filter(Boolean) });
 });

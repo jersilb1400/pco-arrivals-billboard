@@ -1,4 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  Chip,
+  IconButton,
+  CircularProgress,
+  Paper,
+  Grid,
+} from '@mui/material';
+import {
+  Refresh as RefreshIcon,
+  ChildCare as ChildIcon,
+  LocationOn as LocationIcon,
+  Schedule as ScheduleIcon,
+} from '@mui/icons-material';
 import api from '../utils/api';
 
 function SimpleBillboard() {
@@ -38,114 +56,181 @@ function SimpleBillboard() {
     });
   };
 
-  return (
-    <div className="billboard-container">
-      <div className="billboard-header">
-        <div className="billboard-title">
-          <div className="billboard-logo">
-            <img 
-              src="https://thechurchco-production.s3.amazonaws.com/uploads/sites/1824/2020/02/Website-Logo1.png" 
-              alt="Logo"
-              className="church-logo-billboard"
-            />
-            <h1>Child Pickup Requests</h1>
-          </div>
-          <div className="billboard-status">
-            <div className="last-updated">
-              {isLoading ? 'Loading...' : `Last updated: ${formatTime(lastUpdated)}`}
-            </div>
-            <div className="notification-count">
-              {activeNotifications.length} child{activeNotifications.length !== 1 ? 'ren' : ''} ready for pickup
-            </div>
-          </div>
-        </div>
-        <div className="billboard-controls">
-          <button 
-            className="btn-icon" 
-            onClick={fetchActiveNotifications} 
-            title="Refresh Now"
-            disabled={isLoading}
-          >
-            🔄
-          </button>
-        </div>
-      </div>
+  // Group notifications by location
+  const locationGroups = {};
+  activeNotifications.forEach(notification => {
+    const loc = notification.locationName || 'Unknown Location';
+    if (!locationGroups[loc]) locationGroups[loc] = [];
+    locationGroups[loc].push(notification);
+  });
 
-      <div className="billboard-content">
-        {isLoading ? (
-          <div className="loading-message">
-            <h2>Loading pickup requests...</h2>
-          </div>
-        ) : activeNotifications.length > 0 ? (
-          <div className="locations-grid" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginTop: '2rem' }}>
-            {(() => {
-              // Group notifications by location
-              const locationGroups = {};
-              activeNotifications.forEach(notification => {
-                const loc = notification.locationName || 'Unknown Location';
-                if (!locationGroups[loc]) locationGroups[loc] = [];
-                locationGroups[loc].push(notification);
-              });
-              return Object.entries(locationGroups).map(([locationName, notifications]) => (
-                <div key={locationName} style={{ width: '100%' }}>
-                  <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#2e77bb', marginBottom: '1.2rem', letterSpacing: '1px', textAlign: 'left', borderBottom: '3px solid #2e77bb', paddingBottom: '0.5rem' }}>
-                    {locationName}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+  return (
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      {/* Header */}
+      <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              component="img"
+              src="https://thechurchco-production.s3.amazonaws.com/uploads/sites/1824/2020/02/Website-Logo1.png"
+              alt="Logo"
+              sx={{
+                height: 48,
+                width: 'auto',
+                filter: 'brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(346deg) brightness(104%) contrast(97%)'
+              }}
+            />
+            <Box>
+              <Typography variant="h4" component="h1" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                Child Pickup Requests
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5 }}>
+                <Chip
+                  icon={<ChildIcon />}
+                  label={`${activeNotifications.length} child${activeNotifications.length !== 1 ? 'ren' : ''} ready for pickup`}
+                  color="primary"
+                  variant="outlined"
+                  size="small"
+                />
+                <Typography variant="body2" color="text.secondary">
+                  {isLoading ? 'Loading...' : `Last updated: ${formatTime(lastUpdated)}`}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+          
+          <IconButton
+            onClick={fetchActiveNotifications}
+            disabled={isLoading}
+            size="large"
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'white',
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+              '&:disabled': {
+                bgcolor: 'grey.300',
+              }
+            }}
+          >
+            <RefreshIcon />
+          </IconButton>
+        </Box>
+      </Paper>
+
+      {/* Content */}
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+          <Box sx={{ textAlign: 'center' }}>
+            <CircularProgress size={48} sx={{ mb: 2 }} />
+            <Typography variant="h6" color="text.secondary">
+              Loading pickup requests...
+            </Typography>
+          </Box>
+        </Box>
+      ) : activeNotifications.length > 0 ? (
+        <Grid container spacing={3}>
+          {Object.entries(locationGroups).map(([locationName, notifications]) => (
+            <Grid item xs={12} key={locationName}>
+              <Card elevation={2} sx={{ borderRadius: 2 }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <LocationIcon color="primary" />
+                    <Typography variant="h5" component="h2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                      {locationName}
+                    </Typography>
+                  </Box>
+                  
+                  <Grid container spacing={2}>
                     {notifications.map((notification, idx) => (
-                      <div key={notification.id + '-' + idx} className="notification-card" style={{
-                        background: '#fff',
-                        border: '3px solid #e0e7ef',
-                        borderRadius: '16px',
-                        boxShadow: '0 4px 16px rgba(46,119,187,0.08)',
-                        padding: '1.2rem 2rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        minHeight: '80px',
-                        width: '100%',
-                        gap: '2rem',
-                      }}>
-                        <div style={{ fontSize: '2rem', fontWeight: 900, color: '#101828', flex: 1, textAlign: 'left' }}>
-                          {notification.childName}
-                        </div>
-                        <div style={{ fontSize: '2rem', fontWeight: 800, color: '#2e77bb', flex: 1, textAlign: 'center', letterSpacing: '2px', textTransform: 'uppercase' }}>
-                          {notification.securityCode}
-                        </div>
-                        <div style={{ fontSize: '2rem', color: '#888', fontWeight: 500, flex: 1, textAlign: 'right' }}>
-                          {notification.notifiedAt ? formatTime(notification.notifiedAt) : ''}
-                        </div>
-                      </div>
+                      <Grid item xs={12} key={notification.id + '-' + idx}>
+                        <Paper
+                          elevation={1}
+                          sx={{
+                            p: 3,
+                            border: '2px solid',
+                            borderColor: 'primary.light',
+                            borderRadius: 2,
+                            '&:hover': {
+                              borderColor: 'primary.main',
+                              boxShadow: 3,
+                            },
+                            transition: 'all 0.2s ease-in-out',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+                              <ChildIcon color="primary" sx={{ fontSize: 32 }} />
+                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                {notification.childName}
+                              </Typography>
+                            </Box>
+                            
+                            <Chip
+                              label={notification.securityCode}
+                              color="primary"
+                              variant="filled"
+                              sx={{
+                                fontSize: '1.25rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.1em',
+                                px: 2,
+                                py: 1,
+                                minWidth: 120,
+                              }}
+                            />
+                            
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                              <ScheduleIcon color="action" />
+                              <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                                {notification.notifiedAt ? formatTime(notification.notifiedAt) : ''}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Paper>
+                      </Grid>
                     ))}
-                  </div>
-                </div>
-              ));
-            })()}
-          </div>
-        ) : (
-          <div className="no-notifications">
-            <h2>No Active Pickup Requests</h2>
-            <p>Waiting for parents to arrive...</p>
-            <div style={{ 
-              marginTop: '20px', 
-              padding: '20px', 
-              backgroundColor: '#f8f9fa', 
-              borderRadius: '8px',
-              maxWidth: '400px',
-              margin: '20px auto 0'
-            }}>
-              <h3 style={{ marginBottom: '10px', color: '#333' }}>Instructions for Volunteers:</h3>
-              <ol style={{ margin: 0, paddingLeft: '20px', textAlign: 'left' }}>
-                <li>When a card appears above, find the child</li>
-                <li>Bring them to the pickup area</li>
-                <li>Check them out in PCO</li>
-                <li>Card will automatically disappear</li>
-              </ol>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <Card elevation={2} sx={{ borderRadius: 2 }}>
+          <CardContent sx={{ p: 6, textAlign: 'center' }}>
+            <ChildIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
+            <Typography variant="h4" component="h2" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
+              No Active Pickup Requests
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+              Waiting for parents to arrive...
+            </Typography>
+            
+            <Paper elevation={1} sx={{ p: 3, maxWidth: 500, mx: 'auto', bgcolor: 'grey.50' }}>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
+                Instructions for Volunteers:
+              </Typography>
+              <Box component="ol" sx={{ m: 0, pl: 3, textAlign: 'left' }}>
+                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                  When a card appears above, find the child
+                </Typography>
+                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                  Bring them to the pickup area
+                </Typography>
+                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                  Check them out in PCO
+                </Typography>
+                <Typography component="li" variant="body2">
+                  Card will automatically disappear
+                </Typography>
+              </Box>
+            </Paper>
+          </CardContent>
+        </Card>
+      )}
+    </Container>
   );
 }
 

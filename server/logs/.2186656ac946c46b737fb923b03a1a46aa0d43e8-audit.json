@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/.2186656ac946c46b737fb923b03a1a46aa0d43e8-audit.json",
+    "files": [
+        {
+            "date": 1751039930887,
+            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/error-2025-06-27.log",
+            "hash": "a055a740b990b3177c9d3823487f4968516ad6a86a42991a43d670451391ac25"
+        }
+    ],
+    "hashType": "sha256"
+}

@@ -1,5 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
+import {
+  Container,
+  Paper,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  Grid,
+  Button,
+  Chip,
+  CircularProgress,
+  Divider,
+  Alert
+} from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 function LocationStatus() {
   const [locations, setLocations] = useState([]);
@@ -18,7 +33,6 @@ function LocationStatus() {
         params.append('date', globalBillboard.eventDate);
       }
       const response = await api.get(`/location-status?${params.toString()}`);
-      console.log('LocationStatus: Received location data:', response.data);
       setLocations(response.data);
     } catch (error) {
       console.error('Error fetching location status:', error);
@@ -29,7 +43,6 @@ function LocationStatus() {
   const fetchActiveNotifications = async () => {
     try {
       const response = await api.get('/active-notifications');
-      console.log('LocationStatus: Received active notifications:', response.data);
       setActiveNotifications(response.data);
     } catch (error) {
       console.error('Error fetching active notifications:', error);
@@ -78,9 +91,9 @@ function LocationStatus() {
   }, []);
 
   const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(date).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -101,167 +114,112 @@ function LocationStatus() {
   const totalWaitingForPickup = activeNotifications.length;
 
   return (
-    <div className="billboard-container">
-      <div className="billboard-header">
-        <div className="billboard-title">
-          <div className="billboard-logo">
-            <img 
-              src="https://thechurchco-production.s3.amazonaws.com/uploads/sites/1824/2020/02/Website-Logo1.png" 
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Paper elevation={2} sx={{ p: 3, mb: 4, borderRadius: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              component="img"
+              src="https://thechurchco-production.s3.amazonaws.com/uploads/sites/1824/2020/02/Website-Logo1.png"
               alt="Logo"
-              className="church-logo-billboard"
+              sx={{ height: 48, width: 'auto', filter: 'brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(346deg) brightness(104%) contrast(97%)' }}
             />
-            <h1>Location Status Overview</h1>
-          </div>
-          <div className="billboard-status">
-            <div className="last-updated">
-              {loading ? 'Loading...' : `Last updated: ${formatTime(lastUpdated)}`}
-            </div>
-            <div className="total-children">
-              <div style={{ marginBottom: '4px' }}>
-                {totalChildrenInCare} children in care
-              </div>
-              {totalWaitingForPickup > 0 && (
-                <div style={{ color: '#f39c12', fontWeight: '600' }}>
-                  {totalWaitingForPickup} waiting for pickup
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="billboard-controls">
-          <button 
-            className="btn-icon" 
-            onClick={fetchAllData} 
-            title="Refresh Now"
-            disabled={loading}
-          >
-            🔄
-          </button>
-        </div>
-      </div>
-
-      {/* New section: Active Security Codes by Location */}
-      <div className="active-security-codes-section" style={{ margin: '32px 0' }}>
-        <h2 style={{ color: '#2e77bb', fontSize: '1.7rem', marginBottom: '18px' }}>Active Security Codes by Location</h2>
-        {sortedLocations.length === 0 ? (
-          <div style={{ color: '#888', fontSize: '1.1rem', marginBottom: '18px' }}>No active security codes.</div>
-        ) : (
-          <div className="locations-grid">
-            {sortedLocations.map((location) => (
-              <div key={location.id} className="location-card" style={{ background: '#f8f9fa', border: '2px solid #e0e7ef', marginBottom: '18px' }}>
-                <div className="location-header">
-                  <h3 className="location-name" style={{ color: '#2e77bb', fontSize: '2.2rem', fontWeight: 900 }}>
-                    {location.name}
-                  </h3>
-                  <div className="child-count-badge" style={{ background: '#e0e7ef', color: '#2e77bb' }}>
-                    {location.children.length} code{location.children.length !== 1 ? 's' : ''}
-                  </div>
-                </div>
-                {location.children.length > 0 ? (
-                  <div className="children-list">
-                    {location.children.map((child) => (
-                      <div key={child.id} className="child-item" style={{ display: 'flex', alignItems: 'center', gap: '18px', padding: '8px 0' }}>
-                        <span
-                          className="security-code"
-                          style={{
-                            fontWeight: 900,
-                            color: '#2e77bb',
-                            background: 'none',
-                            fontSize: '2rem',
-                            letterSpacing: '3px',
-                            minWidth: '90px',
-                            borderRadius: 0,
-                            padding: 0,
-                            textAlign: 'center',
-                            textTransform: 'uppercase',
-                            boxShadow: 'none',
-                            display: 'inline-block',
-                            verticalAlign: 'middle',
-                            lineHeight: '1.2',
-                            border: 'none',
-                            zIndex: 2,
-                            position: 'relative',
-                            marginRight: '10px',
-                          }}
-                        >
-                          {(child.securityCode && child.securityCode.trim()) ? child.securityCode.toUpperCase() : 'N/A'}
-                        </span>
-                        <span className="child-name" style={{ fontSize: '2rem', color: '#333', fontWeight: 700 }}>
-                          {child.name}
-                        </span>
-                        <span className="checkin-time" style={{ color: '#888', fontSize: '0.95rem', marginLeft: 'auto' }}>
-                          ⏰ {formatTime(child.checkInTime)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="no-children" style={{ color: '#aaa', fontSize: '1rem' }}>
-                    No active security codes for this location
-                  </div>
+            <Box>
+              <Typography variant="h4" component="h1" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                Location Status Overview
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5 }}>
+                <Chip
+                  label={`${totalChildrenInCare} children in care`}
+                  color="primary"
+                  variant="outlined"
+                  size="small"
+                />
+                <Typography variant="body2" color="text.secondary">
+                  {loading ? 'Loading...' : `Last updated: ${formatTime(lastUpdated)}`}
+                </Typography>
+                {totalWaitingForPickup > 0 && (
+                  <Chip
+                    label={`${totalWaitingForPickup} waiting for pickup`}
+                    color="warning"
+                    variant="filled"
+                    size="small"
+                  />
                 )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              </Box>
+            </Box>
+          </Box>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={fetchAllData}
+            disabled={loading}
+            sx={{ fontWeight: 600 }}
+          >
+            Refresh
+          </Button>
+        </Box>
+      </Paper>
 
-      {/* Waiting for Pickup section (active notifications) */}
-      {Object.keys(notificationsByLocation).length > 0 && (
-        <div className="waiting-for-pickup-section" style={{ margin: '32px 0' }}>
-          <h2 style={{ color: '#f39c12', fontSize: '1.5rem', marginBottom: '18px' }}>Waiting for Pickup</h2>
-          <div className="locations-grid">
-            {Object.entries(notificationsByLocation).map(([locationName, notifications]) => (
-              <div key={`notification-${locationName}`} className="location-card notification-card">
-                <div className="location-header">
-                  <h2 className="location-name">{locationName} - Waiting for Pickup</h2>
-                  <div className="child-count-badge pickup-badge">
-                    {notifications.length} waiting
-                  </div>
-                </div>
-                <div className="children-list">
-                  {notifications.map((notification) => (
-                    <div key={notification.id} className="child-item pickup-item">
-                      <div className="child-info">
-                        <span className="child-name">{notification.childName}</span>
-                        <span className="checkin-time">
-                          📢 {formatTime(notification.notifiedAt)}
-                        </span>
-                      </div>
-                      <div className="security-code">
-                        {notification.securityCode}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div style={{ 
-        marginTop: '30px', 
-        textAlign: 'center',
-        padding: '20px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '8px',
-        maxWidth: '600px',
-        margin: '30px auto 0'
-      }}>
-        <h3 style={{ marginBottom: '15px', color: '#333' }}>Location Status Instructions:</h3>
-        <div style={{ textAlign: 'left', fontSize: '14px', color: '#666' }}>
-          <ul style={{ margin: 0, paddingLeft: '20px' }}>
-            <li>This page shows all locations with children currently checked in</li>
-            <li>Locations are sorted by number of children (most first)</li>
-            <li>Children waiting for pickup are highlighted in orange</li>
-            <li>Volunteers will check out children directly in PCO</li>
-            <li>Once checked out in PCO, children will be removed from both displays</li>
-            <li>Data refreshes automatically every 10 seconds</li>
-          </ul>
-        </div>
-      </div>
-    </div>
+      <Card elevation={2} sx={{ borderRadius: 2, mb: 4 }}>
+        <CardContent>
+          <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 700, mb: 3 }}>
+            Active Security Codes by Location
+          </Typography>
+          {sortedLocations.length === 0 ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No active security codes.
+            </Alert>
+          ) : (
+            <Grid container columns={12} spacing={3}>
+              {sortedLocations.map((location) => (
+                <Grid xs={12} md={6} key={location.id}>
+                  <Paper elevation={1} sx={{ p: 3, border: '2px solid', borderColor: 'primary.light', borderRadius: 2, mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 900, fontSize: '2rem' }}>
+                        {location.name}
+                      </Typography>
+                      <Chip
+                        label={`${location.children.length} code${location.children.length !== 1 ? 's' : ''}`}
+                        color="primary"
+                        variant="outlined"
+                        size="medium"
+                        sx={{ fontWeight: 700, fontSize: '1.1rem' }}
+                      />
+                    </Box>
+                    <Divider sx={{ mb: 2 }} />
+                    {location.children.length > 0 ? (
+                      <Box>
+                        {location.children.map((child) => (
+                          <Box key={child.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1 }}>
+                            <Chip
+                              label={(child.securityCode && child.securityCode.trim()) ? child.securityCode.toUpperCase() : 'N/A'}
+                              color="primary"
+                              variant="filled"
+                              sx={{ fontWeight: 900, fontSize: '1.2rem', letterSpacing: '3px', minWidth: 90 }}
+                            />
+                            <Typography variant="body1" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '1.2rem' }}>
+                              {child.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+                              ⏰ {formatTime(child.checkInTime)}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No active security codes for this location
+                      </Typography>
+                    )}
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </CardContent>
+      </Card>
+    </Container>
   );
 }
 

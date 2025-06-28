@@ -1,4 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  TextField,
+  Button,
+  Alert,
+  CircularProgress,
+  Paper,
+  AppBar,
+  Toolbar,
+  Link,
+  Chip,
+} from '@mui/material';
+import {
+  QrCodeScanner as QrCodeIcon,
+  Dashboard as DashboardIcon,
+  LocationOn as LocationIcon,
+} from '@mui/icons-material';
 import api from '../utils/api';
 
 function SecurityCodeEntry() {
@@ -54,7 +75,15 @@ function SecurityCodeEntry() {
       });
 
       if (response.data.success) {
-        setMessage(`Success! ${response.data.childName} has been added to the pickup list.`);
+        let nameString = response.data.childName;
+        if (!nameString && response.data.addedChildren) {
+          nameString = response.data.addedChildren.map(c => c.childName).join(', ');
+        }
+        if (nameString) {
+          setMessage(`Success! ${nameString} has been added to the pickup list.`);
+        } else {
+          setMessage(response.data.message || 'Security code accepted.');
+        }
         setMessageType('success');
         setSecurityCode('');
       } else {
@@ -76,214 +105,195 @@ function SecurityCodeEntry() {
   const menuSuffix = eventId && eventDate ? `?eventId=${eventId}&eventDate=${eventDate}` : '';
 
   return (
-    <div>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Navigation Menu */}
-      <nav style={{
-        backgroundColor: '#2e77bb',
-        padding: '15px 0',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0 20px'
-        }}>
-          <div style={{ color: 'white', fontWeight: 'bold', fontSize: '18px' }}>
+      <AppBar position="static" sx={{ bgcolor: 'primary.main' }}>
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
             PCO Arrivals System
-          </div>
-          <div style={{ display: 'flex', gap: '20px' }}>
-            <a 
-              href={`/billboard${menuSuffix}`} 
-              style={{ 
-                color: 'white', 
-                textDecoration: 'none', 
-                padding: '8px 16px',
-                borderRadius: '4px',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                transition: 'background-color 0.2s'
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              component={Link}
+              href={`/billboard${menuSuffix}`}
+              color="inherit"
+              startIcon={<DashboardIcon />}
+              sx={{ 
+                bgcolor: 'rgba(255,255,255,0.1)',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
               }}
-              onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'}
-              onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.1)'}
             >
-              📺 Pickup Billboard
-            </a>
-            <a 
-              href={`/location-status${menuSuffix}`} 
-              style={{ 
-                color: 'white', 
-                textDecoration: 'none', 
-                padding: '8px 16px',
-                borderRadius: '4px',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                transition: 'background-color 0.2s'
+              Pickup Billboard
+            </Button>
+            <Button
+              component={Link}
+              href={`/location-status${menuSuffix}`}
+              color="inherit"
+              startIcon={<LocationIcon />}
+              sx={{ 
+                bgcolor: 'rgba(255,255,255,0.1)',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
               }}
-              onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'}
-              onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.1)'}
             >
-              📍 Location Status
-            </a>
-            <a 
-              href={`/admin${menuSuffix}`} 
-              style={{ 
-                color: 'white', 
-                textDecoration: 'none', 
-                padding: '8px 16px',
-                borderRadius: '4px',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                transition: 'background-color 0.2s'
+              Location Status
+            </Button>
+            <Button
+              component={Link}
+              href={`/admin${menuSuffix}`}
+              color="inherit"
+              startIcon={<DashboardIcon />}
+              sx={{ 
+                bgcolor: 'rgba(255,255,255,0.1)',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
               }}
-              onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'}
-              onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.1)'}
             >
-              ⚙️ Admin Panel
-            </a>
-          </div>
-        </div>
-      </nav>
+              Admin Panel
+            </Button>
+          </Box>
+        </Toolbar>
+      </AppBar>
 
-      <div className="container">
-        <div className="card" style={{ maxWidth: '600px', margin: '50px auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <img 
-              src="https://thechurchco-production.s3.amazonaws.com/uploads/sites/1824/2020/02/Website-Logo1.png" 
-              alt="Church Logo"
-              style={{ width: '200px', height: 'auto', marginBottom: '20px' }}
-            />
-            <h1 style={{ color: '#2e77bb', marginBottom: '10px' }}>Volunteer Check-In Station</h1>
-            <p style={{ color: '#666', fontSize: '1.1rem' }}>
-              Enter the security code from a parent to notify pickup volunteers
-            </p>
-          </div>
-
-          {isLoading ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
-              <div style={{ fontSize: '1.2rem', color: '#666', marginBottom: '20px' }}>
-                Loading system status...
-              </div>
-            </div>
-          ) : !globalBillboard ? (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '40px',
-              backgroundColor: '#fff3cd',
-              border: '1px solid #ffeaa7',
-              borderRadius: '8px',
-              marginBottom: '20px'
-            }}>
-              <div style={{ fontSize: '1.2rem', color: '#856404', marginBottom: '15px' }}>
-                ⚠️ No Active Event Selected
-              </div>
-              <div style={{ fontSize: '1rem', color: '#856404', marginBottom: '20px' }}>
-                An administrator needs to select an event and security codes before volunteers can enter security codes.
-              </div>
-              <a 
-                href="/admin" 
-                style={{
-                  display: 'inline-block',
-                  padding: '12px 24px',
-                  backgroundColor: '#2e77bb',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '6px',
-                  fontWeight: '600',
-                  transition: 'background-color 0.2s'
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Card elevation={3} sx={{ borderRadius: 3 }}>
+          <CardContent sx={{ p: 4 }}>
+            {/* Header */}
+            <Box sx={{ textAlign: 'center', mb: 4 }}>
+              <Box
+                component="img"
+                src="https://thechurchco-production.s3.amazonaws.com/uploads/sites/1824/2020/02/Website-Logo1.png"
+                alt="Church Logo"
+                sx={{
+                  height: 120,
+                  width: 'auto',
+                  mb: 3,
+                  filter: 'brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(346deg) brightness(104%) contrast(97%)'
                 }}
-                onMouseOver={(e) => e.target.style.backgroundColor = '#1a5fa0'}
-                onMouseOut={(e) => e.target.style.backgroundColor = '#2e77bb'}
-              >
-                Go to Admin Panel
-              </a>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: '20px' }}>
-                <label htmlFor="securityCode" style={{ 
-                  display: 'block', 
-                  marginBottom: '8px', 
-                  fontWeight: '600',
-                  color: '#333'
-                }}>
-                  Security Code from Parent:
-                </label>
-                <input
-                  type="text"
-                  id="securityCode"
-                  value={securityCode}
-                  onChange={(e) => setSecurityCode(e.target.value.toUpperCase())}
-                  placeholder="Enter security code (e.g., A1B2)"
-                  style={{
-                    width: '100%',
-                    padding: '15px',
-                    fontSize: '18px',
-                    border: '2px solid #ddd',
-                    borderRadius: '8px',
-                    textAlign: 'center',
-                    letterSpacing: '2px',
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase'
-                  }}
-                  maxLength="6"
-                  disabled={isSubmitting}
-                  autoFocus
+              />
+              <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 700, color: 'primary.main' }}>
+                Volunteer Check-In Station
+              </Typography>
+              <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+                Enter the security code from a parent to notify pickup volunteers
+              </Typography>
+              
+              {globalBillboard && (
+                <Chip
+                  label={`Active Event: ${globalBillboard.eventName}`}
+                  color="primary"
+                  variant="outlined"
+                  size="large"
+                  sx={{ mt: 2 }}
                 />
-              </div>
-
-              {message && (
-                <div style={{
-                  padding: '12px',
-                  borderRadius: '6px',
-                  marginBottom: '20px',
-                  backgroundColor: messageType === 'success' ? '#d4edda' : '#f8d7da',
-                  color: messageType === 'success' ? '#155724' : '#721c24',
-                  border: `1px solid ${messageType === 'success' ? '#c3e6cb' : '#f5c6cb'}`
-                }}>
-                  {message}
-                </div>
               )}
+            </Box>
 
-              <button
-                type="submit"
-                disabled={isSubmitting || !securityCode.trim()}
-                style={{
-                  width: '100%',
-                  padding: '15px',
-                  fontSize: '18px',
-                  backgroundColor: isSubmitting ? '#ccc' : '#2e77bb',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  fontWeight: '600'
+            {isLoading ? (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <CircularProgress size={48} sx={{ mb: 2 }} />
+                <Typography variant="h6" color="text.secondary">
+                  Loading system status...
+                </Typography>
+              </Box>
+            ) : !globalBillboard ? (
+              <Alert 
+                severity="warning" 
+                sx={{ 
+                  mb: 3,
+                  '& .MuiAlert-message': {
+                    width: '100%'
+                  }
                 }}
               >
-                {isSubmitting ? 'Processing...' : 'Add to Pickup List'}
-              </button>
-            </form>
-          )}
+                <Typography variant="h6" gutterBottom>
+                  ⚠️ No Active Event Selected
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2 }}>
+                  An administrator needs to select an event and security codes before volunteers can enter security codes.
+                </Typography>
+                <Button
+                  component={Link}
+                  href="/admin"
+                  variant="contained"
+                  startIcon={<DashboardIcon />}
+                  sx={{ mt: 1 }}
+                >
+                  Go to Admin Panel
+                </Button>
+              </Alert>
+            ) : (
+              <>
+                {/* Success/Error Messages */}
+                {message && (
+                  <Alert 
+                    severity={messageType === 'success' ? 'success' : 'error'} 
+                    sx={{ mb: 3 }}
+                    onClose={() => setMessage('')}
+                  >
+                    {message}
+                  </Alert>
+                )}
 
-          <div style={{ 
-            marginTop: '30px', 
-            padding: '20px', 
-            backgroundColor: '#f8f9fa', 
-            borderRadius: '8px',
-            fontSize: '14px',
-            color: '#666'
-          }}>
-            <h3 style={{ marginBottom: '10px', color: '#333' }}>How it works:</h3>
-            <ol style={{ margin: 0, paddingLeft: '20px' }}>
-              <li>Parents receive a security code when checking in their child</li>
-              <li>When parents arrive for pickup, they give the security code to a volunteer</li>
-              <li>Volunteers enter the security code here to notify pickup staff</li>
-              <li>The child's name appears on the pickup billboard for staff to see</li>
-              <li>Once the child is picked up, they are removed from the system</li>
-            </ol>
-          </div>
-        </div>
-      </div>
-    </div>
+                {/* Security Code Form */}
+                <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 400, mx: 'auto' }}>
+                  <TextField
+                    fullWidth
+                    label="Security Code"
+                    value={securityCode}
+                    onChange={(e) => setSecurityCode(e.target.value)}
+                    placeholder="Enter security code"
+                    variant="outlined"
+                    size="large"
+                    autoFocus
+                    disabled={isSubmitting}
+                    sx={{ mb: 3 }}
+                    InputProps={{
+                      startAdornment: <QrCodeIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                    }}
+                  />
+                  
+                  <Button
+                    type="submit"
+                    fullWidth
+                    variant="contained"
+                    size="large"
+                    disabled={isSubmitting || !securityCode.trim()}
+                    startIcon={isSubmitting ? <CircularProgress size={20} /> : <QrCodeIcon />}
+                    sx={{
+                      py: 1.5,
+                      fontSize: '1.1rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit Security Code'}
+                  </Button>
+                </Box>
+
+                {/* Instructions */}
+                <Paper elevation={1} sx={{ p: 3, mt: 4, bgcolor: 'grey.50' }}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    Instructions for Volunteers:
+                  </Typography>
+                  <Box component="ol" sx={{ m: 0, pl: 3 }}>
+                    <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                      Ask the parent for their security code
+                    </Typography>
+                    <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                      Enter the code in the field above
+                    </Typography>
+                    <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                      Click "Submit Security Code"
+                    </Typography>
+                    <Typography component="li" variant="body2">
+                      The child will appear on the pickup billboard
+                    </Typography>
+                  </Box>
+                </Paper>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </Container>
+    </Box>
   );
 }
 
