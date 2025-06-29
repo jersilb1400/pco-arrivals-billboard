@@ -141,7 +141,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb+srv://jeremy:4LEl7itFJRFUzaR8@pco-arrivals-dashboard.v8j7apq.mongodb.net/?retryWrites=true&w=majority&appName=pco-arrivals-dashboard',
+    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI,
     collectionName: 'sessions'
   }),
   cookie: { 
