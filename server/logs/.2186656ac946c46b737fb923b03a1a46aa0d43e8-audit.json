@@ -14,6 +14,21 @@
             "date": 1751121228992,
             "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/error-2025-06-28.log",
             "hash": "0fd2d17e187e86394039f378948abae8e363f6f609b69b79267decfc10eef285"
+        },
+        {
+            "date": 1751198202563,
+            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/error-2025-06-29.log",
+            "hash": "a7b5d419859e6bec5f3321cbea7ced4fdbfed6d2868a61419713a2a449bc9c9f"
+        },
+        {
+            "date": 1751290073486,
+            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/error-2025-06-30.log",
+            "hash": "08bc7551d60af53b4f4d5743f7060bb7a31b38b280a79dc59a65c8897665acd8"
+        },
+        {
+            "date": 1751377748195,
+            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/error-2025-07-01.log",
+            "hash": "a88998c2cd2645636ba7323518e3a0c0691dde7bea824f71283606045e937bc3"
         }
     ],
     "hashType": "sha256"

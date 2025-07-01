@@ -29,7 +29,7 @@ app.set('trust proxy', 1); // trust first proxy for secure cookies on Render
 // Environment variables (from .env file)
 const CLIENT_ID = process.env.PCO_CLIENT_ID || 'YOUR_CLIENT_ID';
 const CLIENT_SECRET = process.env.PCO_CLIENT_SECRET || 'YOUR_CLIENT_SECRET'; 
-const REDIRECT_URI = process.env.REDIRECT_URI || 'https://pco-arrivals-billboard-client.onrender.com/auth/callback';
+const REDIRECT_URI = process.env.REDIRECT_URI || 'https://arrivals.gracefm.org/auth/callback';
 const PORT = process.env.PORT || 3001;
 const PCO_API_BASE = 'https://api.planningcenteronline.com/check-ins/v2';
 const ACCESS_TOKEN = process.env.PCO_ACCESS_TOKEN;
@@ -141,7 +141,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb+srv://jeremy:4LEl7itFJRFUzaR8@pco-arrivals-dashboard.v8j7apq.mongodb.net/?retryWrites=true&w=majority&appName=pco-arrivals-dashboard',
+    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI,
     collectionName: 'sessions'
   }),
   cookie: { 
@@ -153,9 +153,9 @@ app.use(session({
 }));
 
 // Serve static files if in production
-// if (process.env.NODE_ENV === 'production') {
-//   app.use(express.static(path.join(__dirname, '../client/build')));
-// }
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/build')));
+}
 
 // Utility functions to load and save users
 function loadAuthorizedUsers() {
@@ -1732,29 +1732,36 @@ app.use((req, res, next) => {
   next();
 });
 
-// Catch-all route for debugging unmatched requests
-app.use('*', (req, res) => {
-  console.log('🔍 [CATCH-ALL] Unmatched request:', {
-    method: req.method,
-    originalUrl: req.originalUrl,
-    url: req.url,
-    path: req.path,
-    headers: req.headers,
-    ip: req.ip
+// Serve React app for any non-API routes in production
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build/index.html'));
   });
-  res.status(404).json({ 
-    error: 'Route not found',
-    requestedPath: req.originalUrl,
-    availableRoutes: [
-      '/api/auth/pco',
-      '/auth/callback', 
-      '/api/auth/callback',
-      '/api/auth-status',
-      '/api/events',
-      '/api/security-codes'
-    ]
+} else {
+  // Catch-all route for debugging unmatched requests in development
+  app.use('*', (req, res) => {
+    console.log('🔍 [CATCH-ALL] Unmatched request:', {
+      method: req.method,
+      originalUrl: req.originalUrl,
+      url: req.url,
+      path: req.path,
+      headers: req.headers,
+      ip: req.ip
+    });
+    res.status(404).json({ 
+      error: 'Route not found',
+      requestedPath: req.originalUrl,
+      availableRoutes: [
+        '/api/auth/pco',
+        '/auth/callback', 
+        '/api/auth/callback',
+        '/api/auth-status',
+        '/api/events',
+        '/api/security-codes'
+      ]
+    });
   });
-});
+}
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
