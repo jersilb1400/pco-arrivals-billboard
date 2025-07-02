@@ -230,8 +230,8 @@ async function ensureValidToken(req) {
 
 // Mount routes
 app.use('/api/billboard', billboardRoutes);
-app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+// Note: Auth routes are defined directly in this file, not mounted from auth.routes.js
 
 // Auth status endpoint
 app.get('/api/auth-status', (req, res) => {
