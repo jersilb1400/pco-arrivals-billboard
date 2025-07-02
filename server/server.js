@@ -19,8 +19,8 @@ const { requireAuth, requireAuthOnly } = require('./middleware/auth');
 
 // Import routes
 const billboardRoutes = require('./routes/billboard.routes');
-const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
+// Note: Auth routes are defined directly in this file, not imported
 
 // Create Express app instance
 const app = express();
