@@ -1734,7 +1734,17 @@ app.use((req, res, next) => {
 
 // Serve React app for any non-API routes in production
 if (process.env.NODE_ENV === 'production') {
+  // Handle all non-API routes by serving the React app
   app.get('*', (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+      return res.status(404).json({ 
+        error: 'API route not found',
+        requestedPath: req.originalUrl
+      });
+    }
+    
+    // Serve the React app for all other routes
     res.sendFile(path.join(__dirname, 'client/index.html'));
   });
 } else {
