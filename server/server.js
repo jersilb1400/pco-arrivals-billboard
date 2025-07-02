@@ -1710,8 +1710,8 @@ app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
 connectDB();
 
 // Apply rate limiting
-app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter);
+// Note: Auth routes are defined directly in this file, so we don't apply authLimiter to /api/auth
 
 // Serve Swagger documentation
 app.use('/api-docs', swaggerUi.serve);
