@@ -154,7 +154,7 @@ app.use(session({
 
 // Serve static files if in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
+  app.use(express.static(path.join(__dirname, 'client')));
 }
 
 // Utility functions to load and save users
@@ -1735,7 +1735,7 @@ app.use((req, res, next) => {
 // Serve React app for any non-API routes in production
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+    res.sendFile(path.join(__dirname, 'client/index.html'));
   });
 } else {
   // Catch-all route for debugging unmatched requests in development
