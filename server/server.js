@@ -153,9 +153,10 @@ app.use(session({
 }));
 
 // Serve static files if in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
-}
+// Note: Static files are served by the frontend service, not the backend
+// if (process.env.NODE_ENV === 'production') {
+//   app.use(express.static(path.join(__dirname, '../client/build')));
+// }
 
 // Utility functions to load and save users
 function loadAuthorizedUsers() {
@@ -1732,10 +1733,33 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve React app for any non-API routes in production
+// Proxy frontend requests to frontend service
 if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+  app.get('*', async (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+      return res.status(404).json({ 
+        error: 'API route not found',
+        requestedPath: req.originalUrl
+      });
+    }
+    
+    try {
+      // Proxy to frontend service
+      const frontendUrl = 'https://pco-arrivals-billboard-client.onrender.com';
+      const response = await axios.get(`${frontendUrl}${req.originalUrl}`, {
+        headers: {
+          'User-Agent': req.headers['user-agent'],
+          'Accept': req.headers.accept
+        }
+      });
+      
+      // Forward the response
+      res.status(response.status).send(response.data);
+    } catch (error) {
+      console.error('Proxy error:', error.message);
+      res.status(500).json({ error: 'Frontend service unavailable' });
+    }
   });
 } else {
   // Catch-all route for debugging unmatched requests in development
