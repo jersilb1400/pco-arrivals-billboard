@@ -315,12 +315,11 @@ app.get('/api/auth/pco', (req, res) => {
   res.redirect(authUrl);
 });
 
-// Add the callback route without /api prefix for Planning Center redirects
+// OAuth callback route (must be before catch-all)
 app.get('/auth/callback', async (req, res) => {
   console.log('==== /auth/callback route hit ====');
   console.log('🔵 /auth/callback hit with query:', req.query);
   const { code } = req.query;
-  
   if (!code) {
     console.log('❌ No authorization code provided');
     return res.status(400).send('Authorization code missing');
@@ -1737,7 +1736,6 @@ app.use((req, res, next) => {
 
 // Serve React app for any non-API routes in production
 if (process.env.NODE_ENV === 'production') {
-  // Handle all non-API routes by serving the React app
   app.get('*', (req, res) => {
     // Skip API routes only
     if (req.path.startsWith('/api')) {
