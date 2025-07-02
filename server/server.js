@@ -1733,59 +1733,29 @@ app.use((req, res, next) => {
   next();
 });
 
-// Proxy frontend requests to frontend service
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', async (req, res) => {
-    // Skip API routes
-    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
-      return res.status(404).json({ 
-        error: 'API route not found',
-        requestedPath: req.originalUrl
-      });
-    }
-    
-    try {
-      // Proxy to frontend service
-      const frontendUrl = 'https://pco-arrivals-billboard-client.onrender.com';
-      const response = await axios.get(`${frontendUrl}${req.originalUrl}`, {
-        headers: {
-          'User-Agent': req.headers['user-agent'],
-          'Accept': req.headers.accept
-        }
-      });
-      
-      // Forward the response
-      res.status(response.status).send(response.data);
-    } catch (error) {
-      console.error('Proxy error:', error.message);
-      res.status(500).json({ error: 'Frontend service unavailable' });
-    }
+// Catch-all route for debugging unmatched requests
+app.use('*', (req, res) => {
+  console.log('🔍 [CATCH-ALL] Unmatched request:', {
+    method: req.method,
+    originalUrl: req.originalUrl,
+    url: req.url,
+    path: req.path,
+    headers: req.headers,
+    ip: req.ip
   });
-} else {
-  // Catch-all route for debugging unmatched requests in development
-  app.use('*', (req, res) => {
-    console.log('🔍 [CATCH-ALL] Unmatched request:', {
-      method: req.method,
-      originalUrl: req.originalUrl,
-      url: req.url,
-      path: req.path,
-      headers: req.headers,
-      ip: req.ip
-    });
-    res.status(404).json({ 
-      error: 'Route not found',
-      requestedPath: req.originalUrl,
-      availableRoutes: [
-        '/api/auth/pco',
-        '/auth/callback', 
-        '/api/auth/callback',
-        '/api/auth-status',
-        '/api/events',
-        '/api/security-codes'
-      ]
-    });
+  res.status(404).json({ 
+    error: 'Route not found',
+    requestedPath: req.originalUrl,
+    availableRoutes: [
+      '/api/auth/pco',
+      '/auth/callback', 
+      '/api/auth/callback',
+      '/api/auth-status',
+      '/api/events',
+      '/api/security-codes'
+    ]
   });
-}
+});
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
