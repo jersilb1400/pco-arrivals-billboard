@@ -305,10 +305,13 @@ app.delete('/api/admin/users/:id', requireAuth, (req, res) => {
 
 // OAuth routes
 app.get('/api/auth/pco', (req, res) => {
+  console.log('🔵 OAuth route hit: /api/auth/pco');
+  console.log('🔵 Query params:', req.query);
   req.session.rememberMe = req.query.remember === 'true';
   const scopes = ['check_ins', 'people'];
   const redirectUri = REDIRECT_URI;
   const authUrl = `https://api.planningcenteronline.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scopes.join(' ')}`;
+  console.log('🔵 Redirecting to:', authUrl);
   res.redirect(authUrl);
 });
 
@@ -1736,8 +1739,11 @@ app.use((req, res, next) => {
 if (process.env.NODE_ENV === 'production') {
   // Handle all non-API routes by serving the React app
   app.get('*', (req, res) => {
+    console.log('🔍 [CATCH-ALL] Request:', req.method, req.originalUrl);
+    
     // Skip API routes
     if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+      console.log('🔍 [CATCH-ALL] API route not found:', req.originalUrl);
       return res.status(404).json({ 
         error: 'API route not found',
         requestedPath: req.originalUrl
@@ -1745,6 +1751,7 @@ if (process.env.NODE_ENV === 'production') {
     }
     
     // Serve the React app for all other routes
+    console.log('🔍 [CATCH-ALL] Serving React app for:', req.originalUrl);
     res.sendFile(path.join(__dirname, 'client/index.html'));
   });
 } else {
