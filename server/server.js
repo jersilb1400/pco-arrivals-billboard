@@ -153,10 +153,9 @@ app.use(session({
 }));
 
 // Serve static files if in production
-// Note: Static files are served by the frontend service, not the backend
-// if (process.env.NODE_ENV === 'production') {
-//   app.use(express.static(path.join(__dirname, '../client/build')));
-// }
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/build')));
+}
 
 // Utility functions to load and save users
 function loadAuthorizedUsers() {
@@ -1733,29 +1732,36 @@ app.use((req, res, next) => {
   next();
 });
 
-// Catch-all route for debugging unmatched requests
-app.use('*', (req, res) => {
-  console.log('🔍 [CATCH-ALL] Unmatched request:', {
-    method: req.method,
-    originalUrl: req.originalUrl,
-    url: req.url,
-    path: req.path,
-    headers: req.headers,
-    ip: req.ip
+// Serve React app for any non-API routes in production
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build/index.html'));
   });
-  res.status(404).json({ 
-    error: 'Route not found',
-    requestedPath: req.originalUrl,
-    availableRoutes: [
-      '/api/auth/pco',
-      '/auth/callback', 
-      '/api/auth/callback',
-      '/api/auth-status',
-      '/api/events',
-      '/api/security-codes'
-    ]
+} else {
+  // Catch-all route for debugging unmatched requests in development
+  app.use('*', (req, res) => {
+    console.log('🔍 [CATCH-ALL] Unmatched request:', {
+      method: req.method,
+      originalUrl: req.originalUrl,
+      url: req.url,
+      path: req.path,
+      headers: req.headers,
+      ip: req.ip
+    });
+    res.status(404).json({ 
+      error: 'Route not found',
+      requestedPath: req.originalUrl,
+      availableRoutes: [
+        '/api/auth/pco',
+        '/auth/callback', 
+        '/api/auth/callback',
+        '/api/auth-status',
+        '/api/events',
+        '/api/security-codes'
+      ]
+    });
   });
-});
+}
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
