@@ -417,6 +417,23 @@ function AdminPanel() {
     }
   };
 
+  // Add this function to handle the DELETE request
+  const handleDeleteGlobalBillboard = async () => {
+    try {
+      await api.delete('/global-billboard');
+      setActiveBillboard(null);
+      setGlobalBillboardState(null);
+      setSnackbarMsg('Active billboard cleared for all users.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      setSnackbarMsg('Failed to clear active billboard.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      console.error('Error clearing global billboard:', error);
+    }
+  };
+
   const handleFetchCheckIns = async () => {
     if (!selectedEvent || !selectedDate) {
       setCheckInError('Please select an event and date first.');
@@ -540,7 +557,16 @@ function AdminPanel() {
                   onClick={handleClearBillboard}
                   color="error"
                 >
-                  Clear Billboard
+                  Clear Billboard (Local)
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<ClearIcon />}
+                  onClick={handleDeleteGlobalBillboard}
+                  color="error"
+                >
+                  Clear Active Billboard (Global)
                 </Button>
               </Box>
             }
