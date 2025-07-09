@@ -41,7 +41,9 @@ function NavBar({
   const user = session?.user;
 
   const handleLogout = () => {
-    window.location.href = 'http://localhost:3001/api/auth/logout?redirectTo=http://localhost:3000/admin';
+    // Use the current domain for redirect
+    const redirectTo = `${window.location.origin}/admin`;
+    window.location.href = `/api/auth/logout?redirectTo=${encodeURIComponent(redirectTo)}`;
   };
   
   const handleLogin = () => {
