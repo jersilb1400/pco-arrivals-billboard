@@ -474,7 +474,23 @@ app.get('/api/auth/callback', async (req, res) => {
 app.get('/api/auth/success', (req, res) => {
   console.log('🟡 /api/auth/success hit');
   console.log('🟡 Session user:', req.session.user);
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+  
+  let clientUrl = process.env.CLIENT_URL;
+  
+  // If CLIENT_URL is not set, try to determine from request headers
+  if (!clientUrl) {
+    // Use the host header to determine the domain
+    const host = req.get('host');
+    const protocol = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
+    clientUrl = `${protocol}://${host}`;
+    console.log('🟡 CLIENT_URL not set, using derived URL:', clientUrl);
+  }
+  
+  // Fallback to localhost only in development
+  if (!clientUrl && process.env.NODE_ENV === 'development') {
+    clientUrl = 'http://localhost:3000';
+  }
+  
   console.log('🟡 Redirecting to client URL:', clientUrl + '/admin');
   res.send(`
     <html>
@@ -496,21 +512,49 @@ app.get('/api/auth/logout', (req, res) => {
     res.clearCookie('connect.sid');
 
     // Support redirectTo query parameter
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    let clientUrl = process.env.CLIENT_URL;
+    
+    // If CLIENT_URL is not set, try to determine from request headers
+    if (!clientUrl) {
+      // Use the host header to determine the domain
+      const host = req.get('host');
+      const protocol = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
+      clientUrl = `${protocol}://${host}`;
+      console.log('Server: CLIENT_URL not set, using derived URL:', clientUrl);
+    }
+    
+    // Fallback to localhost only in development
+    if (!clientUrl && process.env.NODE_ENV === 'development') {
+      clientUrl = 'http://localhost:3000';
+    }
+    
+    console.log('Server: Logout using client URL:', clientUrl);
+    
     let redirectTo = req.query.redirectTo;
     if (redirectTo) {
       // Only allow redirects to the client URL or its subpaths for security
-      const allowedOrigins = [clientUrl, 'http://localhost:3000'];
+      const allowedOrigins = [clientUrl];
+      if (process.env.NODE_ENV === 'development') {
+        allowedOrigins.push('http://localhost:3000');
+      }
+      
       try {
         const url = new URL(redirectTo, clientUrl);
         if (allowedOrigins.some(origin => url.origin === origin)) {
+          console.log('Server: Redirecting to:', url.href);
           return res.redirect(url.href);
+        } else {
+          console.log('Server: Redirect URL not allowed:', url.href);
         }
       } catch (e) {
+        console.log('Server: Invalid redirect URL:', redirectTo);
         // Invalid URL, fall back to default
       }
     }
-    res.redirect(`${clientUrl}/login`);
+    
+    const finalRedirectUrl = `${clientUrl}/login`;
+    console.log('Server: Final logout redirect to:', finalRedirectUrl);
+    res.redirect(finalRedirectUrl);
   });
 });
 
