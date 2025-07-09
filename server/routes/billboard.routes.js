@@ -158,10 +158,14 @@ router.get('/check-ins', requireAuth, async (req, res) => {
     const eventCheckIns = [];
     let checkInsWithLocations = 0;
     let checkInsWithoutLocations = 0;
+    let checkedOutCount = 0;
+    let noPersonDataCount = 0;
 
     checkIns.forEach((checkIn, index) => {
-      // Only include active check-ins (not checked out)
+      // Log check-ins that are being filtered out
       if (checkIn.attributes.checked_out_at) {
+        console.log(`[DEBUG] Skipping checked-out check-in ${checkIn.id} (checked out at: ${checkIn.attributes.checked_out_at})`);
+        checkedOutCount++;
         return; // Skip checked out check-ins
       }
 
@@ -199,13 +203,18 @@ router.get('/check-ins', requireAuth, async (req, res) => {
           checkInsWithoutLocations++;
         }
       } else {
-        console.log(`[DEBUG] Check-in ${index} has no person data:`, checkIn.id);
+        console.log(`[DEBUG] Check-in ${index} has no person data:`, checkIn.id, checkIn.attributes);
+        noPersonDataCount++;
       }
     });
 
-    console.log(`[DEBUG] Active check-ins for event ${eventId}: ${eventCheckIns.length}`);
-    console.log(`[DEBUG] Check-ins with locations: ${checkInsWithLocations}`);
-    console.log(`[DEBUG] Check-ins without locations: ${checkInsWithoutLocations}`);
+    console.log(`[DEBUG] Processing summary for event ${eventId}:`);
+    console.log(`[DEBUG] - Total check-ins from PCO: ${checkIns.length}`);
+    console.log(`[DEBUG] - Checked out (filtered out): ${checkedOutCount}`);
+    console.log(`[DEBUG] - No person data (filtered out): ${noPersonDataCount}`);
+    console.log(`[DEBUG] - Active check-ins (included): ${eventCheckIns.length}`);
+    console.log(`[DEBUG] - Check-ins with locations: ${checkInsWithLocations}`);
+    console.log(`[DEBUG] - Check-ins without locations: ${checkInsWithoutLocations}`);
     
     // Log what locations the check-ins are assigned to
     const locationCounts = {};
