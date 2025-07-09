@@ -2,11 +2,13 @@
   {
     "id": "163050178",
     "name": "Jeremy Silbernagel",
-    "email": "jeremy@gracefm.org"
+    "email": "jeremy@gracefm.org",
+    "role": "admin"
   },
   {
     "id": "61313200",
     "name": "Jennifer Beer",
-    "email": ""
+    "email": "jennifer.beer@gracefm.org",
+    "role": "admin"
   }
 ]
