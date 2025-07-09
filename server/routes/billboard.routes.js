@@ -173,6 +173,11 @@ router.get('/check-ins', requireAuth, async (req, res) => {
         item.type === 'Location' &&
         item.id === checkIn.relationships.locations?.data?.[0]?.id
       );
+      
+      // Log check-ins without location assignments
+      if (!location && checkIn.relationships.locations?.data?.length === 0) {
+        console.log(`[DEBUG] Check-in ${checkIn.id} has no location assignment`);
+      }
       const person = included.find(item => 
         item.type === 'Person' && 
         item.id === checkIn.relationships.person?.data?.id

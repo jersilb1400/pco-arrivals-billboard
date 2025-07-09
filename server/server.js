@@ -1683,22 +1683,41 @@ app.get('/api/location-status', async (req, res) => {
       return res.status(400).json({ error: 'eventId is required' });
     }
     // Build the PCO API URL for the selected event and date
-    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations`;
+    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations&per_page=100`;
     if (date) {
       url += `&where[created_at]=${date}`;
     }
-    // Get all active check-ins for the event/date
-    const checkInResponse = await axios.get(url, {
-      auth: {
-        username: process.env.PCO_ACCESS_TOKEN,
-        password: process.env.PCO_ACCESS_SECRET
-      },
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
-    const checkIns = checkInResponse.data.data.filter(ci => !ci.attributes.checked_out_at);
-    const included = checkInResponse.data.included || [];
+    
+    console.log(`[DEBUG] Location-status: Fetching check-ins with URL: ${url}`);
+    
+    // Get all active check-ins for the event/date with pagination
+    let allCheckIns = [];
+    let allIncluded = [];
+    let nextPage = url;
+    
+    while (nextPage) {
+      const checkInResponse = await axios.get(nextPage, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      const { data, included, links } = checkInResponse.data;
+      allCheckIns = allCheckIns.concat(data || []);
+      if (included) allIncluded = allIncluded.concat(included);
+      nextPage = links && links.next ? links.next : null;
+      
+      console.log(`[DEBUG] Location-status: Fetched page with ${data?.length || 0} check-ins, total so far: ${allCheckIns.length}`);
+    }
+    
+    console.log(`[DEBUG] Location-status: Finished fetching all pages. Total check-ins: ${allCheckIns.length}`);
+    
+    const checkIns = allCheckIns.filter(ci => !ci.attributes.checked_out_at);
+    const included = allIncluded;
     // Group check-ins by location
     const locationMap = new Map();
     let checkInsWithLocations = 0;
