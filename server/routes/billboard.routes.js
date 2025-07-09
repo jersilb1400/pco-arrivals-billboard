@@ -189,6 +189,15 @@ router.get('/check-ins', requireAuth, async (req, res) => {
     console.log(`[DEBUG] Active check-ins for event ${eventId}: ${eventCheckIns.length}`);
     console.log(`[DEBUG] Check-ins with locations: ${checkInsWithLocations}`);
     console.log(`[DEBUG] Check-ins without locations: ${checkInsWithoutLocations}`);
+    
+    // Log what locations the check-ins are assigned to
+    const locationCounts = {};
+    eventCheckIns.forEach(checkIn => {
+      if (checkIn.locationId) {
+        locationCounts[checkIn.locationId] = (locationCounts[checkIn.locationId] || 0) + 1;
+      }
+    });
+    console.log(`[DEBUG] Check-ins by location:`, locationCounts);
 
     // If locationId is provided, filter by location (but still show those without locations)
     if (locationId && locationId !== 'all') {
@@ -242,6 +251,36 @@ router.get('/check-ins', requireAuth, async (req, res) => {
  */
 router.get('/stats', requireAuth, (req, res) => {
   // Existing stats logic
+});
+
+// Temporary debug endpoint to get locations for an event
+router.get('/debug-locations/:eventId', requireAuth, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    console.log(`[DEBUG] Getting locations for event ${eventId}`);
+    
+    const response = await axios.get(
+      `${PCO_API_BASE}/events/${eventId}/locations`, {
+      auth: {
+        username: PCO_ACCESS_TOKEN,
+        password: PCO_ACCESS_SECRET
+      },
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    const locations = response.data.data;
+    console.log(`[DEBUG] Found ${locations.length} locations for event ${eventId}:`, locations.map(loc => ({
+      id: loc.id,
+      name: loc.attributes.name
+    })));
+    
+    res.json(locations);
+  } catch (error) {
+    console.error('Error fetching locations:', error);
+    res.status(500).json({ error: 'Failed to fetch locations' });
+  }
 });
 
 module.exports = router; 
