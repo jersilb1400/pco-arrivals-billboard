@@ -503,8 +503,32 @@ app.get('/api/auth/success', (req, res) => {
   `);
 });
 
+// Debug endpoint to check environment variables
+app.get('/api/debug/env', (req, res) => {
+  res.json({
+    NODE_ENV: process.env.NODE_ENV,
+    CLIENT_URL: process.env.CLIENT_URL,
+    REDIRECT_URI: process.env.REDIRECT_URI,
+    host: req.get('host'),
+    'x-forwarded-proto': req.get('x-forwarded-proto'),
+    'x-forwarded-host': req.get('x-forwarded-host'),
+    referer: req.get('referer'),
+    secure: req.secure
+  });
+});
+
 // Update logout route to clear cookies properly
 app.get('/api/auth/logout', (req, res) => {
+  console.log('🔴 Logout route hit');
+  console.log('🔴 Environment variables:');
+  console.log('  - NODE_ENV:', process.env.NODE_ENV);
+  console.log('  - CLIENT_URL:', process.env.CLIENT_URL);
+  console.log('🔴 Request headers:');
+  console.log('  - host:', req.get('host'));
+  console.log('  - x-forwarded-proto:', req.get('x-forwarded-proto'));
+  console.log('  - x-forwarded-host:', req.get('x-forwarded-host'));
+  console.log('  - referer:', req.get('referer'));
+  
   req.session.destroy((err) => {
     if (err) {
       console.error('Error destroying session:', err);
@@ -513,6 +537,7 @@ app.get('/api/auth/logout', (req, res) => {
 
     // Support redirectTo query parameter
     let clientUrl = process.env.CLIENT_URL;
+    console.log('🔴 Initial clientUrl from env:', clientUrl);
     
     // If CLIENT_URL is not set, try to determine from request headers
     if (!clientUrl) {
@@ -520,17 +545,20 @@ app.get('/api/auth/logout', (req, res) => {
       const host = req.get('host');
       const protocol = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
       clientUrl = `${protocol}://${host}`;
-      console.log('Server: CLIENT_URL not set, using derived URL:', clientUrl);
+      console.log('🔴 CLIENT_URL not set, using derived URL:', clientUrl);
     }
     
     // Fallback to localhost only in development
     if (!clientUrl && process.env.NODE_ENV === 'development') {
       clientUrl = 'http://localhost:3000';
+      console.log('🔴 Using localhost fallback for development');
     }
     
-    console.log('Server: Logout using client URL:', clientUrl);
+    console.log('🔴 Final clientUrl:', clientUrl);
     
     let redirectTo = req.query.redirectTo;
+    console.log('🔴 redirectTo query param:', redirectTo);
+    
     if (redirectTo) {
       // Only allow redirects to the client URL or its subpaths for security
       const allowedOrigins = [clientUrl];
@@ -538,22 +566,25 @@ app.get('/api/auth/logout', (req, res) => {
         allowedOrigins.push('http://localhost:3000');
       }
       
+      console.log('🔴 Allowed origins:', allowedOrigins);
+      
       try {
         const url = new URL(redirectTo, clientUrl);
+        console.log('🔴 Parsed redirect URL:', url.href);
         if (allowedOrigins.some(origin => url.origin === origin)) {
-          console.log('Server: Redirecting to:', url.href);
+          console.log('🔴 Redirecting to:', url.href);
           return res.redirect(url.href);
         } else {
-          console.log('Server: Redirect URL not allowed:', url.href);
+          console.log('🔴 Redirect URL not allowed:', url.href);
         }
       } catch (e) {
-        console.log('Server: Invalid redirect URL:', redirectTo);
+        console.log('🔴 Invalid redirect URL:', redirectTo, 'Error:', e.message);
         // Invalid URL, fall back to default
       }
     }
     
     const finalRedirectUrl = `${clientUrl}/login`;
-    console.log('Server: Final logout redirect to:', finalRedirectUrl);
+    console.log('🔴 Final logout redirect to:', finalRedirectUrl);
     res.redirect(finalRedirectUrl);
   });
 });
