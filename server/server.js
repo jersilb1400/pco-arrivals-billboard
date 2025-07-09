@@ -1349,7 +1349,10 @@ app.post('/api/global-billboard', requireAuthOnly, async (req, res) => {
 app.delete('/api/global-billboard', requireAuthOnly, (req, res) => {
   try {
     clearGlobalBillboardState();
-    res.json({ message: 'Global billboard state cleared' });
+    // Also clear active notifications when global billboard is cleared
+    activeNotifications.length = 0;
+    console.log('Global billboard state and active notifications cleared');
+    res.json({ message: 'Global billboard state and active notifications cleared' });
   } catch (error) {
     console.error('Error clearing global billboard state:', error);
     res.status(500).json({ error: 'Failed to clear global billboard state' });

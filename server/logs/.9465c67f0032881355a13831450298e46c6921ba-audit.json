@@ -34,6 +34,11 @@
             "date": 1751464219415,
             "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-07-02.log",
             "hash": "7b1a8019d41bb21a210bead967fc31b27a0689d61b44300647c78fe13d77dd5e"
+        },
+        {
+            "date": 1752092185620,
+            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-07-09.log",
+            "hash": "2108957f6d06fe95e8a64ae8eafbaa090d12511eb83607576c97bf969f914943"
         }
     ],
     "hashType": "sha256"

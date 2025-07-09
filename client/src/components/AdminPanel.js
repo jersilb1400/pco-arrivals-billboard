@@ -72,6 +72,7 @@ function AdminPanel() {
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   const [activeNotifications, setActiveNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [isManualChange, setIsManualChange] = useState(false);
 
   // Helper function to get today's date in YYYY-MM-DD format
   function getTodayDate() {
@@ -88,11 +89,20 @@ function AdminPanel() {
 
   // Helper to sync local state with global billboard
   const syncWithGlobalBillboard = (global) => {
+    console.log('AdminPanel: syncWithGlobalBillboard called with:', global);
     if (global?.activeBillboard) {
+      console.log('AdminPanel: Syncing with active billboard:', global.activeBillboard);
       setActiveBillboard(global.activeBillboard);
       setSelectedEvent(global.activeBillboard.eventId);
       setSelectedDate(global.activeBillboard.eventDate || getTodayDate());
       setExistingSecurityCodes(global.activeBillboard.securityCodes || []);
+    } else {
+      console.log('AdminPanel: Clearing local state - no active billboard');
+      setActiveBillboard(null);
+      setSelectedEvent('');
+      setSelectedDate('');
+      setExistingSecurityCodes([]);
+      setDisplayDate('');
     }
   };
 
@@ -102,18 +112,27 @@ function AdminPanel() {
       try {
         const response = await api.get('/global-billboard');
         setGlobalBillboardState(response.data);
-        // Only sync if not adding a security code (prevents UI reset)
-        if (!isAddingSecurityCode) {
+        // Only sync if not adding a security code and not in manual change mode
+        if (!isAddingSecurityCode && !isManualChange) {
+          console.log('AdminPanel: Syncing with global billboard state:', response.data);
           syncWithGlobalBillboard(response.data);
+        } else {
+          console.log('AdminPanel: Skipping global sync - isAddingSecurityCode:', isAddingSecurityCode, 'isManualChange:', isManualChange);
         }
       } catch (error) {
         setGlobalBillboardState(null);
+        if (!isManualChange) {
+          console.log('AdminPanel: Clearing local state due to global billboard error');
+          syncWithGlobalBillboard({}); // Ensure local state is cleared
+        } else {
+          console.log('AdminPanel: Skipping local state clear - manual change in progress');
+        }
       }
     };
     if (session?.authenticated) {
       fetchGlobalBillboard();
     }
-  }, [session, syncWithGlobalBillboard, isAddingSecurityCode]);
+  }, [session, isAddingSecurityCode, isManualChange]);
 
   // Update display date whenever selectedDate changes
   useEffect(() => {
@@ -200,6 +219,9 @@ function AdminPanel() {
           }
         }
         setDateLoading(false);
+        
+        // Don't reset manual change flag here - keep it active until user launches billboard
+        console.log('AdminPanel: Events loaded successfully, keeping manual change flag active');
       } catch (error) {
         console.error('Error fetching events:', error);
         console.error('Error details:', {
@@ -310,6 +332,8 @@ function AdminPanel() {
       return;
     }
     
+    console.log('AdminPanel: Setting manual change flag to true for date change');
+    setIsManualChange(true);
     setSelectedDate(newDate);
     setSelectedEvent('');
     setSecurityCodes([]);
@@ -320,20 +344,25 @@ function AdminPanel() {
     setSnackbarMsg(`Loading events for ${formatSelectedDateForDisplay(newDate)}...`);
     setSnackbarSeverity('info');
     setSnackbarOpen(true);
+    
+    // Keep manual change flag active until events are loaded
+    // The flag will be reset when events are successfully loaded
   };
 
   const handleEventChange = async (e) => {
     const eventId = e.target.value;
+    console.log('AdminPanel: Event changed to:', eventId);
+    console.log('AdminPanel: Setting manual change flag to true for event change');
+    setIsManualChange(true);
     setSelectedEvent(eventId);
     setSecurityCodes([]);
     setExistingSecurityCodes([]);
+    setActiveBillboard(null);
     
-    if (eventId) {
-      const event = events.find(e => e.id === eventId);
-      if (event) {
-        await setGlobalState(eventId, event.attributes.name, [], selectedDate);
-      }
-    }
+    // Don't automatically set global state when changing events
+    // Global state should only be set when launching the billboard
+    
+    // Keep manual change flag active - user is actively making changes
   };
 
   const handleAddSecurityCode = async () => {
@@ -396,6 +425,9 @@ function AdminPanel() {
     const allCodes = [...existingSecurityCodes, ...securityCodes];
     await setGlobalState(selectedEvent, event.attributes.name, allCodes, selectedDate);
     
+    // Reset manual change flag when launching billboard
+    setIsManualChange(false);
+    
     navigate('/billboard', {
       state: {
         eventId: selectedEvent,
@@ -423,6 +455,13 @@ function AdminPanel() {
       await api.delete('/global-billboard');
       setActiveBillboard(null);
       setGlobalBillboardState(null);
+      setSelectedEvent('');
+      setSelectedDate('');
+      setDisplayDate('');
+      setSecurityCodes([]);
+      setExistingSecurityCodes([]);
+      setActiveNotifications([]); // Clear pickup notifications
+      setIsManualChange(false); // Reset manual change flag to allow normal sync
       setSnackbarMsg('Active billboard cleared for all users.');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);

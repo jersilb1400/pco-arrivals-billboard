@@ -213,6 +213,8 @@ function Billboard() {
   
   // Function to check if the component received proper data
   const hasValidData = () => {
+    // If there is no activeBillboard in global state, show a message
+    if (!globalBillboardState?.activeBillboard) return false;
     return eventId && securityCodes && securityCodes.length > 0;
   };
   
@@ -284,6 +286,27 @@ function Billboard() {
     const interval = setInterval(fetchGlobalBillboard, 10000);
     return () => clearInterval(interval);
   }, [eventId, eventDate, securityCodes, refreshData]);
+  
+  if (!globalBillboardState?.activeBillboard) {
+    return (
+      <div className="container">
+        <div className="card">
+          <h2>No Active Event</h2>
+          <p>The active event has been cleared by an admin. Please wait for a new event to be set.</p>
+          <div className="billboard-actions">
+            <button className="btn-primary" onClick={() => navigate('/admin')}>
+              Return to Admin Panel
+            </button>
+            {!user && (
+              <button className="btn-secondary" onClick={handleLogin}>
+                Login
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   if (!hasValidData()) {
     // Redirect if no data is available
