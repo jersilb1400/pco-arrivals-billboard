@@ -16,19 +16,49 @@ if (process.env.NODE_ENV === 'production') {
 
 console.log('Environment:', process.env.NODE_ENV);
 console.log('API Base URL:', API_BASE);
+console.log('REACT_APP_API_BASE env var:', process.env.REACT_APP_API_BASE);
 
 const api = axios.create({
   baseURL: API_BASE,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  timeout: 30000 // 30 second timeout
 });
+
+// Add request interceptor for debugging
+api.interceptors.request.use(
+  (config) => {
+    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+      baseURL: config.baseURL,
+      params: config.params,
+      data: config.data
+    });
+    return config;
+  },
+  (error) => {
+    console.error('API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
 
 // Add response interceptor for better error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`API Response: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    return response;
+  },
   (error) => {
+    console.error('API Response Error:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      method: error.config?.method,
+      data: error.response?.data,
+      message: error.message
+    });
+    
     // Handle rate limiting gracefully
     if (error.response?.status === 429) {
       console.warn('Rate limit exceeded, request will be retried later');

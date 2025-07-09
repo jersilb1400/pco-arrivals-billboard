@@ -1,5 +1,7 @@
 # DNS Fix for OAuth Callback Issue
 
+> **RESOLVED:** The correct solution is to point your custom domain (e.g., arrivals.gracefm.org) to your backend service on Render. The backend must serve both API and React app. The OAuth callback will work as long as /auth/callback is handled by the backend and the domain is attached to the backend service. See the README for the current working setup.
+
 ## Problem Summary
 
 The OAuth callback is failing due to **two related issues**:
@@ -111,9 +113,9 @@ nslookup arrivals.gracefm.org
 ## Current Status
 
 - ✅ OAuth works with Render default domain
-- ❌ Custom domain routing broken due to DNS misconfiguration
-- ❌ Frontend API calls going to wrong domain
-- 🔄 DNS and frontend config fix pending
+- ✅ Custom domain routing works when the custom domain is attached to the backend service
+- ✅ Frontend API calls work when the API base is set to the custom domain
+- ✅ DNS and frontend config are correct when following the README
 
 ## Architecture Overview
 

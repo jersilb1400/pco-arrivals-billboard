@@ -177,6 +177,8 @@ function AdminPanel() {
       try {
         setDateLoading(true);
         const dateForApi = selectedDate;
+        console.log('AdminPanel: Fetching events for date:', dateForApi);
+        
         const response = await api.get(`/events-by-date?date=${dateForApi}`);
         
         // Handle rate limiting response
@@ -186,7 +188,9 @@ function AdminPanel() {
           return;
         }
         
+        console.log('AdminPanel: Events response:', response.data);
         setEvents(response.data);
+        
         if (location.state?.fromBillboard && location.state?.eventId) {
           const eventExists = response.data.some(event => event.id === location.state.eventId);
           if (eventExists) {
@@ -198,12 +202,23 @@ function AdminPanel() {
         setDateLoading(false);
       } catch (error) {
         console.error('Error fetching events:', error);
+        console.error('Error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+          config: error.config
+        });
+        
         if (error.response?.status === 401) {
           navigate('/');
         } else {
           setDateLoading(false);
           // Set empty events array on error to prevent UI issues
           setEvents([]);
+          // Show user-friendly error message
+          setSnackbarMsg(`Failed to fetch events for ${selectedDate}. Please try again.`);
+          setSnackbarSeverity('error');
+          setSnackbarOpen(true);
         }
       }
     };
@@ -245,12 +260,14 @@ function AdminPanel() {
     if (eventId && eventName) {
       try {
         console.log('AdminPanel: Setting global state:', { eventId, eventName, securityCodes, eventDate });
-        await api.post('/set-global-billboard', {
+        const response = await api.post('/set-global-billboard', {
           eventId: eventId,
           eventName: eventName,
           securityCodes: securityCodes,
           eventDate: eventDate
         });
+        
+        console.log('AdminPanel: Global state response:', response.data);
         
         setActiveBillboard({
           eventId,
@@ -259,19 +276,50 @@ function AdminPanel() {
         });
         
         console.log('AdminPanel: Global state set successfully');
+        
+        // Show success message
+        setSnackbarMsg(`Active event set to: ${eventName}`);
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
       } catch (error) {
         console.error('Error setting global state:', error);
+        console.error('Error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        
+        // Show user-friendly error message
+        setSnackbarMsg('Failed to set active event. Please try again.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
       }
     }
   };
 
   const handleDateChange = async (e) => {
     const newDate = e.target.value;
+    console.log('AdminPanel: Date changed to:', newDate);
+    
+    // Validate date format
+    if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+      console.error('AdminPanel: Invalid date format:', newDate);
+      setSnackbarMsg('Invalid date format. Please select a valid date.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+    
     setSelectedDate(newDate);
     setSelectedEvent('');
     setSecurityCodes([]);
     setExistingSecurityCodes([]);
     setActiveBillboard(null);
+    
+    // Show loading message
+    setSnackbarMsg(`Loading events for ${formatSelectedDateForDisplay(newDate)}...`);
+    setSnackbarSeverity('info');
+    setSnackbarOpen(true);
   };
 
   const handleEventChange = async (e) => {

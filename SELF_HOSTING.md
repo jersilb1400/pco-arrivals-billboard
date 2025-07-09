@@ -1,5 +1,7 @@
 # Self-Hosting the PCO Arrivals Billboard App
 
+> **Note:** For cloud deployment, see the README. For self-hosting, ensure your DNS points to the backend server, and the backend serves both API and frontend. The OAuth redirect URI must match your public DNS.
+
 This guide explains how to deploy and run the PCO Arrivals Billboard application on your own internal (in-house) server.
 
 ---
@@ -30,7 +32,7 @@ This guide explains how to deploy and run the PCO Arrivals Billboard application
 - On the server, navigate to the `client` directory.
 - Run `npm install` to install dependencies.
 - Run `npm run build` to create a production build in `client/build`.
-- The backend is already set up to serve static files from this directory in production mode.
+- The backend is already set up to serve static files from this directory in production mode. For production, the backend must serve both API and frontend routes.
 
 ---
 

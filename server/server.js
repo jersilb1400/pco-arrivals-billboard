@@ -560,6 +560,13 @@ app.get('/api/events-by-date', requireAuthOnly, async (req, res) => {
     }
     
     const { date } = req.query;
+    console.log('Server: events-by-date called with date:', date);
+    
+    // Validate date format
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      console.error('Server: Invalid date format received:', date);
+      return res.status(400).json({ error: 'Invalid date format. Expected YYYY-MM-DD' });
+    }
     
     // Format the URL based on whether a date is provided
     let url = `${PCO_API_BASE}/events`;
@@ -570,7 +577,7 @@ app.get('/api/events-by-date', requireAuthOnly, async (req, res) => {
       url += `?where[starts_at]=${formattedDate}&include=time`;
     }
     
-    console.log(`Fetching events from: ${url}`);
+    console.log(`Server: Fetching events from: ${url}`);
     
     const response = await axios.get(url, {
       auth: {
@@ -581,6 +588,9 @@ app.get('/api/events-by-date', requireAuthOnly, async (req, res) => {
         'Accept': 'application/json'
       }
     });
+    
+    console.log(`Server: PCO API response status: ${response.status}`);
+    console.log(`Server: PCO API returned ${response.data.data?.length || 0} events`);
     
     // Filter events to only exclude archived ones
     const nonArchivedEvents = response.data.data.filter(event => event.attributes.archived !== true);
@@ -593,19 +603,27 @@ app.get('/api/events-by-date', requireAuthOnly, async (req, res) => {
     });
     
     // Debug logging
-    console.log(`Selected date: ${date}`);
-    console.log(`Total events found: ${response.data.data.length}`);
-    console.log(`Non-archived events: ${sortedEvents.length}`);
+    console.log(`Server: Selected date: ${date}`);
+    console.log(`Server: Total events found: ${response.data.data.length}`);
+    console.log(`Server: Non-archived events: ${sortedEvents.length}`);
     sortedEvents.forEach(event => {
-      console.log(`Event: ${event.attributes.name}, Date: ${event.attributes.starts_at}, Archived: ${event.attributes.archived}`);
+      console.log(`Server: Event: ${event.attributes.name}, Date: ${event.attributes.starts_at}, Archived: ${event.attributes.archived}`);
     });
     
     res.json(sortedEvents);
   } catch (error) {
-    console.error('API Error:', error.response?.data || error.message);
+    console.error('Server: API Error:', error.response?.data || error.message);
+    console.error('Server: Error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      method: error.config?.method
+    });
+    
     const status = error.response?.status || 500;
     res.status(status).json({ 
-      error: status === 401 ? 'Authentication expired' : 'Failed to fetch events'
+      error: status === 401 ? 'Authentication expired' : 'Failed to fetch events',
+      details: error.response?.data || error.message
     });
   }
 });
@@ -1687,15 +1705,27 @@ app.get('/api/location-status', async (req, res) => {
 app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
   try {
     const { eventId, eventName, securityCodes, eventDate } = req.body;
+    console.log('Server: set-global-billboard called with:', { eventId, eventName, securityCodes, eventDate });
     
     if (!eventId || !eventName) {
+      console.error('Server: Missing required fields:', { eventId, eventName });
       return res.status(400).json({ error: 'Event ID and Event Name are required' });
+    }
+    
+    // Validate date format if provided
+    if (eventDate && !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+      console.error('Server: Invalid eventDate format:', eventDate);
+      return res.status(400).json({ error: 'Invalid eventDate format. Expected YYYY-MM-DD' });
     }
     
     const userId = req.session.user?.id;
     const userName = req.session.user?.name;
     
+    console.log('Server: Updating global billboard state with user:', { userId, userName });
+    
     updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName);
+    
+    console.log('Server: Global billboard state updated successfully');
     
     res.json({ 
       success: true, 
@@ -1703,7 +1733,11 @@ app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
       globalBillboardState 
     });
   } catch (error) {
-    console.error('Error setting global billboard state:', error);
+    console.error('Server: Error setting global billboard state:', error);
+    console.error('Server: Error details:', {
+      message: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Failed to set global billboard state' });
   }
 });

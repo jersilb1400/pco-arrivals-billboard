@@ -1,5 +1,20 @@
 # PCO Arrivals Billboard
 
+---
+
+## 🚀 Cloud Deployment (Render.com + MongoDB Atlas) - **Quick Checklist**
+
+- [x] **Custom Domain**: Attach your custom domain (e.g., `arrivals.gracefm.org`) to your **backend** service on Render (not the frontend).
+- [x] **Backend Serves Everything**: Backend serves both API and React app static files (from `/client/build` or `/server/client`).
+- [x] **OAuth Redirect URI**: Set to `https://arrivals.gracefm.org/auth/callback` in both your PCO app and backend environment variables.
+- [x] **Frontend API Base**: In `client/.env.production`, set `REACT_APP_API_BASE=https://arrivals.gracefm.org/api`
+- [x] **No Separate Frontend Service Needed**: All traffic (API and React app) goes through the backend. You do not need a separate Render service for the frontend.
+- [x] **All routes (API and React) are handled by the backend.**
+
+---
+
+# PCO Arrivals Billboard
+
 A real-time billboard application for displaying check-ins from Planning Center Online (PCO). The application allows multiple users to log in independently and view real-time updates of check-ins for selected events and security codes.
 
 ## Features

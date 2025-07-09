@@ -1,5 +1,7 @@
 # PCO Arrivals Billboard - Simplified Usage
 
+> **Note:** All routes (public and admin) are served from the backend service at your custom domain (e.g., https://arrivals.gracefm.org).
+
 This system provides a streamlined way for volunteers to manage child pickup notifications using Planning Center Online (PCO) check-in data.
 
 ## How It Works
@@ -52,10 +54,10 @@ This system provides a streamlined way for volunteers to manage child pickup not
 
 ## URLs
 
-- **Check-In Station**: `http://your-domain/security-code-entry`
-- **Pickup Billboard**: `http://your-domain/billboard`
-- **Location Status**: `http://your-domain/location-status`
-- **Admin Panel**: `http://your-domain/admin` (requires login)
+- **Check-In Station**: `https://arrivals.gracefm.org/security-code-entry`
+- **Pickup Billboard**: `https://arrivals.gracefm.org/billboard`
+- **Location Status**: `https://arrivals.gracefm.org/location-status`
+- **Admin Panel**: `https://arrivals.gracefm.org/admin` (requires login)
 
 ## Setup
 
