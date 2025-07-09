@@ -80,6 +80,31 @@ router.get('/check-ins', requireAuth, async (req, res) => {
     
     console.log(`[DEBUG] Fetching check-ins from PCO with URL: ${url}`);
     
+    // For debugging: also fetch without date filter to compare
+    if (date) {
+      const noDateUrl = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations`;
+      console.log(`[DEBUG] Also fetching without date filter for comparison: ${noDateUrl}`);
+      try {
+        const noDateResponse = await axios.get(noDateUrl, {
+          auth: {
+            username: PCO_ACCESS_TOKEN,
+            password: PCO_ACCESS_SECRET
+          },
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        console.log(`[DEBUG] Total check-ins WITHOUT date filter: ${noDateResponse.data.data.length}`);
+        console.log(`[DEBUG] Sample check-in dates (first 5):`, noDateResponse.data.data.slice(0, 5).map(ci => ({
+          id: ci.id,
+          created_at: ci.attributes.created_at,
+          checked_out: !!ci.attributes.checked_out_at
+        })));
+      } catch (noDateError) {
+        console.error('[DEBUG] Error fetching without date filter:', noDateError.message);
+      }
+    }
+    
     // Fetch check-ins for the specific event
     const response = await axios.get(url, {
       auth: {
@@ -97,6 +122,15 @@ router.get('/check-ins', requireAuth, async (req, res) => {
     console.log(`[DEBUG] Total check-ins returned from PCO for event ${eventId}${date ? ` on date ${date}` : ''}: ${checkIns.length}`);
     console.log(`[DEBUG] Total included items: ${included.length}`);
     console.log(`[DEBUG] Included types:`, included.map(item => item.type).filter((value, index, self) => self.indexOf(value) === index));
+    
+    // Log sample check-in dates to see what we're getting
+    if (checkIns.length > 0) {
+      console.log(`[DEBUG] Sample check-in dates (first 5):`, checkIns.slice(0, 5).map(ci => ({
+        id: ci.id,
+        created_at: ci.attributes.created_at,
+        checked_out: !!ci.attributes.checked_out_at
+      })));
+    }
 
     // Log first few check-ins to see their structure
     if (checkIns.length > 0) {
