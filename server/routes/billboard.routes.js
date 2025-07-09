@@ -72,7 +72,7 @@ router.get('/check-ins', requireAuth, async (req, res) => {
     }
 
     // Build the URL with date filter if provided
-    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations`;
+    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations&per_page=100`;
     if (date) {
       // Add date filter to only get check-ins for the specific date
       url += `&where[created_at][gte]=${date}T00:00:00Z&where[created_at][lt]=${date}T23:59:59Z`;
@@ -105,19 +105,36 @@ router.get('/check-ins', requireAuth, async (req, res) => {
       }
     }
     
-    // Fetch check-ins for the specific event
-    const response = await axios.get(url, {
-      auth: {
-        username: PCO_ACCESS_TOKEN,
-        password: PCO_ACCESS_SECRET
-      },
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
+    // Fetch check-ins for the specific event with pagination
+    let allCheckIns = [];
+    let allIncluded = [];
+    let nextPage = url;
+    
+    console.log(`[DEBUG] Starting to fetch check-ins with pagination from: ${nextPage}`);
+    
+    while (nextPage) {
+      const response = await axios.get(nextPage, {
+        auth: {
+          username: PCO_ACCESS_TOKEN,
+          password: PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      const { data, included, links } = response.data;
+      allCheckIns = allCheckIns.concat(data || []);
+      if (included) allIncluded = allIncluded.concat(included);
+      nextPage = links && links.next ? links.next : null;
+      
+      console.log(`[DEBUG] Fetched page with ${data?.length || 0} check-ins, total so far: ${allCheckIns.length}`);
+    }
+    
+    console.log(`[DEBUG] Finished fetching all pages. Total check-ins: ${allCheckIns.length}, total included: ${allIncluded.length}`);
 
-    const checkIns = response.data.data;
-    const included = response.data.included || [];
+    const checkIns = allCheckIns;
+    const included = allIncluded;
 
     console.log(`[DEBUG] Total check-ins returned from PCO for event ${eventId}${date ? ` on date ${date}` : ''}: ${checkIns.length}`);
     console.log(`[DEBUG] Total included items: ${included.length}`);
@@ -259,18 +276,27 @@ router.get('/debug-locations/:eventId', requireAuth, async (req, res) => {
     const { eventId } = req.params;
     console.log(`[DEBUG] Getting locations for event ${eventId}`);
     
-    const response = await axios.get(
-      `${PCO_API_BASE}/events/${eventId}/locations`, {
-      auth: {
-        username: PCO_ACCESS_TOKEN,
-        password: PCO_ACCESS_SECRET
-      },
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
+    // Fetch locations with pagination
+    let allLocations = [];
+    let nextPage = `${PCO_API_BASE}/events/${eventId}/locations?per_page=100`;
     
-    const locations = response.data.data;
+    while (nextPage) {
+      const response = await axios.get(nextPage, {
+        auth: {
+          username: PCO_ACCESS_TOKEN,
+          password: PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      const { data, links } = response.data;
+      allLocations = allLocations.concat(data || []);
+      nextPage = links && links.next ? links.next : null;
+    }
+    
+    const locations = allLocations;
     console.log(`[DEBUG] Found ${locations.length} locations for event ${eventId}:`, locations.map(loc => ({
       id: loc.id,
       name: loc.attributes.name
