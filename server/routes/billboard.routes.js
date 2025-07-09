@@ -71,23 +71,30 @@ router.get('/check-ins', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Event ID is required' });
     }
 
+    // Build the URL with date filter if provided
+    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations`;
+    if (date) {
+      // Add date filter to only get check-ins for the specific date
+      url += `&where[created_at][gte]=${date}T00:00:00Z&where[created_at][lt]=${date}T23:59:59Z`;
+    }
+    
+    console.log(`[DEBUG] Fetching check-ins from PCO with URL: ${url}`);
+    
     // Fetch check-ins for the specific event
-    const response = await axios.get(
-      `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations`, {
-        auth: {
-          username: PCO_ACCESS_TOKEN,
-          password: PCO_ACCESS_SECRET
-        },
-        headers: {
-          'Accept': 'application/json'
-        }
+    const response = await axios.get(url, {
+      auth: {
+        username: PCO_ACCESS_TOKEN,
+        password: PCO_ACCESS_SECRET
+      },
+      headers: {
+        'Accept': 'application/json'
       }
-    );
+    });
 
     const checkIns = response.data.data;
     const included = response.data.included || [];
 
-    console.log(`[DEBUG] Total check-ins returned from PCO for event ${eventId}: ${checkIns.length}`);
+    console.log(`[DEBUG] Total check-ins returned from PCO for event ${eventId}${date ? ` on date ${date}` : ''}: ${checkIns.length}`);
     console.log(`[DEBUG] Total included items: ${included.length}`);
     console.log(`[DEBUG] Included types:`, included.map(item => item.type).filter((value, index, self) => self.indexOf(value) === index));
 
