@@ -1,11 +1,15 @@
-# Render configuration for PCO Arrivals Billboard
-# This file configures the build and deployment process
+# Render Blueprint for PCO Arrivals Billboard
+# This file defines the deployment configuration for the full-stack application
 services:
   - type: web
     name: pco-arrivals-billboard
-    env: node
+    runtime: node
     buildCommand: npm run render-build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
-        value: production 
+        value: production
+    # Health check configuration
+    healthCheckPath: /api/auth-status
+    # Auto-deploy on push to main branch
+    autoDeploy: true 
