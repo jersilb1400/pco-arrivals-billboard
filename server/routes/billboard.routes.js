@@ -122,7 +122,7 @@ router.get('/check-ins', requireAuth, async (req, res) => {
           'Accept': 'application/json'
         }
       });
-      
+
       const { data, included, links } = response.data;
       allCheckIns = allCheckIns.concat(data || []);
       if (included) allIncluded = allIncluded.concat(included);
