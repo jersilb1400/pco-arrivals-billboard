@@ -30,7 +30,7 @@ function SecurityCodeEntry() {
   const [globalBillboard, setGlobalBillboard] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Poll global billboard state every 15 seconds
+  // Poll global billboard state every 5 seconds
   useEffect(() => {
     const fetchGlobalBillboard = async () => {
       try {
@@ -46,7 +46,7 @@ function SecurityCodeEntry() {
       }
     };
     fetchGlobalBillboard();
-    const interval = setInterval(fetchGlobalBillboard, 15000);
+    const interval = setInterval(fetchGlobalBillboard, 5000);
     return () => clearInterval(interval);
   }, []);
 

@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
   Box,
   Card,
   CardContent,
+  Grid,
+  Paper,
   Chip,
   IconButton,
   CircularProgress,
-  Paper,
-  Grid,
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
-  ChildCare as ChildIcon,
+  Person as ChildIcon,
   LocationOn as LocationIcon,
   Schedule as ScheduleIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import api from '../utils/api';
 
@@ -23,11 +23,28 @@ function SimpleBillboard() {
   const [activeNotifications, setActiveNotifications] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
+  const [globalBillboard, setGlobalBillboard] = useState(null);
+
+  // Fetch global billboard state
+  const fetchGlobalBillboard = useCallback(async () => {
+    try {
+      const response = await api.get('/global-billboard');
+      setGlobalBillboard(response.data.activeBillboard || null);
+    } catch (error) {
+      console.error('Error fetching global billboard:', error);
+      setGlobalBillboard(null);
+    }
+  }, []);
 
   // Fetch active notifications
-  const fetchActiveNotifications = async () => {
+  const fetchActiveNotifications = useCallback(async () => {
     try {
-      const response = await api.get('/active-notifications');
+      // Build query parameters for event-specific notifications
+      const params = new URLSearchParams();
+      if (globalBillboard?.eventId) params.append('eventId', globalBillboard.eventId);
+      if (globalBillboard?.eventDate) params.append('eventDate', globalBillboard.eventDate);
+      
+      const response = await api.get(`/active-notifications?${params.toString()}`);
       console.log('SimpleBillboard: Received notifications:', response.data);
       setActiveNotifications(response.data);
       setLastUpdated(new Date());
@@ -36,18 +53,22 @@ function SimpleBillboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [globalBillboard?.eventId, globalBillboard?.eventDate]);
 
   // Initial load
   useEffect(() => {
+    fetchGlobalBillboard();
     fetchActiveNotifications();
-  }, []);
+  }, [fetchGlobalBillboard, fetchActiveNotifications]);
 
-  // Polling every 10 seconds for faster updates
+  // Polling every 5 seconds to avoid rate limiting
   useEffect(() => {
-    const interval = setInterval(fetchActiveNotifications, 10000);
+    const interval = setInterval(() => {
+      fetchGlobalBillboard();
+      fetchActiveNotifications();
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchGlobalBillboard, fetchActiveNotifications]);
 
   const formatTime = (date) => {
     return new Date(date).toLocaleTimeString([], { 

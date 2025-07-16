@@ -6,39 +6,14 @@
     "auditLog": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/.9465c67f0032881355a13831450298e46c6921ba-audit.json",
     "files": [
         {
-            "date": 1751039930887,
-            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-06-27.log",
-            "hash": "e2712ceb7dca4c90a1ca7a887e27bd09166ba97e39b399f1da0ad3abc38f9815"
-        },
-        {
-            "date": 1751121228991,
-            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-06-28.log",
-            "hash": "8330fd877d41e8a0fd2b56c5ae5a966980d2c2b58859afa88da9269f41283a53"
-        },
-        {
-            "date": 1751198202559,
-            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-06-29.log",
-            "hash": "4b79e1d8e88e1e24405fba8d7d981dea794076daefa3963dabc877d7e070105a"
-        },
-        {
-            "date": 1751290073481,
-            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-06-30.log",
-            "hash": "c284d6c5ddd189c0cee0ca7d7211004cb9b9267c621c9153a03d8f154d937961"
-        },
-        {
-            "date": 1751377748186,
-            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-07-01.log",
-            "hash": "4a9b08d1a633d1feaba1e992341ec68754c98dd62c291ba3ba5b867f4e85a80e"
-        },
-        {
-            "date": 1751464219415,
-            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-07-02.log",
-            "hash": "7b1a8019d41bb21a210bead967fc31b27a0689d61b44300647c78fe13d77dd5e"
-        },
-        {
             "date": 1752092185620,
             "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-07-09.log",
             "hash": "2108957f6d06fe95e8a64ae8eafbaa090d12511eb83607576c97bf969f914943"
+        },
+        {
+            "date": 1752690158888,
+            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-07-16.log",
+            "hash": "efe892c08d4606f45522946ce1ad88cc6e4b851857fe6b21092a22adfd71ee31"
         }
     ],
     "hashType": "sha256"

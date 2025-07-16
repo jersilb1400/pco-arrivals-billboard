@@ -40,6 +40,7 @@ import {
 import api from '../utils/api';
 import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
+import DateInput from './DateInput';
 
 // Configure axios to send cookies with requests
 api.defaults.withCredentials = true;
@@ -509,7 +510,12 @@ function AdminPanel() {
   const fetchActiveNotifications = async () => {
     setLoadingNotifications(true);
     try {
-      const response = await api.get('/active-notifications');
+      // Build query parameters for event-specific notifications
+      const params = new URLSearchParams();
+      if (selectedEvent) params.append('eventId', selectedEvent);
+      if (selectedDate) params.append('eventDate', selectedDate);
+      
+      const response = await api.get(`/active-notifications?${params.toString()}`);
       setActiveNotifications(response.data || []);
     } catch (error) {
       setActiveNotifications([]);
@@ -520,9 +526,9 @@ function AdminPanel() {
 
   useEffect(() => {
     fetchActiveNotifications();
-    const interval = setInterval(fetchActiveNotifications, 10000);
+    const interval = setInterval(fetchActiveNotifications, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedEvent, selectedDate]);
 
   function formatSelectedDateForDisplay(dateString) {
     if (!dateString) return '';
@@ -648,13 +654,11 @@ function AdminPanel() {
                     Select Date
                   </Typography>
                 </Box>
-                <TextField
-                  fullWidth
-                  type="date"
+                <DateInput
                   label="Event Date"
                   value={selectedDate}
                   onChange={handleDateChange}
-                  variant="outlined"
+                  placeholder="mm/dd/yyyy"
                   sx={{ mb: 2 }}
                 />
                 {selectedDate && (

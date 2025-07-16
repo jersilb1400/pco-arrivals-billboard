@@ -1350,9 +1350,13 @@ app.delete('/api/global-billboard', requireAuthOnly, (req, res) => {
   try {
     clearGlobalBillboardState();
     // Also clear active notifications when global billboard is cleared
+    const beforeCount = activeNotifications.length;
     activeNotifications.length = 0;
-    console.log('Global billboard state and active notifications cleared');
-    res.json({ message: 'Global billboard state and active notifications cleared' });
+    console.log(`Global billboard state and ${beforeCount} active notifications cleared`);
+    res.json({ 
+      message: 'Global billboard state and active notifications cleared',
+      notificationsCleared: beforeCount
+    });
   } catch (error) {
     console.error('Error clearing global billboard state:', error);
     res.status(500).json({ error: 'Failed to clear global billboard state' });
@@ -1410,7 +1414,7 @@ app.get('/test-session', (req, res) => {
 // POST /api/security-code-entry - Volunteers enter security codes from parents
 app.post('/api/security-code-entry', async (req, res) => {
   try {
-    const { securityCode } = req.body;
+    const { securityCode, eventId, eventDate } = req.body;
     
     if (!securityCode) {
       return res.status(400).json({ 
@@ -1419,9 +1423,25 @@ app.post('/api/security-code-entry', async (req, res) => {
       });
     }
 
-    // Search for active check-ins with this security code
+    if (!eventId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Event ID is required' 
+      });
+    }
+
+    if (!eventDate) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Event date is required' 
+      });
+    }
+
+    console.log(`[SECURITY CODE] Searching for security code ${securityCode} in event ${eventId} on date ${eventDate}`);
+
+    // Search for active check-ins with this security code, filtered by event and date
     const checkInResponse = await axios.get(
-      `${PCO_API_BASE}/check_ins?where[security_code]=${securityCode}&include=person,locations`, {
+      `${PCO_API_BASE}/check_ins?where[security_code]=${securityCode}&where[event_id]=${eventId}&include=person,locations`, {
       auth: {
         username: process.env.PCO_ACCESS_TOKEN,
         password: process.env.PCO_ACCESS_SECRET
@@ -1434,13 +1454,25 @@ app.post('/api/security-code-entry', async (req, res) => {
     const checkIns = checkInResponse.data.data;
     const included = checkInResponse.data.included || [];
 
-    // Find all active (not checked out) check-ins
-    const activeCheckIns = checkIns.filter(checkIn => !checkIn.attributes.checked_out_at);
+    console.log(`[SECURITY CODE] Found ${checkIns.length} total check-ins with security code ${securityCode} in event ${eventId}`);
+
+    // Filter by date and active status
+    const activeCheckIns = checkIns.filter(checkIn => {
+      const isActive = !checkIn.attributes.checked_out_at;
+      const checkInDate = new Date(checkIn.attributes.created_at).toISOString().split('T')[0];
+      const matchesDate = checkInDate === eventDate;
+      
+      console.log(`[SECURITY CODE] Check-in ${checkIn.id}: active=${isActive}, date=${checkInDate}, matches=${matchesDate}`);
+      
+      return isActive && matchesDate;
+    });
+
+    console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins for date ${eventDate}`);
 
     if (activeCheckIns.length === 0) {
       return res.json({ 
         success: false, 
-        message: 'No active check-in found with this security code. The child may have already been checked out.' 
+        message: 'No active check-in found with this security code for the current event and date. The child may have already been checked out or may not be checked in for this event.' 
       });
     }
 
@@ -1459,6 +1491,7 @@ app.post('/api/security-code-entry', async (req, res) => {
         `${person.attributes.first_name} ${person.attributes.last_name}` : 
         'Unknown Child';
       const locationName = location?.attributes?.name || 'Unknown Location';
+      
       // Check if notification already exists
       const existingNotification = activeNotifications.find(n => 
         n.checkInId === activeCheckIn.id
@@ -1474,11 +1507,13 @@ app.post('/api/security-code-entry', async (req, res) => {
           notifiedAt: new Date().toISOString(),
           checkInTime: activeCheckIn.attributes.created_at,
           personId: person?.id,
-          locationId: location?.id
+          locationId: location?.id,
+          eventId: eventId,
+          eventDate: eventDate
         };
         activeNotifications.push(notification);
         addedChildren.push({ childName, locationName });
-        console.log(`New pickup request: ${childName} (${securityCode}) from ${locationName}`);
+        console.log(`[SECURITY CODE] New pickup request: ${childName} (${securityCode}) from ${locationName} in event ${eventId}`);
       }
     }
 
@@ -1522,15 +1557,30 @@ app.post('/api/security-code-entry', async (req, res) => {
 // GET /api/active-notifications - Get all active notifications
 app.get('/api/active-notifications', async (req, res) => {
   try {
+    const { eventId, eventDate } = req.query;
     console.log(`[DEBUG] /api/active-notifications called with ${activeNotifications.length} notifications`);
+    if (eventId && eventDate) {
+      console.log(`[DEBUG] Filtering by event: ${eventId}, date: ${eventDate}`);
+    }
     
-    // Filter out checked-out children in real-time
-    if (activeNotifications.length > 0) {
-      const checkInIds = activeNotifications.map(n => n.checkInId);
+    // Filter notifications by event if specified
+    let filteredNotifications = activeNotifications;
+    if (eventId && eventDate) {
+      filteredNotifications = activeNotifications.filter(n => 
+        n.eventId === eventId && n.eventDate === eventDate
+      );
+      console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for event ${eventId}`);
+    }
+    
+    // Filter out checked-out children in real-time using batch API call
+    if (filteredNotifications.length > 0) {
+      const checkInIds = filteredNotifications.map(n => n.checkInId);
       console.log(`[DEBUG] Checking PCO for ${checkInIds.length} check-in IDs:`, checkInIds);
       try {
-        // Fetch each check-in individually
-        const checkInResults = await Promise.all(
+        // Use batch API call instead of individual calls to avoid rate limiting
+        // Use individual API calls since PCO batch API doesn't work with our query format
+        console.log(`[DEBUG] Using individual API calls for ${checkInIds.length} check-ins...`);
+        const individualResults = await Promise.all(
           checkInIds.map(async (id) => {
             try {
               const resp = await axios.get(
@@ -1545,39 +1595,55 @@ app.get('/api/active-notifications', async (req, res) => {
               );
               return resp.data.data;
             } catch (err) {
-              console.error(`[DEBUG] Error fetching check-in ${id}:`, err.message);
+              console.error(`[DEBUG] Individual call failed for ${id}:`, err.message);
               return null;
             }
           })
         );
-        // Remove checked-out check-ins
-        const checkedOutIds = checkInResults
-          .filter(ci => ci && ci.attributes && ci.attributes.checked_out_at)
-          .map(ci => ci.id);
-        console.log(`[DEBUG] Individually found ${checkedOutIds.length} checked-out check-ins:`, checkedOutIds);
+        
+        // Mock the response format for consistency
+        const checkInResponse = { data: { data: individualResults.filter(Boolean) } };
+        
+        const checkIns = checkInResponse.data.data || [];
+        console.log(`[DEBUG] Batch API returned ${checkIns.length} check-ins total`);
+        
+        // Debug: Log each check-in to see what we're getting
+        checkIns.forEach(checkIn => {
+          console.log(`[DEBUG] Check-in ${checkIn.id}: checked_out_at = ${checkIn.attributes?.checked_out_at || 'null'}`);
+        });
+        
+        const checkedOutIds = checkIns
+          .filter(checkIn => checkIn.attributes && checkIn.attributes.checked_out_at)
+          .map(checkIn => checkIn.id);
+        
+        console.log(`[DEBUG] Batch API found ${checkedOutIds.length} checked-out check-ins:`, checkedOutIds);
+        
         if (checkedOutIds.length > 0) {
-          const beforeCount = activeNotifications.length;
-          activeNotifications = activeNotifications.filter(n => 
+          const beforeCount = filteredNotifications.length;
+          filteredNotifications = filteredNotifications.filter(n => 
             !checkedOutIds.includes(n.checkInId)
           );
-          const afterCount = activeNotifications.length;
+          const afterCount = filteredNotifications.length;
           if (beforeCount !== afterCount) {
-            console.log(`[DEBUG] Removed ${beforeCount - afterCount} notifications for checked-out children (individual fetch)`);
-          } else {
-            console.log(`[DEBUG] No notifications were removed despite finding checked-out check-ins`);
+            console.log(`[DEBUG] Removed ${beforeCount - afterCount} notifications for checked-out children (batch fetch)`);
           }
         } else {
-          console.log(`[DEBUG] No checked-out check-ins found (individual fetch)`);
+          console.log(`[DEBUG] No checked-out check-ins found (individual calls)`);
         }
       } catch (apiError) {
-        console.error('[DEBUG] Error checking PCO for checked-out children (individual fetch):', apiError.message);
+        console.error('[DEBUG] Error checking PCO for checked-out children (batch fetch):', apiError.message);
         // Continue with existing notifications if API call fails
+        // If we can't verify status due to rate limiting, be conservative and don't show potentially checked-out children
+        if (apiError.response?.status === 429) {
+          console.log('[DEBUG] Rate limited - being conservative with notification display');
+          // Don't modify filteredNotifications - let them show to avoid flickering
+        }
       }
     } else {
       console.log(`[DEBUG] No active notifications to check`);
     }
-    console.log(`[DEBUG] Returning ${activeNotifications.length} notifications`);
-    res.json(activeNotifications);
+    console.log(`[DEBUG] Returning ${filteredNotifications.length} notifications`);
+    res.json(filteredNotifications);
   } catch (error) {
     console.error('Error getting active notifications:', error);
     res.status(500).json({ error: 'Failed to get notifications' });
@@ -1615,7 +1681,7 @@ app.post('/api/checkout-notification', async (req, res) => {
   }
 });
 
-// Cleanup old notifications and check for checked-out children (run every 1 minute)
+// Cleanup old notifications and check for checked-out children (run every 2 minutes)
 setInterval(async () => {
   try {
     const currentTime = new Date();
@@ -1672,7 +1738,7 @@ setInterval(async () => {
   } catch (error) {
     console.error('Error in cleanup interval:', error);
   }
-}, 1 * 60 * 1000); // 1 minute
+}, 2 * 60 * 1000); // 2 minutes
 
 // GET /api/location-status - Get all locations with remaining children for a specific event/date
 app.get('/api/location-status', async (req, res) => {
@@ -1820,6 +1886,13 @@ app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
     
     console.log('Server: Updating global billboard state with user:', { userId, userName });
     
+    // Clear notifications from past events when starting a new event
+    const beforeCount = activeNotifications.length;
+    if (beforeCount > 0) {
+      activeNotifications.length = 0;
+      console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
+    }
+    
     updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName);
     
     console.log('Server: Global billboard state updated successfully');
@@ -1827,7 +1900,8 @@ app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Global billboard state updated successfully',
-      globalBillboardState 
+      globalBillboardState,
+      notificationsCleared: beforeCount
     });
   } catch (error) {
     console.error('Server: Error setting global billboard state:', error);
@@ -1879,28 +1953,34 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(__dirname, 'client/index.html'));
   });
 } else {
-  // Catch-all route for debugging unmatched requests in development
+  // In development, let React handle non-API routes
   app.use('*', (req, res) => {
-    console.log('🔍 [CATCH-ALL] Unmatched request:', {
-      method: req.method,
-      originalUrl: req.originalUrl,
-      url: req.url,
-      path: req.path,
-      headers: req.headers,
-      ip: req.ip
-    });
-    res.status(404).json({ 
-      error: 'Route not found',
-      requestedPath: req.originalUrl,
-      availableRoutes: [
-        '/api/auth/pco',
-        '/auth/callback', 
-        '/api/auth/callback',
-        '/api/auth-status',
-        '/api/events',
-        '/api/security-codes'
-      ]
-    });
+    // Only handle API routes, let React handle everything else
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+      console.log('🔍 [CATCH-ALL] Unmatched API request:', {
+        method: req.method,
+        originalUrl: req.originalUrl,
+        url: req.url,
+        path: req.path,
+        headers: req.headers,
+        ip: req.ip
+      });
+      res.status(404).json({ 
+        error: 'API route not found',
+        requestedPath: req.originalUrl,
+        availableRoutes: [
+          '/api/auth/pco',
+          '/auth/callback', 
+          '/api/auth/callback',
+          '/api/auth-status',
+          '/api/events',
+          '/api/security-codes'
+        ]
+      });
+    } else {
+      // For non-API routes, redirect to React dev server
+      res.redirect(`http://localhost:3000${req.originalUrl}`);
+    }
   });
 }
 

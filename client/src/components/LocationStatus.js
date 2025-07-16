@@ -72,7 +72,7 @@ function LocationStatus() {
   // Poll every 10 seconds for faster updates
   useEffect(() => {
     if (!globalBillboard) return;
-    const interval = setInterval(fetchAllData, 10000);
+    const interval = setInterval(fetchAllData, 3000);
     return () => clearInterval(interval);
   }, [globalBillboard]);
 

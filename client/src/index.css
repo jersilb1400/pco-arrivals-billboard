@@ -11,3 +11,119 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Date input styling fixes */
+input[type="date"] {
+  font-family: inherit;
+  font-size: 16px;
+  padding: 16px 14px;
+  min-height: 56px;
+  border: 1px solid rgba(0, 0, 0, 0.23);
+  border-radius: 4px;
+  background-color: transparent;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+input[type="date"]:focus {
+  outline: none;
+  border-color: #1976d2;
+  border-width: 2px;
+}
+
+input[type="date"]::-webkit-datetime-edit {
+  padding: 0;
+}
+
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+input[type="date"]::-webkit-datetime-edit-text {
+  padding: 0 2px;
+}
+
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
+  padding: 0 2px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.7;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Firefox date input styling */
+input[type="date"]::-moz-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.7;
+}
+
+input[type="date"]::-moz-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Mobile-friendly date input styles */
+@media (max-width: 768px) {
+  input[type="date"] {
+    font-size: 18px;
+    padding: 20px 16px;
+    min-height: 64px;
+    border-radius: 8px;
+  }
+  
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    padding: 8px;
+    transform: scale(1.2);
+  }
+  
+  input[type="date"]::-moz-calendar-picker-indicator {
+    padding: 8px;
+    transform: scale(1.2);
+  }
+}
+
+/* Tablet-specific date input styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  input[type="date"] {
+    font-size: 17px;
+    padding: 18px 15px;
+    min-height: 60px;
+    border-radius: 6px;
+  }
+  
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    padding: 6px;
+    transform: scale(1.1);
+  }
+  
+  input[type="date"]::-moz-calendar-picker-indicator {
+    padding: 6px;
+    transform: scale(1.1);
+  }
+}
+
+/* Prevent zoom on iOS when focusing date inputs */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  input[type="date"] {
+    font-size: 16px !important;
+  }
+}
+
+/* Touch-friendly hover states for mobile */
+@media (hover: none) and (pointer: coarse) {
+  input[type="date"]:hover {
+    border-color: rgba(0, 0, 0, 0.23);
+  }
+  
+  input[type="date"]:focus {
+    border-color: #1976d2;
+    border-width: 2px;
+  }
+}

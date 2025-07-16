@@ -96,7 +96,13 @@ function Billboard() {
     
     try {
       setIsRefreshing(true);
-      const response = await api.get('/active-notifications');
+      
+      // Build query parameters for event-specific notifications
+      const params = new URLSearchParams();
+      if (eventId) params.append('eventId', eventId);
+      if (eventDate) params.append('eventDate', eventDate);
+      
+      const response = await api.get(`/active-notifications?${params.toString()}`);
       
       // Handle rate limiting response
       if (response.status === 429) {
@@ -147,7 +153,7 @@ function Billboard() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [eventId, navigate, isRefreshing]);
+  }, [eventId, eventDate, navigate, isRefreshing]);
   
   // Initial setup and authentication check
   useEffect(() => {
@@ -283,7 +289,7 @@ function Billboard() {
       } catch (error) {}
     };
     fetchGlobalBillboard();
-    const interval = setInterval(fetchGlobalBillboard, 10000);
+    const interval = setInterval(fetchGlobalBillboard, 5000);
     return () => clearInterval(interval);
   }, [eventId, eventDate, securityCodes, refreshData]);
   
