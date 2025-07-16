@@ -278,3 +278,4 @@ Each script will:
 - Launch the backend with PM2
 
 **For advanced/server deployment, see [SELF_HOSTING.md](SELF_HOSTING.md).**
+# Render deployment trigger - Wed Jul 16 15:53:14 CDT 2025
