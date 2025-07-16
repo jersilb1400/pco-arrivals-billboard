@@ -1,3 +1,5 @@
+# Render configuration for PCO Arrivals Billboard
+# This file configures the build and deployment process
 services:
   - type: web
     name: pco-arrivals-billboard
