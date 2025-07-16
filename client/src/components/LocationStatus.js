@@ -10,7 +10,6 @@ import {
   Grid,
   Button,
   Chip,
-  CircularProgress,
   Divider,
   Alert
 } from '@mui/material';
@@ -67,14 +66,14 @@ function LocationStatus() {
     if (globalBillboard) {
       fetchAllData();
     }
-  }, [globalBillboard]);
+  }, [globalBillboard, fetchAllData]);
 
   // Poll every 10 seconds for faster updates
   useEffect(() => {
     if (!globalBillboard) return;
     const interval = setInterval(fetchAllData, 3000);
     return () => clearInterval(interval);
-  }, [globalBillboard]);
+  }, [globalBillboard, fetchAllData]);
 
   useEffect(() => {
     const fetchGlobalBillboard = async () => {
@@ -100,15 +99,7 @@ function LocationStatus() {
   // Sort locations by number of children (descending)
   const sortedLocations = [...locations].sort((a, b) => b.childCount - a.childCount);
 
-  // Group active notifications by location
-  const notificationsByLocation = activeNotifications.reduce((acc, notification) => {
-    const locationName = notification.locationName || 'Unknown Location';
-    if (!acc[locationName]) {
-      acc[locationName] = [];
-    }
-    acc[locationName].push(notification);
-    return acc;
-  }, {});
+  // Removed unused notificationsByLocation variable
 
   const totalChildrenInCare = locations.reduce((total, loc) => total + loc.childCount, 0);
   const totalWaitingForPickup = activeNotifications.length;

@@ -13,16 +13,13 @@ import {
   FormControl,
   InputLabel,
   Chip,
-  IconButton,
   Alert,
   CircularProgress,
   Paper,
   Grid,
-  Divider,
   Stepper,
   Step,
   StepLabel,
-  Badge,
   Snackbar,
 } from '@mui/material';
 import {
@@ -64,9 +61,7 @@ function AdminPanel() {
   const [checkIns, setCheckIns] = useState([]);
   const [loadingCheckIns, setLoadingCheckIns] = useState(false);
   const [checkInError, setCheckInError] = useState('');
-  const [pickupNotificationMsg, setPickupNotificationMsg] = useState('');
-  const [pickupNotificationType, setPickupNotificationType] = useState('success');
-  const [showPickupNotification, setShowPickupNotification] = useState(false);
+  // Removed unused notification state variables
   const [isAddingSecurityCode, setIsAddingSecurityCode] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState('');
@@ -133,7 +128,7 @@ function AdminPanel() {
     if (session?.authenticated) {
       fetchGlobalBillboard();
     }
-  }, [session, isAddingSecurityCode, isManualChange]);
+  }, [session, isAddingSecurityCode, isManualChange, syncWithGlobalBillboard]);
 
   // Update display date whenever selectedDate changes
   useEffect(() => {
@@ -407,9 +402,7 @@ function AdminPanel() {
     }
   };
 
-  const handleRemoveSecurityCode = async (codeToRemove) => {
-    setSecurityCodes(prev => prev.filter(code => code !== codeToRemove));
-  };
+  // Removed unused handleRemoveSecurityCode function
 
   const handleRemoveExistingCode = async (codeToRemove) => {
     setExistingSecurityCodes(prev => prev.filter(code => code !== codeToRemove));
@@ -528,7 +521,7 @@ function AdminPanel() {
     fetchActiveNotifications();
     const interval = setInterval(fetchActiveNotifications, 5000);
     return () => clearInterval(interval);
-  }, [selectedEvent, selectedDate]);
+  }, [selectedEvent, selectedDate, fetchActiveNotifications]);
 
   function formatSelectedDateForDisplay(dateString) {
     if (!dateString) return '';

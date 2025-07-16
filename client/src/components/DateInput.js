@@ -6,7 +6,6 @@ import {
   Popover,
   Box,
   Typography,
-  Grid,
   Button,
   useTheme,
   useMediaQuery
@@ -22,7 +21,7 @@ function DateInput({ value, onChange, label, placeholder, fullWidth = true, sx =
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  // Removed unused isTablet variable
 
   // Update current month when value changes
   useEffect(() => {
