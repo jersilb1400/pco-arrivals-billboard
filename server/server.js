@@ -154,7 +154,18 @@ app.use(session({
 
 // Serve static files if in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
+  const buildPath = path.join(__dirname, '../client/build');
+  const indexPath = path.join(buildPath, 'index.html');
+  
+  // Check if build directory exists
+  if (fs.existsSync(buildPath) && fs.existsSync(indexPath)) {
+    console.log('✅ Frontend build found, serving static files from:', buildPath);
+    app.use(express.static(buildPath));
+  } else {
+    console.error('❌ Frontend build not found at:', buildPath);
+    console.error('❌ Expected index.html at:', indexPath);
+    console.error('❌ Please ensure the frontend is built before starting the server');
+  }
 }
 
 // Utility functions to load and save users
@@ -1949,8 +1960,25 @@ if (process.env.NODE_ENV === 'production') {
         requestedPath: req.originalUrl
       });
     }
-    // Serve the React app for all other routes
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+    
+    // Check if build exists before serving
+    const indexPath = path.join(__dirname, '../client/build/index.html');
+    if (fs.existsSync(indexPath)) {
+      // Serve the React app for all other routes
+      res.sendFile(indexPath);
+    } else {
+      // If build doesn't exist, show an error
+      res.status(500).send(`
+        <html>
+          <head><title>Build Error</title></head>
+          <body>
+            <h1>Frontend Build Not Found</h1>
+            <p>The React application has not been built. Please check the deployment logs.</p>
+            <p>Expected file: ${indexPath}</p>
+          </body>
+        </html>
+      `);
+    }
   });
 } else {
   // In development, let React handle non-API routes
