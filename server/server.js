@@ -152,41 +152,8 @@ app.use(session({
   }
 }));
 
-// Serve static files if in production
-if (process.env.NODE_ENV === 'production') {
-  const buildPath = path.join(__dirname, '../client/build');
-  const indexPath = path.join(buildPath, 'index.html');
-  
-  console.log('🔍 Checking for frontend build in production...');
-  console.log('📁 Server directory:', __dirname);
-  console.log('📁 Build path:', buildPath);
-  console.log('📄 Index path:', indexPath);
-  
-  // Check if build directory exists
-  if (fs.existsSync(buildPath) && fs.existsSync(indexPath)) {
-    console.log('✅ Frontend build found, serving static files from:', buildPath);
-    app.use(express.static(buildPath));
-  } else {
-    console.error('❌ Frontend build not found at:', buildPath);
-    console.error('❌ Expected index.html at:', indexPath);
-    console.error('❌ Please ensure the frontend is built before starting the server');
-    
-    // List contents of parent directory for debugging
-    const parentDir = path.dirname(buildPath);
-    console.log('📋 Contents of parent directory:', parentDir);
-    if (fs.existsSync(parentDir)) {
-      try {
-        const files = fs.readdirSync(parentDir);
-        files.forEach(file => {
-          const stat = fs.statSync(path.join(parentDir, file));
-          console.log(`  ${file} (${stat.isDirectory() ? 'dir' : 'file'})`);
-        });
-      } catch (err) {
-        console.error('❌ Error reading parent directory:', err.message);
-      }
-    }
-  }
-}
+// Note: This server only serves API endpoints
+// The React frontend should be deployed separately
 
 // Utility functions to load and save users
 function loadAuthorizedUsers() {
@@ -1970,67 +1937,39 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve React app for any non-API routes in production
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    // Skip API routes only
-    if (req.path.startsWith('/api')) {
-      return res.status(404).json({ 
-        error: 'API route not found',
-        requestedPath: req.originalUrl
-      });
-    }
-    
-    // Check if build exists before serving
-    const indexPath = path.join(__dirname, '../client/build/index.html');
-    if (fs.existsSync(indexPath)) {
-      // Serve the React app for all other routes
-      res.sendFile(indexPath);
-    } else {
-      // If build doesn't exist, show an error
-      res.status(500).send(`
-        <html>
-          <head><title>Build Error</title></head>
-          <body>
-            <h1>Frontend Build Not Found</h1>
-            <p>The React application has not been built. Please check the deployment logs.</p>
-            <p>Expected file: ${indexPath}</p>
-          </body>
-        </html>
-      `);
-    }
-  });
-} else {
-  // In development, let React handle non-API routes
-  app.use('*', (req, res) => {
-    // Only handle API routes, let React handle everything else
-    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
-      console.log('🔍 [CATCH-ALL] Unmatched API request:', {
-        method: req.method,
-        originalUrl: req.originalUrl,
-        url: req.url,
-        path: req.path,
-        headers: req.headers,
-        ip: req.ip
-      });
-      res.status(404).json({ 
-        error: 'API route not found',
-        requestedPath: req.originalUrl,
-        availableRoutes: [
-          '/api/auth/pco',
-          '/auth/callback', 
-          '/api/auth/callback',
-          '/api/auth-status',
-          '/api/events',
-          '/api/security-codes'
-        ]
-      });
-    } else {
-      // For non-API routes, redirect to React dev server
-      res.redirect(`http://localhost:3000${req.originalUrl}`);
-    }
-  });
-}
+// Handle unmatched routes
+app.use('*', (req, res) => {
+  // Only handle API routes
+  if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+    console.log('🔍 [CATCH-ALL] Unmatched API request:', {
+      method: req.method,
+      originalUrl: req.originalUrl,
+      url: req.url,
+      path: req.path,
+      headers: req.headers,
+      ip: req.ip
+    });
+    res.status(404).json({ 
+      error: 'API route not found',
+      requestedPath: req.originalUrl,
+      availableRoutes: [
+        '/api/auth/pco',
+        '/auth/callback', 
+        '/api/auth/callback',
+        '/api/auth-status',
+        '/api/events',
+        '/api/security-codes'
+      ]
+    });
+  } else {
+    // For non-API routes, return 404
+    res.status(404).json({ 
+      error: 'Route not found',
+      message: 'This server only serves API endpoints. The React frontend should be deployed separately.',
+      requestedPath: req.originalUrl
+    });
+  }
+});
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
