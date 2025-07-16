@@ -2,7 +2,7 @@ services:
   - type: web
     name: pco-arrivals-billboard
     env: node
-    buildCommand: npm install && npm run install:all
+    buildCommand: npm install && cd server && npm install
     startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
