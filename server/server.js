@@ -118,6 +118,7 @@ app.use(cors({
     // Define allowed origins
     const allowedOrigins = [
       'https://arrivals.gracefm.org',
+      'https://pco-arrivals-billboard-client.onrender.com',
       'http://localhost:3000',
       'http://localhost:3001'
     ];
