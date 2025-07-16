@@ -11,7 +11,8 @@
     "server:start": "cd server && npm start",
     "client:build": "cd client && npm run build",
     "build": "npm install && cd server && npm install && cd ../client && npm install && npm run build",
-    "postinstall": "cd server && npm install && cd ../client && npm install && npm run build"
+    "postinstall": "cd server && npm install && cd ../client && npm install && npm run build",
+    "render-build": "npm run build && node check-build.js"
   },
   "dependencies": {
     "axios": "^1.9.0",

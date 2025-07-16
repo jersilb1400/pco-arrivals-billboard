@@ -157,6 +157,11 @@ if (process.env.NODE_ENV === 'production') {
   const buildPath = path.join(__dirname, '../client/build');
   const indexPath = path.join(buildPath, 'index.html');
   
+  console.log('🔍 Checking for frontend build in production...');
+  console.log('📁 Server directory:', __dirname);
+  console.log('📁 Build path:', buildPath);
+  console.log('📄 Index path:', indexPath);
+  
   // Check if build directory exists
   if (fs.existsSync(buildPath) && fs.existsSync(indexPath)) {
     console.log('✅ Frontend build found, serving static files from:', buildPath);
@@ -165,6 +170,21 @@ if (process.env.NODE_ENV === 'production') {
     console.error('❌ Frontend build not found at:', buildPath);
     console.error('❌ Expected index.html at:', indexPath);
     console.error('❌ Please ensure the frontend is built before starting the server');
+    
+    // List contents of parent directory for debugging
+    const parentDir = path.dirname(buildPath);
+    console.log('📋 Contents of parent directory:', parentDir);
+    if (fs.existsSync(parentDir)) {
+      try {
+        const files = fs.readdirSync(parentDir);
+        files.forEach(file => {
+          const stat = fs.statSync(path.join(parentDir, file));
+          console.log(`  ${file} (${stat.isDirectory() ? 'dir' : 'file'})`);
+        });
+      } catch (err) {
+        console.error('❌ Error reading parent directory:', err.message);
+      }
+    }
   }
 }
 

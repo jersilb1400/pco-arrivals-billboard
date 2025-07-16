@@ -2,7 +2,7 @@ services:
   - type: web
     name: pco-arrivals-billboard
     env: node
-    buildCommand: npm install
+    buildCommand: npm run render-build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
