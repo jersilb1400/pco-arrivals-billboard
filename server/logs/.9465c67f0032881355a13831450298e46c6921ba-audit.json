@@ -6,14 +6,14 @@
     "auditLog": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/.9465c67f0032881355a13831450298e46c6921ba-audit.json",
     "files": [
         {
-            "date": 1752092185620,
-            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-07-09.log",
-            "hash": "2108957f6d06fe95e8a64ae8eafbaa090d12511eb83607576c97bf969f914943"
-        },
-        {
             "date": 1752690158888,
             "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-07-16.log",
             "hash": "efe892c08d4606f45522946ce1ad88cc6e4b851857fe6b21092a22adfd71ee31"
+        },
+        {
+            "date": 1753305142878,
+            "name": "/Users/jeremysilbernagel/Documents/Grace Fellowship Info/pco-arrivals-billboard/server/logs/application-2025-07-23.log",
+            "hash": "efa7331d88bde8fbed5a95b7e78778baa82e5b35509c9bc8f0d05d0d351752ed"
         }
     ],
     "hashType": "sha256"

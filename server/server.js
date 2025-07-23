@@ -1762,14 +1762,14 @@ app.get('/api/location-status', async (req, res) => {
     
     while (nextPage) {
       const checkInResponse = await axios.get(nextPage, {
-        auth: {
-          username: process.env.PCO_ACCESS_TOKEN,
-          password: process.env.PCO_ACCESS_SECRET
-        },
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
+      auth: {
+        username: process.env.PCO_ACCESS_TOKEN,
+        password: process.env.PCO_ACCESS_SECRET
+      },
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
       
       const { data, included, links } = checkInResponse.data;
       allCheckIns = allCheckIns.concat(data || []);
@@ -1943,25 +1943,25 @@ app.use('*', (req, res) => {
   // Only handle API routes
   if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
     console.log('🔍 [CATCH-ALL] Unmatched API request:', {
-      method: req.method,
-      originalUrl: req.originalUrl,
-      url: req.url,
-      path: req.path,
-      headers: req.headers,
-      ip: req.ip
-    });
-    res.status(404).json({ 
+    method: req.method,
+    originalUrl: req.originalUrl,
+    url: req.url,
+    path: req.path,
+    headers: req.headers,
+    ip: req.ip
+  });
+  res.status(404).json({ 
       error: 'API route not found',
-      requestedPath: req.originalUrl,
-      availableRoutes: [
-        '/api/auth/pco',
-        '/auth/callback', 
-        '/api/auth/callback',
-        '/api/auth-status',
-        '/api/events',
-        '/api/security-codes'
-      ]
-    });
+    requestedPath: req.originalUrl,
+    availableRoutes: [
+      '/api/auth/pco',
+      '/auth/callback', 
+      '/api/auth/callback',
+      '/api/auth-status',
+      '/api/events',
+      '/api/security-codes'
+    ]
+  });
   } else {
     // For non-API routes, return 404
     res.status(404).json({ 

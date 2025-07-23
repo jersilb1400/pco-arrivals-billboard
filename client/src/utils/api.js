@@ -4,13 +4,13 @@ import axios from 'axios';
 let API_BASE;
 
 if (process.env.NODE_ENV === 'production') {
-  // In production, use the production URL from .env.production
-  API_BASE = process.env.REACT_APP_API_BASE || '/api';
+  // In production, use the production URL from environment variable
+  API_BASE = process.env.REACT_APP_API_BASE || 'https://pco-arrivals-billboard.onrender.com/api';
 } else if (process.env.NODE_ENV === 'development') {
   // In development, use localhost from .env.development
   API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:3001/api';
 } else {
-  // For other environments (staging, etc.), use staging URL from .env.staging
+  // For other environments (staging, etc.), use staging URL
   API_BASE = process.env.REACT_APP_API_BASE || 'https://pco-arrivals-billboard.onrender.com/api';
 }
 

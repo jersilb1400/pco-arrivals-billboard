@@ -11,6 +11,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: REACT_APP_API_BASE
+        value: https://pco-arrivals-billboard.onrender.com/api
     # Health check configuration
     healthCheckPath: /
     # Auto-deploy on push to main branch
@@ -25,7 +27,7 @@ services:
     startCommand: npm start
     envVars:
       - key: NODE_ENV
-        value: production
+        value: production 
       - key: CLIENT_URL
         value: https://arrivals.gracefm.org
       - key: REDIRECT_URI

@@ -1,19 +1,21 @@
 #!/bin/bash
 
 # Build and Deploy Script for PCO Arrivals Billboard
+# This script builds the React client and copies it to the server directory
 
-echo "🚀 Starting build and deploy process..."
+echo "🚀 Starting build process..."
 
-# Build the frontend
-echo "📦 Building frontend..."
+# Build the React client
+echo "📦 Building React client..."
 cd client
+npm install
 npm run build
 cd ..
 
-# Copy frontend build to backend directory
-echo "📋 Copying frontend build to backend..."
+# Copy the built client to the server directory
+echo "📋 Copying built client to server directory..."
 rm -rf server/client
 cp -r client/build server/client
 
-echo "✅ Build complete! Frontend files copied to server/client/"
-echo "📤 Ready to commit and deploy to Render" 
+echo "✅ Build complete! The server/client directory now contains the built React app."
+echo "🎯 You can now deploy the server directory to Render." 

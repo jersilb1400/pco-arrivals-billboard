@@ -1,105 +1,137 @@
-# Deployment Instructions
+# Deployment Guide
 
 ## Overview
-This application is now configured to run as separate client and server instances, both locally and in production.
 
-## Local Development
+This application can be deployed in two ways:
 
-### Start Both Services
-```bash
-npm run dev
-```
+1. **Single Service Deployment** (Recommended) - Frontend and backend served from the same domain
+2. **Separate Services Deployment** - Frontend and backend as separate services
 
-### Start Services Individually
-```bash
-# Start server only
-npm run server:dev
+## Option 1: Single Service Deployment (Recommended)
 
-# Start client only  
-npm run client:dev
-```
+This approach serves both the React frontend and Node.js backend from the same domain, eliminating CORS issues and simplifying the deployment.
 
-## Production Deployment
+### Configuration
 
-### Option 1: Render (Recommended)
-
-#### Step 1: Deploy Client Service
-1. Go to [render.com](https://render.com)
-2. Create a new **Web Service**
-3. Connect your GitHub repository
-4. Configure:
-   - **Name**: `pco-arrivals-client`
-   - **Root Directory**: `client`
-   - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm start`
-   - **Environment**: `NODE_ENV=production`
-
-#### Step 2: Deploy Server Service
-1. Create another **Web Service**
-2. Configure:
-   - **Name**: `pco-arrivals-server`
-   - **Root Directory**: `server`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-   - **Environment Variables**:
-     ```
-     NODE_ENV=production
-     PORT=10000
-     MONGODB_URI=your_mongodb_connection_string
-     PCO_CLIENT_ID=your_pco_client_id
-     PCO_CLIENT_SECRET=your_pco_client_secret
-     PCO_ACCESS_TOKEN=your_pco_access_token
-     PCO_ACCESS_SECRET=your_pco_access_secret
-     REDIRECT_URI=https://your-server-domain.onrender.com/auth/callback
-     SESSION_SECRET=your_session_secret
-     CLIENT_URL=https://your-client-domain.onrender.com
-     ```
-
-#### Step 3: Update Client Configuration
-1. Get your server domain (e.g., `https://pco-arrivals-server.onrender.com`)
-2. Update `client/.env.production`:
-   ```
-   REACT_APP_API_BASE=https://your-server-domain.onrender.com/api
+1. **Update render.yaml** (already configured):
+   ```yaml
+   services:
+     - type: web
+       name: pco-arrivals-billboard
+       runtime: node
+       rootDir: .
+       buildCommand: |
+         cd client && npm install && npm run build
+         cd ../server && npm install
+         cp -r ../client/build ../server/client
+       startCommand: cd server && npm start
    ```
 
-#### Step 4: Update PCO OAuth Settings
-1. Go to your PCO application settings
-2. Update the redirect URI to your server domain:
-   `https://your-server-domain.onrender.com/auth/callback`
+2. **API Configuration**: The client is configured to use relative paths (`/api`) for API calls, which works perfectly with this setup.
 
-### Option 2: Manual Deployment
+3. **Deploy**: Push to your main branch and Render will automatically deploy.
 
-#### Deploy Client to Render
-- Use the client directory as the root
-- Build command: `npm install && npm run build`
-- Start command: `npm start`
+### Benefits
+- ✅ No CORS issues
+- ✅ Single domain for everything
+- ✅ Simpler configuration
+- ✅ Better performance (no cross-domain requests)
 
-#### Deploy Server to Railway/Heroku
-- Use the server directory as the root
-- Build command: `npm install`
-- Start command: `npm start`
+## Option 2: Separate Services Deployment
 
-## Benefits of Separate Services
+If you prefer to keep frontend and backend as separate services:
 
-✅ **Cleaner Architecture**: Client and server are completely independent
-✅ **Easier Debugging**: Issues are isolated to specific services
-✅ **Independent Scaling**: Scale client and server separately
-✅ **Simpler Deployments**: No complex build processes
-✅ **Better Performance**: Each service optimized for its purpose
+### Frontend Service Configuration
 
-## Troubleshooting
+1. **Environment Variables**:
+   ```
+   REACT_APP_API_BASE=https://your-backend-service.onrender.com/api
+   ```
 
-### Client Can't Connect to Server
-- Check that `REACT_APP_API_BASE` points to the correct server URL
-- Verify the server is running and accessible
-- Check CORS settings on the server
+2. **Update render.yaml**:
+   ```yaml
+   services:
+     - type: web
+       name: pco-arrivals-client
+       runtime: node
+       rootDir: client
+       buildCommand: npm install && npm run build
+       startCommand: npm start
+       envVars:
+         - key: REACT_APP_API_BASE
+           value: https://your-backend-service.onrender.com/api
+   ```
 
-### OAuth Issues
-- Ensure redirect URI matches exactly in PCO settings
-- Verify the server domain is correct
-- Check that the server is accessible from PCO
+### Backend Service Configuration
 
-### Build Failures
-- Client: Check for ESLint errors
-- Server: Verify all dependencies are installed
-- Both: Check environment variables are set correctly 
+1. **Environment Variables**:
+   ```
+   CLIENT_URL=https://your-frontend-service.onrender.com
+   REDIRECT_URI=https://your-frontend-service.onrender.com/auth/callback
+   ```
+
+## Troubleshooting 404 Errors
+
+### Problem: "Sign in with Planning Center" returns 404
+
+**Cause**: The frontend is trying to access `/api/auth/pco` on the wrong domain.
+
+**Solutions**:
+
+1. **For Single Service Deployment**:
+   - Ensure the server is configured to serve static files
+   - Verify the build process copies the React app to `server/client/`
+   - Check that the server serves `index.html` for non-API routes
+
+2. **For Separate Services Deployment**:
+   - Set `REACT_APP_API_BASE` to point to your backend service URL
+   - Ensure CORS is properly configured on the backend
+   - Verify the backend service is running and accessible
+
+### Quick Fix
+
+If you're currently experiencing 404 errors:
+
+1. **Check your current deployment**:
+   ```bash
+   # Check if you have separate services
+   curl https://arrivals.gracefm.org/api/auth-status
+   ```
+
+2. **If using separate services**, update the frontend environment variable:
+   ```
+   REACT_APP_API_BASE=https://your-backend-service.onrender.com/api
+   ```
+
+3. **If using single service**, ensure the build process is working:
+   ```bash
+   ./build-and-deploy.sh
+   ```
+
+## Environment Variables Reference
+
+### Frontend (Client)
+- `REACT_APP_API_BASE`: API base URL (use `/api` for single service, full URL for separate services)
+
+### Backend (Server)
+- `CLIENT_URL`: Frontend URL for redirects
+- `REDIRECT_URI`: OAuth callback URL
+- `PCO_CLIENT_ID`: Planning Center OAuth client ID
+- `PCO_CLIENT_SECRET`: Planning Center OAuth client secret
+- `MONGODB_URI`: MongoDB connection string
+- `SESSION_SECRET`: Session encryption secret
+
+## Health Checks
+
+- **Single Service**: `/api/auth-status`
+- **Separate Services**: 
+  - Frontend: `/`
+  - Backend: `/api/auth-status`
+
+## Monitoring
+
+Check your Render dashboard for:
+- Build logs
+- Runtime logs
+- Environment variables
+- Service health status 

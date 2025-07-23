@@ -58,7 +58,7 @@ function Login() {
     localStorage.setItem('rememberMe', rememberMe);
 
     // Redirect to your server's OAuth endpoint using the API base URL
-    const apiBase = process.env.REACT_APP_API_BASE || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api');
+    const apiBase = process.env.REACT_APP_API_BASE || 'https://pco-arrivals-billboard.onrender.com/api';
     window.location.href = `${apiBase}/auth/pco?remember=${rememberMe}&prompt=login`;
   };
 
