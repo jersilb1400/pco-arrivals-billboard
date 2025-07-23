@@ -1988,6 +1988,7 @@ process.on('unhandledRejection', (reason, promise) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`PCO OAuth callback URL: ${REDIRECT_URI}`);
+  console.log(`Hardcoded REDIRECT_URI: ${REDIRECT_URI}`);
   if (authorizedUsers.length === 0) {
     console.log('Warning: No authorized users configured. The first user to log in will be granted admin access.');
   } else {
