@@ -69,7 +69,7 @@ NODE_ENV=development
 PORT=3001
 
 # Database
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/pco-arrivals?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://your_username:your_password@your_cluster.mongodb.net/pco-arrivals?retryWrites=true&w=majority
 
 # Planning Center OAuth
 PCO_CLIENT_ID=your_client_id
@@ -171,7 +171,7 @@ npm start
 **Backend Service Variables:**
 ```
 NODE_ENV=production
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/pco-arrivals?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://your_username:your_password@your_cluster.mongodb.net/pco-arrivals?retryWrites=true&w=majority
 PCO_CLIENT_ID=your_client_id
 PCO_CLIENT_SECRET=your_client_secret
 PCO_ACCESS_TOKEN=your_access_token
@@ -423,7 +423,7 @@ curl -X GET "https://your-backend-domain.com/api/events" \
 ### 4. Database Verification
 ```bash
 # Check MongoDB connection
-mongo "mongodb+srv://cluster.mongodb.net/pco-arrivals" \
+mongo "mongodb+srv://your_cluster.mongodb.net/pco-arrivals" \
   --username your_username \
   --password your_password
 
