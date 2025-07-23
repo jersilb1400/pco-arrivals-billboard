@@ -29,7 +29,7 @@ app.set('trust proxy', 1); // trust first proxy for secure cookies on Render
 // Environment variables (from .env file)
 const CLIENT_ID = process.env.PCO_CLIENT_ID || 'YOUR_CLIENT_ID';
 const CLIENT_SECRET = process.env.PCO_CLIENT_SECRET || 'YOUR_CLIENT_SECRET'; 
-const REDIRECT_URI = process.env.REDIRECT_URI || 'https://arrivals.gracefm.org/auth/callback';
+const REDIRECT_URI = process.env.REDIRECT_URI || 'https://pco-arrivals-billboard.onrender.com/auth/callback';
 const PORT = process.env.PORT || 3001;
 const PCO_API_BASE = 'https://api.planningcenteronline.com/check-ins/v2';
 const ACCESS_TOKEN = process.env.PCO_ACCESS_TOKEN;

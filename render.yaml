@@ -31,7 +31,7 @@ services:
       - key: CLIENT_URL
         value: https://arrivals.gracefm.org
       - key: REDIRECT_URI
-        value: https://arrivals.gracefm.org/auth/callback
+        value: https://pco-arrivals-billboard.onrender.com/auth/callback
     # Health check configuration
     healthCheckPath: /api/auth-status
     # Auto-deploy on push to main branch
