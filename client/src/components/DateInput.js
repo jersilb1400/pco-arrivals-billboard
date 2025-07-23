@@ -41,6 +41,8 @@ function DateInput({ value, onChange, label, placeholder, fullWidth = true, sx =
 
   const handleDateSelect = (date) => {
     const formattedDate = date.toISOString().split('T')[0];
+    console.log('DateInput: Date selected:', date);
+    console.log('DateInput: Formatted date:', formattedDate);
     onChange({ target: { value: formattedDate } });
     handleClose();
   };

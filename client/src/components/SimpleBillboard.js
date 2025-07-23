@@ -61,12 +61,12 @@ function SimpleBillboard() {
     fetchActiveNotifications();
   }, [fetchGlobalBillboard, fetchActiveNotifications]);
 
-  // Polling every 5 seconds to avoid rate limiting
+  // Polling every 10 seconds to reduce server load
   useEffect(() => {
     const interval = setInterval(() => {
       fetchGlobalBillboard();
       fetchActiveNotifications();
-    }, 5000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [fetchGlobalBillboard, fetchActiveNotifications]);
 

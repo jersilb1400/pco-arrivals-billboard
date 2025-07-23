@@ -318,6 +318,8 @@ function AdminPanel() {
   const handleDateChange = async (e) => {
     const newDate = e.target.value;
     console.log('AdminPanel: Date changed to:', newDate);
+    console.log('AdminPanel: Event target:', e.target);
+    console.log('AdminPanel: Event type:', e.type);
     
     // Validate date format
     if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
@@ -517,11 +519,14 @@ function AdminPanel() {
     }
   };
 
+  // Only fetch notifications when there's an active billboard or when manually requested
   useEffect(() => {
-    fetchActiveNotifications();
-    const interval = setInterval(fetchActiveNotifications, 5000);
-    return () => clearInterval(interval);
-  }, [selectedEvent, selectedDate, fetchActiveNotifications]);
+    if (activeBillboard && selectedEvent && selectedDate) {
+      fetchActiveNotifications();
+      const interval = setInterval(fetchActiveNotifications, 10000); // Reduced to 10 seconds
+      return () => clearInterval(interval);
+    }
+  }, [activeBillboard, selectedEvent, selectedDate]);
 
   function formatSelectedDateForDisplay(dateString) {
     if (!dateString) return '';
