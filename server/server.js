@@ -508,6 +508,7 @@ app.get('/api/debug/env', (req, res) => {
     NODE_ENV: process.env.NODE_ENV,
     CLIENT_URL: process.env.CLIENT_URL,
     REDIRECT_URI: process.env.REDIRECT_URI,
+    HARDCODED_REDIRECT_URI: REDIRECT_URI,
     host: req.get('host'),
     'x-forwarded-proto': req.get('x-forwarded-proto'),
     'x-forwarded-host': req.get('x-forwarded-host'),
