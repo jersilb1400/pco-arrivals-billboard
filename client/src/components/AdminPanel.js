@@ -93,12 +93,11 @@ function AdminPanel() {
       setSelectedDate(global.activeBillboard.eventDate || getTodayDate());
       setExistingSecurityCodes(global.activeBillboard.securityCodes || []);
     } else {
-      console.log('AdminPanel: Clearing local state - no active billboard');
+      console.log('AdminPanel: No active billboard - preserving user selections');
       setActiveBillboard(null);
-      setSelectedEvent('');
-      // Don't clear selectedDate when there's no active billboard
+      // Don't clear selectedEvent or selectedDate when there's no active billboard
       // This prevents losing user selections during normal operation
-      console.log('AdminPanel: Preserving selectedDate - no active billboard');
+      console.log('AdminPanel: Preserving selectedEvent and selectedDate - no active billboard');
       setExistingSecurityCodes([]);
     }
   }, []);
@@ -110,11 +109,13 @@ function AdminPanel() {
         const response = await api.get('/global-billboard');
         setGlobalBillboardState(response.data);
         // Only sync if not adding a security code and not in manual change mode
-        if (!isAddingSecurityCode && !isManualChange) {
+        // Also don't sync if user has selected an event but no billboard is active
+        const hasUserSelections = selectedEvent && !globalBillboardState?.activeBillboard;
+        if (!isAddingSecurityCode && !isManualChange && !hasUserSelections) {
           console.log('AdminPanel: Syncing with global billboard state:', response.data);
           syncWithGlobalBillboard(response.data);
         } else {
-          console.log('AdminPanel: Skipping global sync - isAddingSecurityCode:', isAddingSecurityCode, 'isManualChange:', isManualChange);
+          console.log('AdminPanel: Skipping global sync - isAddingSecurityCode:', isAddingSecurityCode, 'isManualChange:', isManualChange, 'hasUserSelections:', hasUserSelections);
         }
       } catch (error) {
         setGlobalBillboardState(null);
@@ -542,7 +543,7 @@ function AdminPanel() {
       const timer = setTimeout(() => {
         console.log('AdminPanel: Resetting manual change flag after delay');
         setIsManualChange(false);
-      }, 3000); // 3 second delay
+      }, 10000); // 10 second delay to give users more time
       return () => clearTimeout(timer);
     }
   }, [isManualChange]);
