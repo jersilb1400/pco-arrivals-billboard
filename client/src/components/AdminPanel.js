@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Container,
@@ -84,7 +84,7 @@ function AdminPanel() {
   }, [session, sessionLoading, navigate]);
 
   // Helper to sync local state with global billboard
-  const syncWithGlobalBillboard = (global) => {
+  const syncWithGlobalBillboard = useCallback((global) => {
     console.log('AdminPanel: syncWithGlobalBillboard called with:', global);
     if (global?.activeBillboard) {
       console.log('AdminPanel: Syncing with active billboard:', global.activeBillboard);
@@ -107,7 +107,7 @@ function AdminPanel() {
       }
       setExistingSecurityCodes([]);
     }
-  };
+  }, [isManualChange]);
 
   // Fetch global billboard state on mount and when returning from another page
   useEffect(() => {
@@ -135,7 +135,7 @@ function AdminPanel() {
     if (session?.authenticated) {
       fetchGlobalBillboard();
     }
-  }, [session, isAddingSecurityCode, isManualChange, syncWithGlobalBillboard]);
+  }, [session, isAddingSecurityCode, isManualChange]);
 
   // Update display date whenever selectedDate changes
   useEffect(() => {
