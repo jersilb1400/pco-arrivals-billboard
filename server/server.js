@@ -18,7 +18,6 @@ const { Parser } = require('json2csv'); // For CSV export (optional)
 const { requireAuth, requireAuthOnly } = require('./middleware/auth');
 
 // Import routes
-const billboardRoutes = require('./routes/billboard.routes');
 const adminRoutes = require('./routes/admin.routes');
 // Note: Auth routes are defined directly in this file, not imported
 
@@ -228,7 +227,6 @@ async function ensureValidToken(req) {
 }
 
 // Mount routes
-app.use('/api/billboard', billboardRoutes);
 app.use('/api/admin', adminRoutes);
 // Note: Auth routes are defined directly in this file, not mounted from auth.routes.js
 
