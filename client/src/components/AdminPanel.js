@@ -510,23 +510,26 @@ function AdminPanel() {
       if (selectedEvent) params.append('eventId', selectedEvent);
       if (selectedDate) params.append('eventDate', selectedDate);
       
+      console.log('[AdminPanel] Fetching notifications with params:', params.toString());
       const response = await api.get(`/active-notifications?${params.toString()}`);
+      console.log('[AdminPanel] Received notifications:', response.data?.length || 0);
       setActiveNotifications(response.data || []);
     } catch (error) {
+      console.error('[AdminPanel] Error fetching notifications:', error);
       setActiveNotifications([]);
     } finally {
       setLoadingNotifications(false);
     }
   };
 
-  // Only fetch notifications when there's an active billboard or when manually requested
+  // Fetch notifications when we have an event selected, regardless of billboard status
   useEffect(() => {
-    if (activeBillboard && selectedEvent && selectedDate) {
+    if (selectedEvent && selectedDate) {
       fetchActiveNotifications();
-      const interval = setInterval(fetchActiveNotifications, 10000); // Reduced to 10 seconds
+      const interval = setInterval(fetchActiveNotifications, 10000); // 10 seconds
       return () => clearInterval(interval);
     }
-  }, [activeBillboard, selectedEvent, selectedDate]);
+  }, [selectedEvent, selectedDate]);
 
   function formatSelectedDateForDisplay(dateString) {
     if (!dateString) return '';
@@ -874,6 +877,15 @@ function AdminPanel() {
                   <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
                     Awaiting Pickup
                   </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<RefreshIcon />}
+                    onClick={fetchActiveNotifications}
+                    disabled={loadingNotifications}
+                    sx={{ ml: 'auto' }}
+                  >
+                    Refresh
+                  </Button>
                 </Box>
                 {loadingNotifications ? (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -891,6 +903,11 @@ function AdminPanel() {
                     <Typography variant="h6" gutterBottom>
                       Current Pickup Requests ({activeNotifications.length})
                     </Typography>
+                    {activeNotifications.length > 0 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                        Debug: Event {selectedEvent}, Date {selectedDate}
+                      </Typography>
+                    )}
                     <Paper variant="outlined" sx={{ p: 2, maxHeight: 300, overflow: 'auto' }}>
                       {activeNotifications.map((n, idx) => (
                         <Typography key={idx} variant="body2" sx={{ mb: 1 }}>

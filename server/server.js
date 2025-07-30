@@ -517,6 +517,15 @@ app.get('/api/debug/env', (req, res) => {
   });
 });
 
+// Debug endpoint to check all active notifications
+app.get('/api/debug/notifications', (req, res) => {
+  res.json({
+    totalNotifications: activeNotifications.length,
+    notifications: activeNotifications,
+    globalBillboardState: globalBillboardState
+  });
+});
+
 // Update logout route to clear cookies properly
 app.get('/api/auth/logout', (req, res) => {
   console.log('🔴 Logout route hit');
@@ -1440,8 +1449,10 @@ app.post('/api/security-code-entry', async (req, res) => {
     console.log(`[SECURITY CODE] Searching for security code ${securityCode} in event ${eventId} on date ${eventDate}`);
 
     // Search for active check-ins with this security code, filtered by event and date
-    const checkInResponse = await axios.get(
-      `${PCO_API_BASE}/check_ins?where[security_code]=${securityCode}&where[event_id]=${eventId}&include=person,locations`, {
+    const url = `${PCO_API_BASE}/check_ins?where[security_code]=${securityCode}&where[event_id]=${eventId}&include=person,locations`;
+    console.log(`[SECURITY CODE] PCO API URL: ${url}`);
+    
+    const checkInResponse = await axios.get(url, {
       auth: {
         username: process.env.PCO_ACCESS_TOKEN,
         password: process.env.PCO_ACCESS_SECRET
@@ -1511,6 +1522,13 @@ app.post('/api/security-code-entry', async (req, res) => {
           eventId: eventId,
           eventDate: eventDate
         };
+        console.log(`[SECURITY CODE] Created notification:`, {
+          childName,
+          securityCode: securityCode.toUpperCase(),
+          eventId,
+          eventDate,
+          notificationId: notification.id
+        });
         activeNotifications.push(notification);
         addedChildren.push({ childName, locationName });
         console.log(`[SECURITY CODE] New pickup request: ${childName} (${securityCode}) from ${locationName} in event ${eventId}`);
@@ -1563,60 +1581,73 @@ app.get('/api/active-notifications', async (req, res) => {
       console.log(`[DEBUG] Filtering by event: ${eventId}, date: ${eventDate}`);
     }
     
-    // Filter notifications by event if specified
+    // Filter notifications by event if specified, but be more lenient
     let filteredNotifications = activeNotifications;
     if (eventId && eventDate) {
+      // First try exact match
       filteredNotifications = activeNotifications.filter(n => 
         n.eventId === eventId && n.eventDate === eventDate
       );
+      
+      // If no exact matches, try just eventId (in case date format differs)
+      if (filteredNotifications.length === 0) {
+        filteredNotifications = activeNotifications.filter(n => n.eventId === eventId);
+        console.log(`[DEBUG] No exact matches, trying eventId only: ${filteredNotifications.length} notifications`);
+      }
+      
+      // If still no matches, show all notifications (for debugging)
+      if (filteredNotifications.length === 0) {
+        console.log(`[DEBUG] No matches found, showing all notifications for debugging`);
+        filteredNotifications = activeNotifications;
+      }
+      
       console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for event ${eventId}`);
     }
     
-    // Filter out checked-out children in real-time using batch API call
+    // Only check PCO for checked-out children if we have notifications and it's not too frequent
     if (filteredNotifications.length > 0) {
       const checkInIds = filteredNotifications.map(n => n.checkInId);
-      console.log(`[DEBUG] Checking PCO for ${checkInIds.length} check-in IDs:`, checkInIds);
+      console.log(`[DEBUG] Checking PCO for ${checkInIds.length} check-in IDs`);
+      
       try {
-        // Use batch API call instead of individual calls to avoid rate limiting
-        // Use individual API calls since PCO batch API doesn't work with our query format
-        console.log(`[DEBUG] Using individual API calls for ${checkInIds.length} check-ins...`);
-        const individualResults = await Promise.all(
-          checkInIds.map(async (id) => {
-            try {
-              const resp = await axios.get(
-                `${PCO_API_BASE}/check_ins/${id}`,
-                {
-                  auth: {
-                    username: process.env.PCO_ACCESS_TOKEN,
-                    password: process.env.PCO_ACCESS_SECRET
-                  },
-                  headers: { 'Accept': 'application/json' }
-                }
-              );
-              return resp.data.data;
-            } catch (err) {
-              console.error(`[DEBUG] Individual call failed for ${id}:`, err.message);
-              return null;
+        // Use a more efficient approach - check in smaller batches
+        const batchSize = 10;
+        const checkedOutIds = [];
+        
+        for (let i = 0; i < checkInIds.length; i += batchSize) {
+          const batch = checkInIds.slice(i, i + batchSize);
+          console.log(`[DEBUG] Checking batch ${Math.floor(i/batchSize) + 1}: ${batch.length} check-ins`);
+          
+          const batchResults = await Promise.all(
+            batch.map(async (id) => {
+              try {
+                const resp = await axios.get(
+                  `${PCO_API_BASE}/check_ins/${id}`,
+                  {
+                    auth: {
+                      username: process.env.PCO_ACCESS_TOKEN,
+                      password: process.env.PCO_ACCESS_SECRET
+                    },
+                    headers: { 'Accept': 'application/json' }
+                  }
+                );
+                return resp.data.data;
+              } catch (err) {
+                console.error(`[DEBUG] Individual call failed for ${id}:`, err.message);
+                return null;
+              }
+            })
+          );
+          
+          // Check which ones are checked out
+          batchResults.forEach(checkIn => {
+            if (checkIn && checkIn.attributes && checkIn.attributes.checked_out_at) {
+              checkedOutIds.push(checkIn.id);
             }
-          })
-        );
+          });
+        }
         
-        // Mock the response format for consistency
-        const checkInResponse = { data: { data: individualResults.filter(Boolean) } };
-        
-        const checkIns = checkInResponse.data.data || [];
-        console.log(`[DEBUG] Batch API returned ${checkIns.length} check-ins total`);
-        
-        // Debug: Log each check-in to see what we're getting
-        checkIns.forEach(checkIn => {
-          console.log(`[DEBUG] Check-in ${checkIn.id}: checked_out_at = ${checkIn.attributes?.checked_out_at || 'null'}`);
-        });
-        
-        const checkedOutIds = checkIns
-          .filter(checkIn => checkIn.attributes && checkIn.attributes.checked_out_at)
-          .map(checkIn => checkIn.id);
-        
-        console.log(`[DEBUG] Batch API found ${checkedOutIds.length} checked-out check-ins:`, checkedOutIds);
+        console.log(`[DEBUG] Found ${checkedOutIds.length} checked-out check-ins:`, checkedOutIds);
         
         if (checkedOutIds.length > 0) {
           const beforeCount = filteredNotifications.length;
@@ -1625,23 +1656,20 @@ app.get('/api/active-notifications', async (req, res) => {
           );
           const afterCount = filteredNotifications.length;
           if (beforeCount !== afterCount) {
-            console.log(`[DEBUG] Removed ${beforeCount - afterCount} notifications for checked-out children (batch fetch)`);
+            console.log(`[DEBUG] Removed ${beforeCount - afterCount} notifications for checked-out children`);
           }
-        } else {
-          console.log(`[DEBUG] No checked-out check-ins found (individual calls)`);
         }
       } catch (apiError) {
-        console.error('[DEBUG] Error checking PCO for checked-out children (batch fetch):', apiError.message);
+        console.error('[DEBUG] Error checking PCO for checked-out children:', apiError.message);
         // Continue with existing notifications if API call fails
-        // If we can't verify status due to rate limiting, be conservative and don't show potentially checked-out children
         if (apiError.response?.status === 429) {
-          console.log('[DEBUG] Rate limited - being conservative with notification display');
-          // Don't modify filteredNotifications - let them show to avoid flickering
+          console.log('[DEBUG] Rate limited - keeping existing notifications');
         }
       }
     } else {
       console.log(`[DEBUG] No active notifications to check`);
     }
+    
     console.log(`[DEBUG] Returning ${filteredNotifications.length} notifications`);
     res.json(filteredNotifications);
   } catch (error) {
@@ -1681,44 +1709,64 @@ app.post('/api/checkout-notification', async (req, res) => {
   }
 });
 
-// Cleanup old notifications and check for checked-out children (run every 2 minutes)
+// Cleanup old notifications and check for checked-out children (run every 5 minutes)
 setInterval(async () => {
   try {
     const currentTime = new Date();
-    const tenMinutesAgo = new Date(currentTime.getTime() - 10 * 60 * 1000);
+    const thirtyMinutesAgo = new Date(currentTime.getTime() - 30 * 60 * 1000); // Increased to 30 minutes
     
-    // Remove notifications older than 10 minutes
+    // Remove notifications older than 30 minutes
     const initialLength = activeNotifications.length;
     activeNotifications = activeNotifications.filter(notification => {
       const notificationTime = new Date(notification.notifiedAt);
-      return notificationTime > tenMinutesAgo;
+      return notificationTime > thirtyMinutesAgo;
     });
     
     const removedByTime = initialLength - activeNotifications.length;
     if (removedByTime > 0) {
-      console.log(`Cleaned up ${removedByTime} old notifications`);
+      console.log(`Cleaned up ${removedByTime} old notifications (older than 30 minutes)`);
     }
 
-    // Check if any children have been checked out in PCO
+    // Check if any children have been checked out in PCO (less frequently)
     if (activeNotifications.length > 0) {
       const checkInIds = activeNotifications.map(n => n.checkInId);
       
       try {
-        const checkInResponse = await axios.get(
-          `${PCO_API_BASE}/check_ins?where[id]=${checkInIds.join(',')}`, {
-          auth: {
-            username: process.env.PCO_ACCESS_TOKEN,
-            password: process.env.PCO_ACCESS_SECRET
-          },
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        const checkIns = checkInResponse.data.data;
-        const checkedOutIds = checkIns
-          .filter(checkIn => checkIn.attributes.checked_out_at)
-          .map(checkIn => checkIn.id);
+        // Use individual calls in batches to avoid rate limiting
+        const batchSize = 10;
+        const checkedOutIds = [];
+        
+        for (let i = 0; i < checkInIds.length; i += batchSize) {
+          const batch = checkInIds.slice(i, i + batchSize);
+          
+          const batchResults = await Promise.all(
+            batch.map(async (id) => {
+              try {
+                const resp = await axios.get(
+                  `${PCO_API_BASE}/check_ins/${id}`,
+                  {
+                    auth: {
+                      username: process.env.PCO_ACCESS_TOKEN,
+                      password: process.env.PCO_ACCESS_SECRET
+                    },
+                    headers: { 'Accept': 'application/json' }
+                  }
+                );
+                return resp.data.data;
+              } catch (err) {
+                console.error(`Cleanup: Individual call failed for ${id}:`, err.message);
+                return null;
+              }
+            })
+          );
+          
+          // Check which ones are checked out
+          batchResults.forEach(checkIn => {
+            if (checkIn && checkIn.attributes && checkIn.attributes.checked_out_at) {
+              checkedOutIds.push(checkIn.id);
+            }
+          });
+        }
 
         if (checkedOutIds.length > 0) {
           const beforeCount = activeNotifications.length;
@@ -1738,7 +1786,7 @@ setInterval(async () => {
   } catch (error) {
     console.error('Error in cleanup interval:', error);
   }
-}, 2 * 60 * 1000); // 2 minutes
+}, 5 * 60 * 1000); // 5 minutes
 
 // GET /api/location-status - Get all locations with remaining children for a specific event/date
 app.get('/api/location-status', async (req, res) => {
