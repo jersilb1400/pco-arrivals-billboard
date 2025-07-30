@@ -1389,6 +1389,141 @@ app.delete('/api/global-billboard', requireAuthOnly, (req, res) => {
   }
 });
 
+// GET /api/billboard/check-ins - Get active check-ins for a location
+app.get('/api/billboard/check-ins', requireAuthOnly, async (req, res) => {
+  try {
+    const { locationId, eventId, date } = req.query;
+    
+    console.log(`[DEBUG] /api/billboard/check-ins called with locationId: ${locationId}, eventId: ${eventId}, date: ${date}`);
+
+    if (!eventId) {
+      return res.status(400).json({ error: 'Event ID is required' });
+    }
+
+    // Build the URL with date filter if provided
+    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations&per_page=100`;
+    if (date) {
+      // Add date filter to only get check-ins for the specific date
+      url += `&where[created_at][gte]=${date}T00:00:00Z&where[created_at][lt]=${date}T23:59:59Z`;
+    }
+    
+    console.log(`[DEBUG] Fetching check-ins from PCO with URL: ${url}`);
+    
+    // Fetch check-ins for the specific event with pagination
+    let allCheckIns = [];
+    let allIncluded = [];
+    let nextPage = url;
+    
+    console.log(`[DEBUG] Starting to fetch check-ins with pagination from: ${nextPage}`);
+    
+    while (nextPage) {
+      const response = await axios.get(nextPage, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      const { data, included, links } = response.data;
+      allCheckIns = allCheckIns.concat(data || []);
+      if (included) allIncluded = allIncluded.concat(included);
+      nextPage = links && links.next ? links.next : null;
+      
+      console.log(`[DEBUG] Fetched page with ${data?.length || 0} check-ins, total so far: ${allCheckIns.length}`);
+    }
+    
+    console.log(`[DEBUG] Finished fetching all pages. Total check-ins: ${allCheckIns.length}, total included: ${allIncluded.length}`);
+
+    const checkIns = allCheckIns;
+    const included = allIncluded;
+
+    console.log(`[DEBUG] Total check-ins returned from PCO for event ${eventId}${date ? ` on date ${date}` : ''}: ${checkIns.length}`);
+    console.log(`[DEBUG] Total included items: ${included.length}`);
+    
+    // Process check-ins for the specific event
+    const eventCheckIns = [];
+    let checkInsWithLocations = 0;
+    let checkInsWithoutLocations = 0;
+    let checkedOutCount = 0;
+    let noPersonDataCount = 0;
+
+    checkIns.forEach((checkIn, index) => {
+      // Log check-ins that are being filtered out
+      if (checkIn.attributes.checked_out_at) {
+        console.log(`[DEBUG] Skipping checked-out check-in ${checkIn.id} (checked out at: ${checkIn.attributes.checked_out_at})`);
+        checkedOutCount++;
+        return; // Skip checked out check-ins
+      }
+
+      const location = included.find(item =>
+        item.type === 'Location' &&
+        item.id === checkIn.relationships.locations?.data?.[0]?.id
+      );
+      
+      const person = included.find(item => 
+        item.type === 'Person' && 
+        item.id === checkIn.relationships.person?.data?.id
+      );
+      
+      if (person) {
+        const checkInTimeRaw = checkIn.attributes.created_at;
+        let checkInTime = '';
+        if (checkInTimeRaw) {
+          const dateObj = new Date(checkInTimeRaw);
+          checkInTime = isNaN(dateObj.getTime()) ? '' : dateObj.toISOString();
+        }
+        const checkInData = {
+          id: checkIn.id,
+          name: `${person.attributes.first_name} ${person.attributes.last_name}`,
+          securityCode: checkIn.attributes.security_code || '',
+          checkInTime,
+          locationName: location ? location.attributes.name : 'No Location Assigned',
+          locationId: location ? location.id : null,
+          eventName: checkIn.attributes.event_times_name || checkIn.attributes.event_name
+        };
+        
+        eventCheckIns.push(checkInData);
+        
+        if (location) {
+          checkInsWithLocations++;
+        } else {
+          checkInsWithoutLocations++;
+        }
+      } else {
+        console.log(`[DEBUG] Check-in ${index} has no person data:`, checkIn.id, checkIn.attributes);
+        noPersonDataCount++;
+      }
+    });
+
+    console.log(`[DEBUG] Processing summary for event ${eventId}:`);
+    console.log(`[DEBUG] - Total check-ins from PCO: ${checkIns.length}`);
+    console.log(`[DEBUG] - Checked out (filtered out): ${checkedOutCount}`);
+    console.log(`[DEBUG] - No person data (filtered out): ${noPersonDataCount}`);
+    console.log(`[DEBUG] - Active check-ins (included): ${eventCheckIns.length}`);
+    console.log(`[DEBUG] - Check-ins with locations: ${checkInsWithLocations}`);
+    console.log(`[DEBUG] - Check-ins without locations: ${checkInsWithoutLocations}`);
+
+    // If locationId is provided, filter by location (but still show those without locations)
+    if (locationId && locationId !== 'all') {
+      const filteredCheckIns = eventCheckIns.filter(checkIn => 
+        checkIn.locationId === locationId || checkIn.locationId === null
+      );
+      console.log(`[DEBUG] Filtered to ${filteredCheckIns.length} check-ins for locationId ${locationId} (including those without locations)`);
+      res.json(filteredCheckIns);
+    } else {
+      // Return all active check-ins for the event
+      console.log(`[DEBUG] Returning all ${eventCheckIns.length} active check-ins for event ${eventId}`);
+      res.json(eventCheckIns);
+    }
+  } catch (error) {
+    console.error('Error fetching check-ins:', error);
+    res.status(500).json({ error: 'Failed to fetch check-ins' });
+  }
+});
+
 // Check for billboard updates endpoint
 app.get('/api/billboard-updates', requireAuthOnly, async (req, res) => {
   try {
