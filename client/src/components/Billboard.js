@@ -387,7 +387,7 @@ function Billboard() {
             textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
             letterSpacing: '2px'
           }}>
-            🎯 PICKUP REQUESTS
+            🎯 PICKUP REQUESTS (TV Mode)
           </h1>
           <div style={{
             fontSize: isFullscreen ? '2rem' : '1.5rem',
