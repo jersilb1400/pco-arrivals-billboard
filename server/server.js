@@ -1170,19 +1170,38 @@ app.get('/api/events/:eventId/locations', requireAuthOnly, async (req, res) => {
     const accessToken = await ensureValidToken(req);
     if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
+    console.log(`[DEBUG] Fetching locations for event: ${eventId}`);
+    
     let allLocations = [];
-    let nextPage = `https://api.planningcenteronline.com/check-ins/v2/events/${eventId}/locations?per_page=100`;
+    let nextPage = `${PCO_API_BASE}/events/${eventId}/locations?per_page=100`;
+    console.log(`[DEBUG] Initial PCO API URL: ${nextPage}`);
+    
     while (nextPage) {
-      const response = await axios.get(nextPage, {
-        auth: {
-          username: process.env.PCO_ACCESS_TOKEN,
-          password: process.env.PCO_ACCESS_SECRET
-        },
-        headers: { 'Accept': 'application/json' }
-      });
-      allLocations = allLocations.concat(response.data.data || []);
-      nextPage = response.data.links?.next;
+      try {
+        const response = await axios.get(nextPage, {
+          auth: {
+            username: process.env.PCO_ACCESS_TOKEN,
+            password: process.env.PCO_ACCESS_SECRET
+          },
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        console.log(`[DEBUG] PCO API response status: ${response.status}`);
+        console.log(`[DEBUG] PCO API returned ${response.data.data?.length || 0} locations`);
+        
+        allLocations = allLocations.concat(response.data.data || []);
+        nextPage = response.data.links?.next;
+      } catch (apiError) {
+        console.error(`[DEBUG] PCO API error for URL ${nextPage}:`, apiError.response?.data || apiError.message);
+        if (apiError.response?.status === 404) {
+          console.log(`[DEBUG] Event ${eventId} not found or has no locations`);
+          break;
+        }
+        throw apiError;
+      }
     }
+    
+    console.log(`[DEBUG] Total locations found: ${allLocations.length}`);
     res.json(allLocations);
   } catch (error) {
     console.error('API Error:', error.response?.data || error.message);
