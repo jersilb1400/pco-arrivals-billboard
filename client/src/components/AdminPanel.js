@@ -96,18 +96,12 @@ function AdminPanel() {
       console.log('AdminPanel: Clearing local state - no active billboard');
       setActiveBillboard(null);
       setSelectedEvent('');
-      // Only clear selectedDate if we're explicitly syncing from a global state
-      // and there's no manual change in progress
-      if (global && global.activeBillboard === null && !isManualChange) {
-        console.log('AdminPanel: Clearing selectedDate due to global sync');
-        setSelectedDate('');
-        setDisplayDate('');
-      } else {
-        console.log('AdminPanel: Preserving selectedDate during manual change or no explicit clear');
-      }
+      // Don't clear selectedDate when there's no active billboard
+      // This prevents losing user selections during normal operation
+      console.log('AdminPanel: Preserving selectedDate - no active billboard');
       setExistingSecurityCodes([]);
     }
-  }, [isManualChange]);
+  }, []);
 
   // Fetch global billboard state on mount and when returning from another page
   useEffect(() => {
@@ -357,6 +351,7 @@ function AdminPanel() {
   const handleEventChange = async (e) => {
     const eventId = e.target.value;
     console.log('AdminPanel: Event changed to:', eventId);
+    console.log('AdminPanel: Current selectedDate before event change:', selectedDate);
     console.log('AdminPanel: Setting manual change flag to true for event change');
     setIsManualChange(true);
     setSelectedEvent(eventId);
@@ -551,6 +546,16 @@ function AdminPanel() {
       return () => clearTimeout(timer);
     }
   }, [isManualChange]);
+
+  // Debug: Monitor selectedDate changes
+  useEffect(() => {
+    console.log('AdminPanel: selectedDate changed to:', selectedDate);
+  }, [selectedDate]);
+
+  // Debug: Monitor selectedEvent changes
+  useEffect(() => {
+    console.log('AdminPanel: selectedEvent changed to:', selectedEvent);
+  }, [selectedEvent]);
 
   function formatSelectedDateForDisplay(dateString) {
     if (!dateString) return '';
