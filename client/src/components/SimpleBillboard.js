@@ -306,9 +306,13 @@ function SimpleBillboard() {
                           </Box>
                           
                           {/* Location info */}
-                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <LocationIcon color="action" sx={{ fontSize: '1.2rem' }} />
-                            <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <LocationIcon color="action" sx={{ fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2rem' } }} />
+                            <Typography variant="h5" color="text.secondary" sx={{ 
+                              fontWeight: 600,
+                              fontSize: { xs: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                              textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                            }}>
                               📍 {notification.locationName}
                             </Typography>
                           </Box>
@@ -427,9 +431,13 @@ function SimpleBillboard() {
                           </Box>
                           
                           {/* Location info */}
-                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <LocationIcon color="action" sx={{ fontSize: '1.2rem' }} />
-                            <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <LocationIcon color="action" sx={{ fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2rem' } }} />
+                            <Typography variant="h5" color="text.secondary" sx={{ 
+                              fontWeight: 600,
+                              fontSize: { xs: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                              textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                            }}>
                               📍 {notification.locationName}
                             </Typography>
                           </Box>
