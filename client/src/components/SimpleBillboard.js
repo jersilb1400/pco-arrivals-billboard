@@ -77,6 +77,29 @@ function SimpleBillboard() {
     });
   };
 
+  // Function to get fun child-based emoji based on name
+  const getChildEmoji = (childName) => {
+    const emojis = [
+      '👶', '🧒', '👧', '👦', '👼', '🎈', '🎪', '🎨', '🎭', '🎯',
+      '🎮', '🎲', '🎸', '🎹', '🎺', '🎻', '🎤', '🎧', '🎬', '🎭',
+      '🎪', '🎨', '🎯', '🎳', '🎮', '🎲', '🎸', '🎹', '🎺', '🎻',
+      '🚀', '🚁', '🚂', '🚃', '🚄', '🚅', '🚆', '🚇', '🚈', '🚉',
+      '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+      '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🐣',
+      '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🕷️',
+      '🌈', '⭐', '🌟', '✨', '💫', '⚡', '🔥', '💥', '☀️', '🌙',
+      '🌍', '🌎', '🌏', '🌕', '🌖', '🌗', '🌘', '🌑', '🌒', '🌓',
+      '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍈', '🍒'
+    ];
+    
+    // Use the child's name to consistently pick the same emoji
+    const nameHash = childName.split('').reduce((hash, char) => {
+      return char.charCodeAt(0) + ((hash << 5) - hash);
+    }, 0);
+    
+    return emojis[Math.abs(nameHash) % emojis.length];
+  };
+
   // Group notifications by location
   const locationGroups = {};
   activeNotifications.forEach(notification => {
@@ -233,9 +256,6 @@ function SimpleBillboard() {
                               flex: 2,
                               minWidth: 0
                             }}>
-                              <ChildIcon color="primary" sx={{
-                                fontSize: { xs: '2rem', md: '2.5rem' }
-                              }} />
                               <Typography variant="h4" sx={{
                                 fontWeight: 900,
                                 color: 'text.primary',
@@ -243,7 +263,7 @@ function SimpleBillboard() {
                                 letterSpacing: '1px',
                                 fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
                               }}>
-                                👤 {notification.childName}
+                                {getChildEmoji(notification.childName)} {notification.childName}
                               </Typography>
                             </Box>
                             
@@ -357,9 +377,6 @@ function SimpleBillboard() {
                               flex: 2,
                               minWidth: 0
                             }}>
-                              <ChildIcon color="primary" sx={{
-                                fontSize: { xs: '2rem', md: '2.5rem' }
-                              }} />
                               <Typography variant="h4" sx={{
                                 fontWeight: 900,
                                 color: 'text.primary',
@@ -367,7 +384,7 @@ function SimpleBillboard() {
                                 letterSpacing: '1px',
                                 fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
                               }}>
-                                👤 {notification.childName}
+                                {getChildEmoji(notification.childName)} {notification.childName}
                               </Typography>
                             </Box>
                             
