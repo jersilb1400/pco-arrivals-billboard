@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import {
   Container,
@@ -23,7 +23,7 @@ function LocationStatus() {
   const [globalBillboard, setGlobalBillboard] = useState(null);
 
   // Fetch all locations with remaining children
-  const fetchLocations = async () => {
+  const fetchLocations = useCallback(async () => {
     try {
       if (!globalBillboard) return;
       const params = new URLSearchParams();
@@ -36,20 +36,20 @@ function LocationStatus() {
     } catch (error) {
       console.error('Error fetching location status:', error);
     }
-  };
+  }, [globalBillboard]);
 
   // Fetch active notifications
-  const fetchActiveNotifications = async () => {
+  const fetchActiveNotifications = useCallback(async () => {
     try {
       const response = await api.get('/active-notifications');
       setActiveNotifications(response.data);
     } catch (error) {
       console.error('Error fetching active notifications:', error);
     }
-  };
+  }, []);
 
   // Fetch both location status and active notifications
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
       await Promise.all([fetchLocations(), fetchActiveNotifications()]);
@@ -59,7 +59,7 @@ function LocationStatus() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchLocations, fetchActiveNotifications]);
 
   // Initial load
   useEffect(() => {
@@ -68,10 +68,10 @@ function LocationStatus() {
     }
   }, [globalBillboard, fetchAllData]);
 
-  // Poll every 10 seconds for faster updates
+  // Poll every 10 seconds for updates
   useEffect(() => {
     if (!globalBillboard) return;
-    const interval = setInterval(fetchAllData, 3000);
+    const interval = setInterval(fetchAllData, 10000); // Increased from 3 to 10 seconds
     return () => clearInterval(interval);
   }, [globalBillboard, fetchAllData]);
 
@@ -85,7 +85,7 @@ function LocationStatus() {
       }
     };
     fetchGlobalBillboard();
-    const interval = setInterval(fetchGlobalBillboard, 15000);
+    const interval = setInterval(fetchGlobalBillboard, 30000); // Increased from 15 to 30 seconds
     return () => clearInterval(interval);
   }, []);
 
