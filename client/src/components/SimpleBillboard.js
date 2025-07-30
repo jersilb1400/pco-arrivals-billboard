@@ -86,37 +86,57 @@ function SimpleBillboard() {
   });
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      {/* Header */}
-      <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box
-              component="img"
-              src="https://thechurchco-production.s3.amazonaws.com/uploads/sites/1824/2020/02/Website-Logo1.png"
-              alt="Logo"
-              sx={{
-                height: 48,
-                width: 'auto',
-                filter: 'brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(346deg) brightness(104%) contrast(97%)'
-              }}
-            />
-            <Box>
-              <Typography variant="h4" component="h1" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                Child Pickup Requests
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5 }}>
-                <Chip
-                  icon={<ChildIcon />}
-                  label={`${activeNotifications.length} child${activeNotifications.length !== 1 ? 'ren' : ''} ready for pickup`}
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                />
-                <Typography variant="body2" color="text.secondary">
-                  {isLoading ? 'Loading...' : `Last updated: ${formatTime(lastUpdated)}`}
-                </Typography>
-              </Box>
+    <Box sx={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+      py: 4,
+      px: 2
+    }}>
+      <Container maxWidth="xl">
+        {/* TV-Optimized Header */}
+        <Paper elevation={8} sx={{
+          background: 'linear-gradient(135deg, #2e77bb 0%, #1e5aa0 100%)',
+          color: 'white',
+          p: 4,
+          mb: 4,
+          borderRadius: 4,
+          boxShadow: '0 8px 32px rgba(46,119,187,0.3)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 3
+        }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="h2" sx={{
+              fontWeight: 900,
+              mb: 2,
+              textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+              letterSpacing: '2px',
+              fontSize: { xs: '2.5rem', md: '3.5rem', lg: '4rem' }
+            }}>
+              🎯 PICKUP REQUESTS (TV Mode)
+            </Typography>
+            <Typography variant="h4" sx={{
+              fontWeight: 600,
+              opacity: 0.9,
+              mb: 1,
+              fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2rem' }
+            }}>
+              {globalBillboard?.eventName || 'Active Event'}
+            </Typography>
+            <Box sx={{
+              display: 'flex',
+              gap: 3,
+              flexWrap: 'wrap',
+              opacity: 0.8,
+              fontSize: { xs: '1rem', md: '1.2rem', lg: '1.5rem' }
+            }}>
+              <Box component="span">📅 {formatTime(lastUpdated)}</Box>
+              <Box component="span">🔢 {activeNotifications.length} children ready</Box>
+              {globalBillboard?.securityCodes && (
+                <Box component="span">🔑 {globalBillboard.securityCodes.length} codes active</Box>
+              )}
             </Box>
           </Box>
           
@@ -125,66 +145,100 @@ function SimpleBillboard() {
             disabled={isLoading}
             size="large"
             sx={{
-              bgcolor: 'primary.main',
+              bgcolor: 'rgba(255,255,255,0.2)',
+              border: '2px solid rgba(255,255,255,0.3)',
               color: 'white',
+              p: 2,
               '&:hover': {
-                bgcolor: 'primary.dark',
+                bgcolor: 'rgba(255,255,255,0.3)',
               },
               '&:disabled': {
-                bgcolor: 'grey.300',
+                bgcolor: 'rgba(255,255,255,0.1)',
               }
             }}
           >
-            <RefreshIcon />
+            <RefreshIcon sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }} />
           </IconButton>
-        </Box>
-      </Paper>
+        </Paper>
 
-      {/* Content */}
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <CircularProgress size={48} sx={{ mb: 2 }} />
-            <Typography variant="h6" color="text.secondary">
-              Loading pickup requests...
-            </Typography>
+        {/* TV-Optimized Content */}
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <CircularProgress size={64} sx={{ mb: 3 }} />
+              <Typography variant="h4" color="text.secondary" sx={{ fontWeight: 600 }}>
+                Loading pickup requests...
+              </Typography>
+            </Box>
           </Box>
-        </Box>
-      ) : activeNotifications.length > 0 ? (
-        <Grid container spacing={3}>
-          {Object.entries(locationGroups).map(([locationName, notifications]) => (
-            <Grid item xs={12} key={locationName}>
-              <Card elevation={2} sx={{ borderRadius: 2 }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                    <LocationIcon color="primary" />
-                    <Typography variant="h5" component="h2" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                      {locationName}
-                    </Typography>
-                  </Box>
-                  
-                  <Grid container spacing={2}>
-                    {notifications.map((notification, idx) => (
-                      <Grid item xs={12} key={notification.id + '-' + idx}>
+        ) : activeNotifications.length > 0 ? (
+          <Grid container spacing={4}>
+            {Object.entries(locationGroups).map(([locationName, notifications]) => (
+              <Grid item xs={12} lg={6} key={locationName}>
+                <Card elevation={8} sx={{
+                  borderRadius: 4,
+                  background: 'white',
+                  border: '3px solid #e2e8f0',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.1)'
+                }}>
+                  <CardContent sx={{ p: 4 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                      <LocationIcon color="primary" sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }} />
+                      <Typography variant="h3" sx={{
+                        fontWeight: 900,
+                        color: 'primary.main',
+                        letterSpacing: '2px',
+                        textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
+                        fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
+                      }}>
+                        📍 {locationName}
+                      </Typography>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {notifications.map((notification, idx) => (
                         <Paper
-                          elevation={1}
+                          key={notification.id + '-' + idx}
+                          elevation={4}
                           sx={{
-                            p: 3,
-                            border: '2px solid',
-                            borderColor: 'primary.light',
-                            borderRadius: 2,
+                            p: 4,
+                            background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                            border: '4px solid',
+                            borderColor: 'primary.main',
+                            borderRadius: 3,
+                            transition: 'all 0.3s ease',
                             '&:hover': {
-                              borderColor: 'primary.main',
-                              boxShadow: 3,
+                              transform: 'translateY(-4px)',
+                              boxShadow: '0 12px 32px rgba(46,119,187,0.25)',
                             },
-                            transition: 'all 0.2s ease-in-out',
+                            minHeight: { xs: '120px', md: '140px' }
                           }}
                         >
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
-                              <ChildIcon color="primary" sx={{ fontSize: 32 }} />
-                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                                {notification.childName}
+                          <Box sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: 3
+                          }}>
+                            <Box sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 2,
+                              flex: 2,
+                              minWidth: 0
+                            }}>
+                              <ChildIcon color="primary" sx={{
+                                fontSize: { xs: '2rem', md: '2.5rem' }
+                              }} />
+                              <Typography variant="h4" sx={{
+                                fontWeight: 900,
+                                color: 'text.primary',
+                                textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
+                                letterSpacing: '1px',
+                                fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
+                              }}>
+                                👤 {notification.childName}
                               </Typography>
                             </Box>
                             
@@ -193,65 +247,106 @@ function SimpleBillboard() {
                               color="primary"
                               variant="filled"
                               sx={{
-                                fontSize: '1.25rem',
-                                fontWeight: 700,
-                                letterSpacing: '0.1em',
-                                px: 2,
-                                py: 1,
-                                minWidth: 120,
+                                fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2rem' },
+                                fontWeight: 900,
+                                letterSpacing: '4px',
+                                px: 3,
+                                py: 2,
+                                minWidth: 140,
+                                background: 'white',
+                                color: 'primary.main',
+                                border: '3px solid',
+                                borderColor: 'primary.main',
+                                textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
                               }}
                             />
                             
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                              <ScheduleIcon color="action" />
-                              <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-                                {notification.notifiedAt ? formatTime(notification.notifiedAt) : ''}
+                            <Box sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              flex: 1,
+                              justifyContent: 'flex-end'
+                            }}>
+                              <ScheduleIcon color="action" sx={{
+                                fontSize: { xs: '1.5rem', md: '1.8rem' }
+                              }} />
+                              <Typography variant="h5" color="text.secondary" sx={{
+                                fontWeight: 600,
+                                fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' }
+                              }}>
+                                {notification.notifiedAt ? `⏰ ${formatTime(notification.notifiedAt)}` : ''}
                               </Typography>
                             </Box>
                           </Box>
                         </Paper>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        <Card elevation={2} sx={{ borderRadius: 2 }}>
-          <CardContent sx={{ p: 6, textAlign: 'center' }}>
-            <ChildIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
-            <Typography variant="h4" component="h2" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
-              No Active Pickup Requests
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-              Waiting for parents to arrive...
-            </Typography>
-            
-            <Paper elevation={1} sx={{ p: 3, maxWidth: 500, mx: 'auto', bgcolor: 'grey.50' }}>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
-                Instructions for Volunteers:
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <Card elevation={8} sx={{
+            borderRadius: 4,
+            background: 'white',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.1)'
+          }}>
+            <CardContent sx={{ p: 8, textAlign: 'center' }}>
+              <ChildIcon sx={{
+                fontSize: { xs: '4rem', md: '5rem', lg: '6rem' },
+                color: 'grey.400',
+                mb: 3
+              }} />
+              <Typography variant="h3" gutterBottom sx={{
+                fontWeight: 700,
+                color: 'text.primary',
+                fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
+              }}>
+                📋 No Pickup Requests
               </Typography>
-              <Box component="ol" sx={{ m: 0, pl: 3, textAlign: 'left' }}>
-                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                  When a card appears above, find the child
+              <Typography variant="h5" color="text.secondary" sx={{
+                mb: 4,
+                fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' }
+              }}>
+                Waiting for check-ins with the selected security codes...
+              </Typography>
+              
+              <Paper elevation={4} sx={{
+                p: 4,
+                maxWidth: 600,
+                mx: 'auto',
+                bgcolor: 'grey.50',
+                borderRadius: 3
+              }}>
+                <Typography variant="h5" gutterBottom sx={{
+                  fontWeight: 600,
+                  color: 'text.primary',
+                  fontSize: { xs: '1.5rem', md: '1.8rem' }
+                }}>
+                  Instructions for Volunteers:
                 </Typography>
-                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                  Bring them to the pickup area
-                </Typography>
-                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                  Check them out in PCO
-                </Typography>
-                <Typography component="li" variant="body2">
-                  Card will automatically disappear
-                </Typography>
-              </Box>
-            </Paper>
-          </CardContent>
-        </Card>
-      )}
-    </Container>
+                <Box component="ol" sx={{ m: 0, pl: 4, textAlign: 'left' }}>
+                  <Typography component="li" variant="h6" sx={{ mb: 2, fontSize: { xs: '1.1rem', md: '1.3rem' } }}>
+                    When a card appears above, find the child
+                  </Typography>
+                  <Typography component="li" variant="h6" sx={{ mb: 2, fontSize: { xs: '1.1rem', md: '1.3rem' } }}>
+                    Bring them to the pickup area
+                  </Typography>
+                  <Typography component="li" variant="h6" sx={{ mb: 2, fontSize: { xs: '1.1rem', md: '1.3rem' } }}>
+                    Check them out in PCO
+                  </Typography>
+                  <Typography component="li" variant="h6" sx={{ fontSize: { xs: '1.1rem', md: '1.3rem' } }}>
+                    Card will automatically disappear
+                  </Typography>
+                </Box>
+              </Paper>
+            </CardContent>
+          </Card>
+        )}
+      </Container>
+    </Box>
   );
 }
 
