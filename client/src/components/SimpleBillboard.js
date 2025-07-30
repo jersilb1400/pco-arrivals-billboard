@@ -172,14 +172,17 @@ function SimpleBillboard() {
             </Box>
           </Box>
         ) : activeNotifications.length > 0 ? (
-          <Grid container spacing={4}>
-            {Object.entries(locationGroups).map(([locationName, notifications]) => (
-              <Grid item xs={12} lg={6} key={locationName}>
+          <Box sx={{ p: 2 }}>
+            {/* Two-Column Layout for TV Display */}
+            <Grid container spacing={4}>
+              {/* Left Column */}
+              <Grid item xs={12} md={6}>
                 <Card elevation={8} sx={{
                   borderRadius: 4,
                   background: 'white',
                   border: '3px solid #e2e8f0',
-                  boxShadow: '0 12px 40px rgba(0,0,0,0.1)'
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.1)',
+                  height: 'fit-content'
                 }}>
                   <CardContent sx={{ p: 4 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
@@ -191,14 +194,16 @@ function SimpleBillboard() {
                         textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
                         fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
                       }}>
-                        📍 {locationName}
+                        📍 Left Column
                       </Typography>
                     </Box>
                     
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      {notifications.map((notification, idx) => (
+                      {activeNotifications
+                        .filter((_, index) => index % 2 === 0) // Even indices for left column
+                        .map((notification, idx) => (
                         <Paper
-                          key={notification.id + '-' + idx}
+                          key={notification.id + '-left-' + idx}
                           elevation={4}
                           sx={{
                             p: 4,
@@ -279,14 +284,146 @@ function SimpleBillboard() {
                               </Typography>
                             </Box>
                           </Box>
+                          
+                          {/* Location info */}
+                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <LocationIcon color="action" sx={{ fontSize: '1.2rem' }} />
+                            <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                              📍 {notification.locationName}
+                            </Typography>
+                          </Box>
                         </Paper>
                       ))}
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
-            ))}
-          </Grid>
+              
+              {/* Right Column */}
+              <Grid item xs={12} md={6}>
+                <Card elevation={8} sx={{
+                  borderRadius: 4,
+                  background: 'white',
+                  border: '3px solid #e2e8f0',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.1)',
+                  height: 'fit-content'
+                }}>
+                  <CardContent sx={{ p: 4 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                      <LocationIcon color="primary" sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }} />
+                      <Typography variant="h3" sx={{
+                        fontWeight: 900,
+                        color: 'primary.main',
+                        letterSpacing: '2px',
+                        textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
+                        fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
+                      }}>
+                        📍 Right Column
+                      </Typography>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {activeNotifications
+                        .filter((_, index) => index % 2 === 1) // Odd indices for right column
+                        .map((notification, idx) => (
+                        <Paper
+                          key={notification.id + '-right-' + idx}
+                          elevation={4}
+                          sx={{
+                            p: 4,
+                            background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                            border: '4px solid',
+                            borderColor: 'primary.main',
+                            borderRadius: 3,
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              transform: 'translateY(-4px)',
+                              boxShadow: '0 12px 32px rgba(46,119,187,0.25)',
+                            },
+                            minHeight: { xs: '120px', md: '140px' }
+                          }}
+                        >
+                          <Box sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: 3
+                          }}>
+                            <Box sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 2,
+                              flex: 2,
+                              minWidth: 0
+                            }}>
+                              <ChildIcon color="primary" sx={{
+                                fontSize: { xs: '2rem', md: '2.5rem' }
+                              }} />
+                              <Typography variant="h4" sx={{
+                                fontWeight: 900,
+                                color: 'text.primary',
+                                textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
+                                letterSpacing: '1px',
+                                fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
+                              }}>
+                                👤 {notification.childName}
+                              </Typography>
+                            </Box>
+                            
+                            <Chip
+                              label={notification.securityCode}
+                              color="primary"
+                              variant="filled"
+                              sx={{
+                                fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2rem' },
+                                fontWeight: 900,
+                                letterSpacing: '4px',
+                                px: 3,
+                                py: 2,
+                                minWidth: 140,
+                                background: 'white',
+                                color: 'primary.main',
+                                border: '3px solid',
+                                borderColor: 'primary.main',
+                                textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                              }}
+                            />
+                            
+                            <Box sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              flex: 1,
+                              justifyContent: 'flex-end'
+                            }}>
+                              <ScheduleIcon color="action" sx={{
+                                fontSize: { xs: '1.5rem', md: '1.8rem' }
+                              }} />
+                              <Typography variant="h5" color="text.secondary" sx={{
+                                fontWeight: 600,
+                                fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' }
+                              }}>
+                                {notification.notifiedAt ? `⏰ ${formatTime(notification.notifiedAt)}` : ''}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          
+                          {/* Location info */}
+                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <LocationIcon color="action" sx={{ fontSize: '1.2rem' }} />
+                            <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                              📍 {notification.locationName}
+                            </Typography>
+                          </Box>
+                        </Paper>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Box>
         ) : (
           <Card elevation={8} sx={{
             borderRadius: 4,
