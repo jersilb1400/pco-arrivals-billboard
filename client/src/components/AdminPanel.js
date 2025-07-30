@@ -96,9 +96,16 @@ function AdminPanel() {
       console.log('AdminPanel: Clearing local state - no active billboard');
       setActiveBillboard(null);
       setSelectedEvent('');
-      setSelectedDate('');
+      // Only clear selectedDate if we're explicitly syncing from a global state
+      // and there's no manual change in progress
+      if (global && global.activeBillboard === null && !isManualChange) {
+        console.log('AdminPanel: Clearing selectedDate due to global sync');
+        setSelectedDate('');
+        setDisplayDate('');
+      } else {
+        console.log('AdminPanel: Preserving selectedDate during manual change or no explicit clear');
+      }
       setExistingSecurityCodes([]);
-      setDisplayDate('');
     }
   };
 
@@ -357,6 +364,9 @@ function AdminPanel() {
     setExistingSecurityCodes([]);
     setActiveBillboard(null);
     
+    // Preserve the selected date when changing events
+    console.log('AdminPanel: Preserving selected date:', selectedDate);
+    
     // Don't automatically set global state when changing events
     // Global state should only be set when launching the billboard
     
@@ -530,6 +540,17 @@ function AdminPanel() {
       return () => clearInterval(interval);
     }
   }, [selectedEvent, selectedDate]);
+
+  // Reset manual change flag after user actions complete
+  useEffect(() => {
+    if (isManualChange) {
+      const timer = setTimeout(() => {
+        console.log('AdminPanel: Resetting manual change flag after delay');
+        setIsManualChange(false);
+      }, 3000); // 3 second delay
+      return () => clearTimeout(timer);
+    }
+  }, [isManualChange]);
 
   function formatSelectedDateForDisplay(dateString) {
     if (!dateString) return '';
