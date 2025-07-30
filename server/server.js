@@ -1815,6 +1815,70 @@ app.get('/api/location-status', async (req, res) => {
     if (!eventId) {
       return res.status(400).json({ error: 'eventId is required' });
     }
+
+    // Check cache first
+    const cacheKey = `location-status-${eventId}-${date}`;
+    const cachedData = getCachedCheckInData(eventId);
+    
+    if (cachedData && cachedData.data && cachedData.included) {
+      console.log(`[DEBUG] Location-status: Using cached data for event ${eventId}`);
+      const allCheckIns = cachedData.data;
+      const allIncluded = cachedData.included;
+      
+      // Process cached data
+      const checkIns = allCheckIns.filter(ci => !ci.attributes.checked_out_at);
+      const locationMap = new Map();
+      let checkInsWithLocations = 0;
+      let checkInsWithoutLocations = 0;
+
+      checkIns.forEach((checkIn, index) => {
+        const location = allIncluded.find(item =>
+          item.type === 'Location' &&
+          item.id === checkIn.relationships.locations?.data?.[0]?.id
+        );
+
+        const person = allIncluded.find(item => 
+          item.type === 'Person' && 
+          item.id === checkIn.relationships.person?.data?.id
+        );
+
+        if (location && person) {
+          checkInsWithLocations++;
+          const locationId = location.id;
+          const locationName = location.attributes.name;
+          
+          if (!locationMap.has(locationId)) {
+            locationMap.set(locationId, {
+              id: locationId,
+              name: locationName,
+              childCount: 0,
+              children: []
+            });
+          }
+
+          const locationData = locationMap.get(locationId);
+          locationData.childCount++;
+          locationData.children.push({
+            id: checkIn.id,
+            name: `${person.attributes.first_name} ${person.attributes.last_name}`,
+            securityCode: checkIn.attributes.security_code,
+            checkInTime: checkIn.attributes.created_at
+          });
+        } else {
+          checkInsWithoutLocations++;
+        }
+      });
+
+      const locations = Array.from(locationMap.values())
+        .sort((a, b) => b.childCount - a.childCount);
+
+      console.log(`[DEBUG] Location-status: Returning ${locations.length} locations from cache`);
+      return res.json(locations);
+    }
+
+    // If no cache, fetch from PCO API with better error handling
+    console.log(`[DEBUG] Location-status: No cache available, fetching from PCO API`);
+    
     // Build the PCO API URL for the selected event and date
     let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations&per_page=100`;
     if (date) {
@@ -1827,42 +1891,62 @@ app.get('/api/location-status', async (req, res) => {
     let allCheckIns = [];
     let allIncluded = [];
     let nextPage = url;
+    let pageCount = 0;
+    const maxPages = 5; // Limit to prevent excessive API calls
     
-    while (nextPage) {
-      const checkInResponse = await axios.get(nextPage, {
-      auth: {
-        username: process.env.PCO_ACCESS_TOKEN,
-        password: process.env.PCO_ACCESS_SECRET
-      },
-      headers: {
-        'Accept': 'application/json'
+    while (nextPage && pageCount < maxPages) {
+      try {
+        const checkInResponse = await axios.get(nextPage, {
+          auth: {
+            username: process.env.PCO_ACCESS_TOKEN,
+            password: process.env.PCO_ACCESS_SECRET
+          },
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        const { data, included, links } = checkInResponse.data;
+        allCheckIns = allCheckIns.concat(data || []);
+        if (included) allIncluded = allIncluded.concat(included);
+        nextPage = links && links.next ? links.next : null;
+        pageCount++;
+        
+        console.log(`[DEBUG] Location-status: Fetched page ${pageCount} with ${data?.length || 0} check-ins, total so far: ${allCheckIns.length}`);
+        
+        // Add a small delay between requests to avoid rate limiting
+        if (nextPage && pageCount < maxPages) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (apiError) {
+        console.error(`[DEBUG] Location-status: API error on page ${pageCount}:`, apiError.response?.data || apiError.message);
+        if (apiError.response?.status === 429) {
+          console.log(`[DEBUG] Location-status: Rate limited, returning partial data`);
+          break;
+        }
+        throw apiError;
       }
-    });
-      
-      const { data, included, links } = checkInResponse.data;
-      allCheckIns = allCheckIns.concat(data || []);
-      if (included) allIncluded = allIncluded.concat(included);
-      nextPage = links && links.next ? links.next : null;
-      
-      console.log(`[DEBUG] Location-status: Fetched page with ${data?.length || 0} check-ins, total so far: ${allCheckIns.length}`);
     }
     
-    console.log(`[DEBUG] Location-status: Finished fetching all pages. Total check-ins: ${allCheckIns.length}`);
+    console.log(`[DEBUG] Location-status: Finished fetching ${pageCount} pages. Total check-ins: ${allCheckIns.length}`);
+    
+    // Cache the data for future use
+    if (allCheckIns.length > 0) {
+      updateCheckInCache(eventId, { data: allCheckIns, included: allIncluded });
+    }
     
     const checkIns = allCheckIns.filter(ci => !ci.attributes.checked_out_at);
-    const included = allIncluded;
-    // Group check-ins by location
     const locationMap = new Map();
     let checkInsWithLocations = 0;
     let checkInsWithoutLocations = 0;
 
     checkIns.forEach((checkIn, index) => {
-      const location = included.find(item =>
+      const location = allIncluded.find(item =>
         item.type === 'Location' &&
         item.id === checkIn.relationships.locations?.data?.[0]?.id
       );
 
-      const person = included.find(item => 
+      const person = allIncluded.find(item => 
         item.type === 'Person' && 
         item.id === checkIn.relationships.person?.data?.id
       );
@@ -1891,26 +1975,11 @@ app.get('/api/location-status', async (req, res) => {
         });
       } else {
         checkInsWithoutLocations++;
-        if (index < 3) { // Log first 3 check-ins without locations
-          console.log(`[DEBUG] Location-status: Check-in ${index} has no location or person:`, {
-            checkInId: checkIn.id,
-            hasLocations: !!checkIn.relationships.locations,
-            locationData: checkIn.relationships.locations,
-            hasPerson: !!checkIn.relationships.person,
-            personData: checkIn.relationships.person
-          });
-        }
       }
     });
 
     console.log(`[DEBUG] Location-status: Check-ins with locations: ${checkInsWithLocations}`);
     console.log(`[DEBUG] Location-status: Check-ins without locations: ${checkInsWithoutLocations}`);
-    console.log(`[DEBUG] Location-status: Unique location IDs found:`, Array.from(locationMap.keys()));
-    console.log(`[DEBUG] Location-status: Location details:`, Array.from(locationMap.entries()).map(([id, data]) => ({
-      id,
-      name: data.name,
-      childCount: data.childCount
-    })));
 
     // Convert to array and sort by child count
     const locations = Array.from(locationMap.values())
