@@ -357,79 +357,148 @@ function Billboard() {
   };
   
   return (
-    <div className={`billboard-container ${isFullscreen ? 'fullscreen' : ''}`}>
+    <div className={`billboard-container ${isFullscreen ? 'fullscreen' : ''}`} style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+      padding: isFullscreen ? '2rem' : '1rem'
+    }}>
       {!isFullscreen && <NavBar currentPage="billboard" />}
-      <div className="billboard-header-bar white-bar">
-        <div className="billboard-header-bar-left">
-          <h1 className="billboard-header-title">
-            Check-Ins Arrivals: {eventName}
+      
+      {/* TV-Optimized Header */}
+      <div style={{
+        background: 'linear-gradient(135deg, #2e77bb 0%, #1e5aa0 100%)',
+        color: 'white',
+        padding: '2rem 3rem',
+        borderRadius: '20px',
+        marginBottom: '2rem',
+        boxShadow: '0 8px 32px rgba(46,119,187,0.3)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '2rem'
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 style={{
+            fontSize: isFullscreen ? '4rem' : '3rem',
+            fontWeight: 900,
+            margin: 0,
+            marginBottom: '1rem',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+            letterSpacing: '2px'
+          }}>
+            🎯 PICKUP REQUESTS
           </h1>
-          <div className="billboard-header-status">
-            <div className="last-updated">
-              Last updated: {formatTime(lastUpdated)}
-            </div>
-            <div className="security-code-count">
-              Monitoring {securityCodes.length} security code{securityCodes.length !== 1 ? 's' : ''}
-            </div>
+          <div style={{
+            fontSize: isFullscreen ? '2rem' : '1.5rem',
+            fontWeight: 600,
+            opacity: 0.9,
+            marginBottom: '0.5rem'
+          }}>
+            {eventName}
+          </div>
+          <div style={{
+            fontSize: isFullscreen ? '1.5rem' : '1.2rem',
+            opacity: 0.8,
+            display: 'flex',
+            gap: '2rem',
+            flexWrap: 'wrap'
+          }}>
+            <span>📅 {formatTime(lastUpdated)}</span>
+            <span>🔢 {securityCodes.length} codes active</span>
             {authStatus?.user && (
-              <div className="user-info" style={{ fontSize: '0.9rem', color: '#666', marginTop: '4px' }}>
-                Logged in as: {authStatus.user.name}
-              </div>
+              <span>👤 {authStatus.user.name}</span>
             )}
           </div>
         </div>
-        <div className="billboard-header-bar-right">
+        
+        <div style={{
+          display: 'flex',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          alignItems: 'center'
+        }}>
           {!isFullscreen && (
-            <button className="btn-primary" onClick={handleBackToAdmin} style={{ marginRight: 12 }}>
-              ← Back to Admin
+            <button 
+              onClick={handleBackToAdmin}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                border: '2px solid rgba(255,255,255,0.3)',
+                color: 'white',
+                padding: '1rem 2rem',
+                borderRadius: '12px',
+                fontSize: isFullscreen ? '1.5rem' : '1.2rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
+              onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+            >
+              ← Admin
             </button>
           )}
           <button 
-            className="btn-icon" 
-            onClick={handleManualRefresh} 
+            onClick={handleManualRefresh}
             disabled={isRefreshing}
-            title={isRefreshing ? "Refreshing..." : "Refresh Now"} 
-            style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: '6px',
-              opacity: isRefreshing ? 0.6 : 1,
-              cursor: isRefreshing ? 'not-allowed' : 'pointer'
+            style={{
+              background: isRefreshing ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
+              border: '2px solid rgba(255,255,255,0.3)',
+              color: 'white',
+              padding: '1rem 2rem',
+              borderRadius: '12px',
+              fontSize: isFullscreen ? '1.5rem' : '1.2rem',
+              fontWeight: 600,
+              cursor: isRefreshing ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s ease'
             }}
+            onMouseEnter={(e) => !isRefreshing && (e.target.style.background = 'rgba(255,255,255,0.3)')}
+            onMouseLeave={(e) => !isRefreshing && (e.target.style.background = 'rgba(255,255,255,0.2)')}
           >
-            {isRefreshing ? '⏳' : '🔄'} 
-            <span style={{fontSize: '1rem', fontWeight: 500}}>
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </span>
+            {isRefreshing ? '⏳' : '🔄'} {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </button>
           <button
-            className="btn-icon"
             onClick={toggleFullscreen}
-            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: '2px solid rgba(255,255,255,0.3)',
+              color: 'white',
+              padding: '1rem 2rem',
+              borderRadius: '12px',
+              fontSize: isFullscreen ? '1.5rem' : '1.2rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
+            onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
           >
-            {isFullscreen ? '🗕' : '🗖'}
-            <span style={{fontSize: '1rem', fontWeight: 500}}>
-              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-            </span>
+            {isFullscreen ? '🗕' : '🗖'} {isFullscreen ? 'Exit' : 'Fullscreen'}
           </button>
         </div>
       </div>
       
-      <div className="billboard-content">
+      {/* TV-Optimized Content */}
+      <div style={{ padding: '0 1rem' }}>
         {isRefreshing && (
-          <div className="refreshing-indicator" style={{
+          <div style={{
             textAlign: 'center',
-            padding: '20px',
+            padding: '3rem',
             color: '#666',
-            fontSize: '1.1rem'
+            fontSize: isFullscreen ? '2rem' : '1.5rem',
+            fontWeight: 600
           }}>
             ⏳ Refreshing data...
           </div>
         )}
         
         {Object.keys(groupedArrivals).length > 0 ? (
-          <div className="locations-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '2.5rem', marginTop: '2rem', alignItems: 'flex-start' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isFullscreen ? 'repeat(auto-fit, minmax(800px, 1fr))' : 'repeat(auto-fit, minmax(600px, 1fr))',
+            gap: '3rem',
+            alignItems: 'start'
+          }}>
             {(() => {
               // Group arrivals by location
               const locationGroups = {};
@@ -443,33 +512,87 @@ function Billboard() {
                 })
               );
               return Object.entries(locationGroups).map(([locationName, arrivals]) => (
-                <div key={locationName} style={{ minWidth: 420, flex: 1, maxWidth: 600 }}>
-                  <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#2e77bb', marginBottom: '1.2rem', letterSpacing: '1px', textAlign: 'left', borderBottom: '3px solid #2e77bb', paddingBottom: '0.5rem' }}>
-                    {locationName}
+                <div key={locationName} style={{
+                  background: 'white',
+                  borderRadius: '24px',
+                  padding: '2.5rem',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.1)',
+                  border: '3px solid #e2e8f0'
+                }}>
+                  <div style={{
+                    fontSize: isFullscreen ? '3.5rem' : '2.8rem',
+                    fontWeight: 900,
+                    color: '#2e77bb',
+                    marginBottom: '2rem',
+                    letterSpacing: '2px',
+                    textAlign: 'center',
+                    borderBottom: '4px solid #2e77bb',
+                    paddingBottom: '1rem',
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
+                  }}>
+                    📍 {locationName}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1.5rem'
+                  }}>
                     {arrivals.map((arrival, idx) => (
-                      <div key={arrival.id + '-' + idx} className="arrival-card" style={{
-                        background: '#fff',
-                        border: '3px solid #e0e7ef',
-                        borderRadius: '16px',
-                        boxShadow: '0 4px 16px rgba(46,119,187,0.08)',
-                        padding: '1.2rem 2rem',
+                      <div key={arrival.id + '-' + idx} style={{
+                        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                        border: '4px solid #2e77bb',
+                        borderRadius: '20px',
+                        padding: '2rem 2.5rem',
                         display: 'flex',
                         alignItems: 'center',
-                        minHeight: '90px',
-                        maxWidth: 540,
-                        width: '100%',
-                        gap: '2.2rem',
-                      }}>
-                        <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#101828', flex: 2, minWidth: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                          {arrival.childName}
+                        gap: '3rem',
+                        boxShadow: '0 8px 24px rgba(46,119,187,0.15)',
+                        transition: 'all 0.3s ease',
+                        minHeight: isFullscreen ? '140px' : '120px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = 'translateY(-4px)';
+                        e.target.style.boxShadow = '0 12px 32px rgba(46,119,187,0.25)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = '0 8px 24px rgba(46,119,187,0.15)';
+                      }}
+                      >
+                        <div style={{
+                          fontSize: isFullscreen ? '3.5rem' : '2.8rem',
+                          fontWeight: 900,
+                          color: '#1a202c',
+                          flex: 2,
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
+                          letterSpacing: '1px'
+                        }}>
+                          👤 {arrival.childName}
                         </div>
-                        <div style={{ fontSize: '2rem', fontWeight: 800, color: '#2e77bb', flex: 1, textAlign: 'center', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                        <div style={{
+                          fontSize: isFullscreen ? '3rem' : '2.4rem',
+                          fontWeight: 900,
+                          color: '#2e77bb',
+                          flex: 1,
+                          textAlign: 'center',
+                          letterSpacing: '4px',
+                          textTransform: 'uppercase',
+                          background: 'white',
+                          padding: '1rem 1.5rem',
+                          borderRadius: '12px',
+                          border: '3px solid #2e77bb',
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                        }}>
                           {arrival.securityCode}
                         </div>
-                        <div style={{ fontSize: '1.1rem', color: '#888', fontWeight: 500, flex: 1, textAlign: 'right' }}>
-                          {arrival.notifiedAt ? `@ ${new Date(arrival.notifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                        <div style={{
+                          fontSize: isFullscreen ? '1.8rem' : '1.4rem',
+                          color: '#64748b',
+                          fontWeight: 600,
+                          flex: 1,
+                          textAlign: 'right'
+                        }}>
+                          {arrival.notifiedAt ? `⏰ ${new Date(arrival.notifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                         </div>
                       </div>
                     ))}
@@ -479,9 +602,27 @@ function Billboard() {
             })()}
           </div>
         ) : (
-          <div className="no-arrivals">
-            <h2>No Arrivals to Display</h2>
-            <p>Waiting for check-ins with the selected security codes.</p>
+          <div style={{
+            textAlign: 'center',
+            padding: '4rem',
+            background: 'white',
+            borderRadius: '24px',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{
+              fontSize: isFullscreen ? '3rem' : '2.5rem',
+              fontWeight: 700,
+              color: '#64748b',
+              marginBottom: '1rem'
+            }}>
+              📋 No Pickup Requests
+            </div>
+            <div style={{
+              fontSize: isFullscreen ? '1.8rem' : '1.4rem',
+              color: '#94a3b8'
+            }}>
+              Waiting for check-ins with the selected security codes...
+            </div>
           </div>
         )}
       </div>
