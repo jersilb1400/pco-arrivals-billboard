@@ -166,6 +166,9 @@ function AdminUsers() {
     setEditLoading(true);
     setEditError(null);
     
+    console.log('[DEBUG] Submitting edit for user:', editingUser.id);
+    console.log('[DEBUG] Edit form data:', editFormData);
+    
     try {
       // Update the user in the backend
       const response = await api.put(`/admin/users/${editingUser.id}`, {
@@ -173,12 +176,16 @@ function AdminUsers() {
         email: editFormData.email
       });
       
-      // Update the user in the local state
+      console.log('[DEBUG] Server response:', response.data);
+      
+      // Update the user in the local state using the response data
       setUsers(users.map(user => 
         user.id === editingUser.id 
-          ? { ...user, name: editFormData.name, email: editFormData.email }
+          ? response.data
           : user
       ));
+      
+      console.log('[DEBUG] Updated local users state');
       
       // Close dialog and show success message
       setEditDialogOpen(false);

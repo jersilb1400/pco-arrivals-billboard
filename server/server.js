@@ -162,7 +162,17 @@ function loadAuthorizedUsers() {
 }
 
 function saveAuthorizedUsers(users) {
-  fs.writeFileSync(path.join(__dirname, 'authorized_users.json'), JSON.stringify(users, null, 2));
+  const filePath = path.join(__dirname, 'authorized_users.json');
+  console.log(`[DEBUG] Saving ${users.length} users to:`, filePath);
+  console.log(`[DEBUG] Users to save:`, users);
+  
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
+    console.log(`[DEBUG] Successfully saved authorized_users.json`);
+  } catch (error) {
+    console.error(`[DEBUG] Error saving authorized_users.json:`, error);
+    throw error;
+  }
 }
 
 // Load users at startup
@@ -290,20 +300,37 @@ app.put('/api/admin/users/:id', requireAuth, (req, res) => {
   const userId = req.params.id;
   const { name, email } = req.body;
   
+  console.log(`[DEBUG] PUT /api/admin/users/${userId} called with:`, { name, email });
+  console.log(`[DEBUG] Current authorizedUsers:`, authorizedUsers);
+  
   const userIndex = authorizedUsers.findIndex(user => user.id === userId);
   if (userIndex === -1) {
+    console.log(`[DEBUG] User not found: ${userId}`);
     return res.status(404).json({ message: 'User not found' });
   }
   
+  console.log(`[DEBUG] Found user at index ${userIndex}:`, authorizedUsers[userIndex]);
+  
   // Update user details
-  authorizedUsers[userIndex] = {
+  const updatedUser = {
     ...authorizedUsers[userIndex],
     name: name || authorizedUsers[userIndex].name,
     email: email || authorizedUsers[userIndex].email
   };
   
-  saveAuthorizedUsers(authorizedUsers); // Persist the change
-  res.status(200).json(authorizedUsers[userIndex]);
+  authorizedUsers[userIndex] = updatedUser;
+  
+  console.log(`[DEBUG] Updated user:`, updatedUser);
+  console.log(`[DEBUG] Saving authorizedUsers:`, authorizedUsers);
+  
+  try {
+    saveAuthorizedUsers(authorizedUsers); // Persist the change
+    console.log(`[DEBUG] Successfully saved authorizedUsers to file`);
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    console.error(`[DEBUG] Error saving authorizedUsers:`, error);
+    res.status(500).json({ error: 'Failed to save user details' });
+  }
 });
 
 app.delete('/api/admin/users/:id', requireAuth, (req, res) => {
