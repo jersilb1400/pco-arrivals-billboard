@@ -283,6 +283,29 @@ app.post('/api/admin/users', requireAuth, (req, res) => {
   res.status(201).json(newUser);
 });
 
+app.put('/api/admin/users/:id', requireAuth, (req, res) => {
+  if (!req.session.user?.isAdmin) {
+    return res.status(403).json({ error: 'Not authorized' });
+  }
+  const userId = req.params.id;
+  const { name, email } = req.body;
+  
+  const userIndex = authorizedUsers.findIndex(user => user.id === userId);
+  if (userIndex === -1) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+  
+  // Update user details
+  authorizedUsers[userIndex] = {
+    ...authorizedUsers[userIndex],
+    name: name || authorizedUsers[userIndex].name,
+    email: email || authorizedUsers[userIndex].email
+  };
+  
+  saveAuthorizedUsers(authorizedUsers); // Persist the change
+  res.status(200).json(authorizedUsers[userIndex]);
+});
+
 app.delete('/api/admin/users/:id', requireAuth, (req, res) => {
   if (!req.session.user?.isAdmin) {
     return res.status(403).json({ error: 'Not authorized' });
