@@ -640,7 +640,7 @@ function AdminPanel() {
         {/* Quick Navigation Menu */}
         <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: 'primary.light' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-            <Typography variant="h6" color="primary.contrastText" sx={{ fontWeight: 600 }}>
+            <Typography variant="h6" color="text.primary" sx={{ fontWeight: 600 }}>
               Quick Navigation
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
