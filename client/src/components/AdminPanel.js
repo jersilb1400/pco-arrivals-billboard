@@ -33,6 +33,8 @@ import {
   Security as SecurityIcon,
   CheckCircle as CheckCircleIcon,
   LocationOn as LocationIcon,
+  Home as HomeIcon,
+  List as ListIcon,
 } from '@mui/icons-material';
 import api from '../utils/api';
 import NavBar from './NavBar';
@@ -635,6 +637,62 @@ function AdminPanel() {
       />
       
       <Container maxWidth="lg" sx={{ py: 4 }}>
+        {/* Quick Navigation Menu */}
+        <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: 'primary.light' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="h6" color="primary.contrastText" sx={{ fontWeight: 600 }}>
+              Quick Navigation
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<HomeIcon />}
+                onClick={() => navigate('/')}
+                sx={{ 
+                  bgcolor: 'white', 
+                  color: 'primary.main',
+                  '&:hover': {
+                    bgcolor: 'grey.100'
+                  }
+                }}
+              >
+                Home
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<ListIcon />}
+                onClick={() => navigate('/location-status')}
+                sx={{ 
+                  bgcolor: 'white', 
+                  color: 'primary.main',
+                  '&:hover': {
+                    bgcolor: 'grey.100'
+                  }
+                }}
+              >
+                Location Status
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<DashboardIcon />}
+                onClick={() => navigate('/billboard')}
+                sx={{ 
+                  bgcolor: 'white', 
+                  color: 'primary.main',
+                  '&:hover': {
+                    bgcolor: 'grey.100'
+                  }
+                }}
+              >
+                Billboard
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+
         {/* Active Billboard Banner */}
         {activeBillboard && (
           <Alert 
