@@ -18,7 +18,7 @@ const { Parser } = require('json2csv'); // For CSV export (optional)
 const { requireAuth, requireAuthOnly } = require('./middleware/auth');
 
 // Import routes
-const adminRoutes = require('./routes/admin.routes');
+// Note: Admin routes are defined directly in this file, not imported
 // Note: Auth routes are defined directly in this file, not imported
 
 // Create Express app instance
@@ -227,7 +227,7 @@ async function ensureValidToken(req) {
 }
 
 // Mount routes
-app.use('/api/admin', adminRoutes);
+// Note: Admin routes are defined directly in this file, not mounted from admin.routes.js
 // Note: Auth routes are defined directly in this file, not mounted from auth.routes.js
 
 // Auth status endpoint
