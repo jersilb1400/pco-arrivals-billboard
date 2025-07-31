@@ -83,6 +83,28 @@ function AdminPanel() {
     }
   }, [session, sessionLoading, navigate]);
 
+  // Fetch global billboard state when user navigates to this page
+  useEffect(() => {
+    if (session?.authenticated) {
+      const fetchGlobalBillboard = async () => {
+        try {
+          const response = await api.get('/global-billboard');
+          setGlobalBillboardState(response.data);
+          console.log('AdminPanel: Fetched global billboard state on navigation:', response.data);
+          
+          // Sync with global state if there's an active billboard
+          if (response.data?.activeBillboard) {
+            syncWithGlobalBillboard(response.data);
+          }
+        } catch (error) {
+          console.error('AdminPanel: Error fetching global billboard state:', error);
+        }
+      };
+      
+      fetchGlobalBillboard();
+    }
+  }, [session?.authenticated]);
+
   // Helper to sync local state with global billboard
   const syncWithGlobalBillboard = useCallback((global) => {
     console.log('AdminPanel: syncWithGlobalBillboard called with:', global);
@@ -127,8 +149,13 @@ function AdminPanel() {
         }
       }
     };
+    
     if (session?.authenticated) {
       fetchGlobalBillboard();
+      
+      // Set up polling for global billboard updates
+      const interval = setInterval(fetchGlobalBillboard, 10000); // Poll every 10 seconds
+      return () => clearInterval(interval);
     }
   }, [session, isAddingSecurityCode, isManualChange]);
 

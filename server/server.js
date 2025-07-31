@@ -547,6 +547,19 @@ app.get('/api/debug/notifications', (req, res) => {
   });
 });
 
+// Debug endpoint to check session and global state
+app.get('/api/debug/session', (req, res) => {
+  res.json({
+    sessionId: req.sessionID,
+    hasSession: !!req.session,
+    hasUser: !!req.session?.user,
+    userIsAdmin: req.session?.user?.isAdmin,
+    hasAccessToken: !!req.session?.accessToken,
+    globalBillboardState: globalBillboardState,
+    authorizedUsers: authorizedUsers.length
+  });
+});
+
 // Update logout route to clear cookies properly
 app.get('/api/auth/logout', (req, res) => {
   console.log('🔴 Logout route hit');
