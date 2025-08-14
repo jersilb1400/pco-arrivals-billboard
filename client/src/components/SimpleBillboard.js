@@ -197,9 +197,9 @@ function SimpleBillboard() {
         ) : activeNotifications.length > 0 ? (
           <Box sx={{ p: 2 }}>
             {/* Two-Column Layout for TV Display */}
-            <Grid container spacing={3} sx={{ minHeight: '70vh' }}>
+            <Grid container spacing={4} sx={{ minHeight: '70vh', display: 'flex', flexWrap: 'nowrap' }}>
               {/* Left Column */}
-              <Grid item xs={12} lg={6} xl={6}>
+              <Grid item xs={12} md={6} sx={{ flex: '0 0 50%', maxWidth: '50%' }}>
                 <Card elevation={8} sx={{
                   borderRadius: 4,
                   background: 'white',
@@ -229,92 +229,108 @@ function SimpleBillboard() {
                           key={notification.id + '-left-' + idx}
                           elevation={4}
                           sx={{
-                            p: 2.5,
+                            p: 3,
                             background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
                             border: '3px solid',
                             borderColor: 'primary.main',
-                            borderRadius: 2,
+                            borderRadius: 3,
                             transition: 'all 0.3s ease',
                             '&:hover': {
                               transform: 'translateY(-2px)',
                               boxShadow: '0 8px 24px rgba(46,119,187,0.2)',
                             },
-                            minHeight: { xs: '100px', md: '110px' }
+                            minHeight: { xs: '140px', md: '160px' }
                           }}
                         >
                           <Box sx={{
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: 2
+                            flexDirection: 'column',
+                            gap: 2,
+                            width: '100%'
                           }}>
+                            {/* Child Name - Large and Prominent */}
                             <Box sx={{
                               display: 'flex',
                               alignItems: 'center',
                               gap: 2,
-                              flex: 2,
-                              minWidth: 0
+                              justifyContent: 'center',
+                              mb: 1
                             }}>
-                              <Typography variant="h4" sx={{
+                              <Typography variant="h3" sx={{
                                 fontWeight: 900,
                                 color: 'text.primary',
-                                textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
-                                letterSpacing: '1px',
-                                fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2.2rem' }
+                                textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
+                                letterSpacing: '2px',
+                                fontSize: { xs: '2.5rem', md: '3rem', lg: '3.5rem' },
+                                textAlign: 'center',
+                                lineHeight: 1.2
                               }}>
                                 {getChildEmoji(notification.childName)} {notification.childName}
                               </Typography>
                             </Box>
                             
-                            <Chip
-                              label={notification.securityCode}
-                              color="primary"
-                              variant="filled"
-                              sx={{
-                                fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' },
-                                fontWeight: 900,
-                                letterSpacing: '2px',
-                                px: 2,
-                                py: 1.5,
-                                minWidth: 120,
-                                background: 'white',
-                                color: 'primary.main',
-                                border: '2px solid',
-                                borderColor: 'primary.main',
-                                textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
-                              }}
-                            />
+                            {/* Security Code - Directly Under Name */}
+                            <Box sx={{
+                              display: 'flex',
+                              justifyContent: 'center',
+                              mb: 2
+                            }}>
+                              <Chip
+                                label={notification.securityCode}
+                                color="primary"
+                                variant="filled"
+                                sx={{
+                                  fontSize: { xs: '1.8rem', md: '2.2rem', lg: '2.5rem' },
+                                  fontWeight: 900,
+                                  letterSpacing: '3px',
+                                  px: 3,
+                                  py: 2,
+                                  minWidth: 160,
+                                  background: 'white',
+                                  color: 'primary.main',
+                                  border: '3px solid',
+                                  borderColor: 'primary.main',
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                                }}
+                              />
+                            </Box>
                             
+                            {/* Time and Location Row */}
                             <Box sx={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 1,
-                              flex: 1,
-                              justifyContent: 'flex-end'
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: 2
                             }}>
-                              <ScheduleIcon color="action" sx={{
-                                fontSize: { xs: '1.2rem', md: '1.4rem' }
-                              }} />
-                              <Typography variant="h5" color="text.secondary" sx={{
-                                fontWeight: 600,
-                                fontSize: { xs: '1rem', md: '1.2rem', lg: '1.4rem' }
+                              <Box sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1
                               }}>
-                                {notification.notifiedAt ? `⏰ ${formatTime(notification.notifiedAt)}` : ''}
-                              </Typography>
+                                <ScheduleIcon color="action" sx={{
+                                  fontSize: { xs: '1.2rem', md: '1.4rem' }
+                                }} />
+                                <Typography variant="h5" color="text.secondary" sx={{
+                                  fontWeight: 600,
+                                  fontSize: { xs: '1rem', md: '1.2rem', lg: '1.4rem' }
+                                }}>
+                                  {notification.notifiedAt ? `⏰ ${formatTime(notification.notifiedAt)}` : ''}
+                                </Typography>
+                              </Box>
+                              
+                              {/* Location info */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <LocationIcon color="action" sx={{ fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' } }} />
+                                <Typography variant="h5" color="text.secondary" sx={{ 
+                                  fontWeight: 600,
+                                  fontSize: { xs: '1.1rem', md: '1.3rem', lg: '1.5rem' },
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                                }}>
+                                  📍 {notification.locationName}
+                                </Typography>
+                              </Box>
                             </Box>
-                          </Box>
-                          
-                          {/* Location info */}
-                          <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <LocationIcon color="action" sx={{ fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' } }} />
-                            <Typography variant="h5" color="text.secondary" sx={{ 
-                              fontWeight: 600,
-                              fontSize: { xs: '1.1rem', md: '1.3rem', lg: '1.5rem' },
-                              textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
-                            }}>
-                              📍 {notification.locationName}
-                            </Typography>
                           </Box>
                         </Paper>
                       ))}
@@ -324,7 +340,7 @@ function SimpleBillboard() {
               </Grid>
               
               {/* Right Column */}
-              <Grid item xs={12} lg={6} xl={6}>
+              <Grid item xs={12} md={6} sx={{ flex: '0 0 50%', maxWidth: '50%' }}>
                 <Card elevation={8} sx={{
                   borderRadius: 4,
                   background: 'white',
@@ -354,92 +370,108 @@ function SimpleBillboard() {
                           key={notification.id + '-right-' + idx}
                           elevation={4}
                           sx={{
-                            p: 2.5,
+                            p: 3,
                             background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
                             border: '3px solid',
                             borderColor: 'primary.main',
-                            borderRadius: 2,
+                            borderRadius: 3,
                             transition: 'all 0.3s ease',
                             '&:hover': {
                               transform: 'translateY(-2px)',
                               boxShadow: '0 8px 24px rgba(46,119,187,0.2)',
                             },
-                            minHeight: { xs: '100px', md: '110px' }
+                            minHeight: { xs: '140px', md: '160px' }
                           }}
                         >
                           <Box sx={{
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: 2
+                            flexDirection: 'column',
+                            gap: 2,
+                            width: '100%'
                           }}>
+                            {/* Child Name - Large and Prominent */}
                             <Box sx={{
                               display: 'flex',
                               alignItems: 'center',
                               gap: 2,
-                              flex: 2,
-                              minWidth: 0
+                              justifyContent: 'center',
+                              mb: 1
                             }}>
-                              <Typography variant="h4" sx={{
+                              <Typography variant="h3" sx={{
                                 fontWeight: 900,
                                 color: 'text.primary',
-                                textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
-                                letterSpacing: '1px',
-                                fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2.2rem' }
+                                textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
+                                letterSpacing: '2px',
+                                fontSize: { xs: '2.5rem', md: '3rem', lg: '3.5rem' },
+                                textAlign: 'center',
+                                lineHeight: 1.2
                               }}>
                                 {getChildEmoji(notification.childName)} {notification.childName}
                               </Typography>
                             </Box>
                             
-                            <Chip
-                              label={notification.securityCode}
-                              color="primary"
-                              variant="filled"
-                              sx={{
-                                fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' },
-                                fontWeight: 900,
-                                letterSpacing: '2px',
-                                px: 2,
-                                py: 1.5,
-                                minWidth: 120,
-                                background: 'white',
-                                color: 'primary.main',
-                                border: '2px solid',
-                                borderColor: 'primary.main',
-                                textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
-                              }}
-                            />
+                            {/* Security Code - Directly Under Name */}
+                            <Box sx={{
+                              display: 'flex',
+                              justifyContent: 'center',
+                              mb: 2
+                            }}>
+                              <Chip
+                                label={notification.securityCode}
+                                color="primary"
+                                variant="filled"
+                                sx={{
+                                  fontSize: { xs: '1.8rem', md: '2.2rem', lg: '2.5rem' },
+                                  fontWeight: 900,
+                                  letterSpacing: '3px',
+                                  px: 3,
+                                  py: 2,
+                                  minWidth: 160,
+                                  background: 'white',
+                                  color: 'primary.main',
+                                  border: '3px solid',
+                                  borderColor: 'primary.main',
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                                }}
+                              />
+                            </Box>
                             
+                            {/* Time and Location Row */}
                             <Box sx={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 1,
-                              flex: 1,
-                              justifyContent: 'flex-end'
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: 2
                             }}>
-                              <ScheduleIcon color="action" sx={{
-                                fontSize: { xs: '1.2rem', md: '1.4rem' }
-                              }} />
-                              <Typography variant="h5" color="text.secondary" sx={{
-                                fontWeight: 600,
-                                fontSize: { xs: '1rem', md: '1.2rem', lg: '1.4rem' }
+                              <Box sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1
                               }}>
-                                {notification.notifiedAt ? `⏰ ${formatTime(notification.notifiedAt)}` : ''}
-                              </Typography>
+                                <ScheduleIcon color="action" sx={{
+                                  fontSize: { xs: '1.2rem', md: '1.4rem' }
+                                }} />
+                                <Typography variant="h5" color="text.secondary" sx={{
+                                  fontWeight: 600,
+                                  fontSize: { xs: '1rem', md: '1.2rem', lg: '1.4rem' }
+                                }}>
+                                  {notification.notifiedAt ? `⏰ ${formatTime(notification.notifiedAt)}` : ''}
+                                </Typography>
+                              </Box>
+                              
+                              {/* Location info */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <LocationIcon color="action" sx={{ fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' } }} />
+                                <Typography variant="h5" color="text.secondary" sx={{ 
+                                  fontWeight: 600,
+                                  fontSize: { xs: '1.1rem', md: '1.3rem', lg: '1.5rem' },
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                                }}>
+                                  📍 {notification.locationName}
+                                </Typography>
+                              </Box>
                             </Box>
-                          </Box>
-                          
-                          {/* Location info */}
-                          <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <LocationIcon color="action" sx={{ fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' } }} />
-                            <Typography variant="h5" color="text.secondary" sx={{ 
-                              fontWeight: 600,
-                              fontSize: { xs: '1.1rem', md: '1.3rem', lg: '1.5rem' },
-                              textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
-                            }}>
-                              📍 {notification.locationName}
-                            </Typography>
                           </Box>
                         </Paper>
                       ))}
