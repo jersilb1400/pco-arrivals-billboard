@@ -197,9 +197,9 @@ function SimpleBillboard() {
         ) : activeNotifications.length > 0 ? (
           <Box sx={{ p: 2 }}>
             {/* Two-Column Layout for TV Display */}
-            <Grid container spacing={4}>
+            <Grid container spacing={3} sx={{ minHeight: '70vh' }}>
               {/* Left Column */}
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} lg={6} xl={6}>
                 <Card elevation={8} sx={{
                   borderRadius: 4,
                   background: 'white',
@@ -221,7 +221,7 @@ function SimpleBillboard() {
                       </Typography>
                     </Box>
                     
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {activeNotifications
                         .filter((_, index) => index % 2 === 0) // Even indices for left column
                         .map((notification, idx) => (
@@ -229,17 +229,17 @@ function SimpleBillboard() {
                           key={notification.id + '-left-' + idx}
                           elevation={4}
                           sx={{
-                            p: 4,
+                            p: 2.5,
                             background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-                            border: '4px solid',
+                            border: '3px solid',
                             borderColor: 'primary.main',
-                            borderRadius: 3,
+                            borderRadius: 2,
                             transition: 'all 0.3s ease',
                             '&:hover': {
-                              transform: 'translateY(-4px)',
-                              boxShadow: '0 12px 32px rgba(46,119,187,0.25)',
+                              transform: 'translateY(-2px)',
+                              boxShadow: '0 8px 24px rgba(46,119,187,0.2)',
                             },
-                            minHeight: { xs: '120px', md: '140px' }
+                            minHeight: { xs: '100px', md: '110px' }
                           }}
                         >
                           <Box sx={{
@@ -247,7 +247,7 @@ function SimpleBillboard() {
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             flexWrap: 'wrap',
-                            gap: 3
+                            gap: 2
                           }}>
                             <Box sx={{
                               display: 'flex',
@@ -261,7 +261,7 @@ function SimpleBillboard() {
                                 color: 'text.primary',
                                 textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
                                 letterSpacing: '1px',
-                                fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
+                                fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2.2rem' }
                               }}>
                                 {getChildEmoji(notification.childName)} {notification.childName}
                               </Typography>
@@ -272,15 +272,15 @@ function SimpleBillboard() {
                               color="primary"
                               variant="filled"
                               sx={{
-                                fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2rem' },
+                                fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' },
                                 fontWeight: 900,
-                                letterSpacing: '4px',
-                                px: 3,
-                                py: 2,
-                                minWidth: 140,
+                                letterSpacing: '2px',
+                                px: 2,
+                                py: 1.5,
+                                minWidth: 120,
                                 background: 'white',
                                 color: 'primary.main',
-                                border: '3px solid',
+                                border: '2px solid',
                                 borderColor: 'primary.main',
                                 textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
                               }}
@@ -294,11 +294,11 @@ function SimpleBillboard() {
                               justifyContent: 'flex-end'
                             }}>
                               <ScheduleIcon color="action" sx={{
-                                fontSize: { xs: '1.5rem', md: '1.8rem' }
+                                fontSize: { xs: '1.2rem', md: '1.4rem' }
                               }} />
                               <Typography variant="h5" color="text.secondary" sx={{
                                 fontWeight: 600,
-                                fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' }
+                                fontSize: { xs: '1rem', md: '1.2rem', lg: '1.4rem' }
                               }}>
                                 {notification.notifiedAt ? `⏰ ${formatTime(notification.notifiedAt)}` : ''}
                               </Typography>
@@ -306,11 +306,11 @@ function SimpleBillboard() {
                           </Box>
                           
                           {/* Location info */}
-                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <LocationIcon color="action" sx={{ fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2rem' } }} />
+                          <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <LocationIcon color="action" sx={{ fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' } }} />
                             <Typography variant="h5" color="text.secondary" sx={{ 
                               fontWeight: 600,
-                              fontSize: { xs: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                              fontSize: { xs: '1.1rem', md: '1.3rem', lg: '1.5rem' },
                               textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
                             }}>
                               📍 {notification.locationName}
@@ -324,7 +324,7 @@ function SimpleBillboard() {
               </Grid>
               
               {/* Right Column */}
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} lg={6} xl={6}>
                 <Card elevation={8} sx={{
                   borderRadius: 4,
                   background: 'white',
@@ -346,7 +346,7 @@ function SimpleBillboard() {
                       </Typography>
                     </Box>
                     
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {activeNotifications
                         .filter((_, index) => index % 2 === 1) // Odd indices for right column
                         .map((notification, idx) => (
@@ -354,17 +354,17 @@ function SimpleBillboard() {
                           key={notification.id + '-right-' + idx}
                           elevation={4}
                           sx={{
-                            p: 4,
+                            p: 2.5,
                             background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-                            border: '4px solid',
+                            border: '3px solid',
                             borderColor: 'primary.main',
-                            borderRadius: 3,
+                            borderRadius: 2,
                             transition: 'all 0.3s ease',
                             '&:hover': {
-                              transform: 'translateY(-4px)',
-                              boxShadow: '0 12px 32px rgba(46,119,187,0.25)',
+                              transform: 'translateY(-2px)',
+                              boxShadow: '0 8px 24px rgba(46,119,187,0.2)',
                             },
-                            minHeight: { xs: '120px', md: '140px' }
+                            minHeight: { xs: '100px', md: '110px' }
                           }}
                         >
                           <Box sx={{
@@ -372,7 +372,7 @@ function SimpleBillboard() {
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             flexWrap: 'wrap',
-                            gap: 3
+                            gap: 2
                           }}>
                             <Box sx={{
                               display: 'flex',
@@ -386,7 +386,7 @@ function SimpleBillboard() {
                                 color: 'text.primary',
                                 textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
                                 letterSpacing: '1px',
-                                fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
+                                fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2.2rem' }
                               }}>
                                 {getChildEmoji(notification.childName)} {notification.childName}
                               </Typography>
@@ -397,15 +397,15 @@ function SimpleBillboard() {
                               color="primary"
                               variant="filled"
                               sx={{
-                                fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2rem' },
+                                fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' },
                                 fontWeight: 900,
-                                letterSpacing: '4px',
-                                px: 3,
-                                py: 2,
-                                minWidth: 140,
+                                letterSpacing: '2px',
+                                px: 2,
+                                py: 1.5,
+                                minWidth: 120,
                                 background: 'white',
                                 color: 'primary.main',
-                                border: '3px solid',
+                                border: '2px solid',
                                 borderColor: 'primary.main',
                                 textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
                               }}
@@ -419,11 +419,11 @@ function SimpleBillboard() {
                               justifyContent: 'flex-end'
                             }}>
                               <ScheduleIcon color="action" sx={{
-                                fontSize: { xs: '1.5rem', md: '1.8rem' }
+                                fontSize: { xs: '1.2rem', md: '1.4rem' }
                               }} />
                               <Typography variant="h5" color="text.secondary" sx={{
                                 fontWeight: 600,
-                                fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' }
+                                fontSize: { xs: '1rem', md: '1.2rem', lg: '1.4rem' }
                               }}>
                                 {notification.notifiedAt ? `⏰ ${formatTime(notification.notifiedAt)}` : ''}
                               </Typography>
@@ -431,11 +431,11 @@ function SimpleBillboard() {
                           </Box>
                           
                           {/* Location info */}
-                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <LocationIcon color="action" sx={{ fontSize: { xs: '1.5rem', md: '1.8rem', lg: '2rem' } }} />
+                          <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <LocationIcon color="action" sx={{ fontSize: { xs: '1.2rem', md: '1.4rem', lg: '1.6rem' } }} />
                             <Typography variant="h5" color="text.secondary" sx={{ 
                               fontWeight: 600,
-                              fontSize: { xs: '1.4rem', md: '1.6rem', lg: '1.8rem' },
+                              fontSize: { xs: '1.1rem', md: '1.3rem', lg: '1.5rem' },
                               textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
                             }}>
                               📍 {notification.locationName}
