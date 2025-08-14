@@ -261,7 +261,7 @@ function SimpleBillboard() {
                                 color: 'text.primary',
                                 textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
                                 letterSpacing: '2px',
-                                fontSize: { xs: '2.5rem', md: '3rem', lg: '3.5rem' },
+                                fontSize: { xs: '3rem', md: '3.5rem', lg: '4rem' },
                                 textAlign: 'center',
                                 lineHeight: 1.2
                               }}>
@@ -402,7 +402,7 @@ function SimpleBillboard() {
                                 color: 'text.primary',
                                 textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
                                 letterSpacing: '2px',
-                                fontSize: { xs: '2.5rem', md: '3rem', lg: '3.5rem' },
+                                fontSize: { xs: '3rem', md: '3.5rem', lg: '4rem' },
                                 textAlign: 'center',
                                 lineHeight: 1.2
                               }}>
