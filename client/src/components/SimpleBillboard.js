@@ -323,7 +323,7 @@ function SimpleBillboard() {
                           {/* Child Name */}
                           <Typography variant="h3" sx={{
                             fontWeight: 900,
-                            color: 'text.primary',
+                            color: 'black',
                             textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
                             letterSpacing: '2px',
                             fontSize: { xs: '3rem', md: '3.5rem', lg: '4rem' },
@@ -336,7 +336,7 @@ function SimpleBillboard() {
                           {/* Security Code */}
                           <Typography variant="h4" sx={{
                             fontWeight: 700,
-                            color: 'text.secondary',
+                            color: 'black',
                             textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
                             fontSize: { xs: '1.8rem', md: '2rem', lg: '2.5rem' },
                             mt: 1,
@@ -347,9 +347,9 @@ function SimpleBillboard() {
                           
                           {/* Time and Location */}
                           <Typography variant="h6" sx={{
-                            color: 'text.secondary',
+                            color: 'black',
                             fontSize: { xs: '1.1rem', md: '1.2rem', lg: '1.5rem' },
-                            opacity: 0.8
+                            opacity: 0.9
                           }}>
                             {formatTime(notification.notifiedAt)} • {notification.locationName}
                           </Typography>
@@ -384,7 +384,7 @@ function SimpleBillboard() {
                           {/* Child Name */}
                           <Typography variant="h3" sx={{
                             fontWeight: 900,
-                            color: 'text.primary',
+                            color: 'black',
                             textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
                             letterSpacing: '2px',
                             fontSize: { xs: '3rem', md: '3.5rem', lg: '4rem' },
@@ -397,7 +397,7 @@ function SimpleBillboard() {
                           {/* Security Code */}
                           <Typography variant="h4" sx={{
                             fontWeight: 700,
-                            color: 'text.secondary',
+                            color: 'black',
                             textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
                             fontSize: { xs: '1.8rem', md: '2rem', lg: '2.5rem' },
                             mt: 1,
@@ -408,9 +408,9 @@ function SimpleBillboard() {
                           
                           {/* Time and Location */}
                           <Typography variant="h6" sx={{
-                            color: 'text.secondary',
+                            color: 'black',
                             fontSize: { xs: '1.1rem', md: '1.2rem', lg: '1.5rem' },
-                            opacity: 0.8
+                            opacity: 0.9
                           }}>
                             {formatTime(notification.notifiedAt)} • {notification.locationName}
                           </Typography>
