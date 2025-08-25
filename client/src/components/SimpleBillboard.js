@@ -352,21 +352,42 @@ function SimpleBillboard() {
                 </Typography>
               </Box>
             ) : (
-              <Grid container spacing={3}>
+              <Grid 
+                container 
+                spacing={{ xs: 2, sm: 3, md: 3 }}
+                sx={{
+                  // Force two-column layout on tablets and larger
+                  display: 'flex',
+                  flexWrap: 'nowrap',
+                  minHeight: '70vh'
+                }}
+              >
                 {/* Left Column */}
-                <Grid item xs={12} md={6} sx={{ flex: '0 0 50%', maxWidth: '50%' }}>
+                <Grid 
+                  item 
+                  xs={12} 
+                  sm={6} 
+                  md={6} 
+                  sx={{ 
+                    flex: '0 0 50%', 
+                    maxWidth: '50%',
+                    minWidth: '50%',
+                    // Ensure proper spacing on tablets
+                    pr: { xs: 1, sm: 1.5, md: 1.5 }
+                  }}
+                >
                   {activeNotifications
                     .filter((_, index) => index % 2 === 0)
                     .map((notification) => (
                       <Card
                         key={notification.id}
                         sx={{
-                          mb: 2,
-                          minHeight: '120px',
+                          mb: { xs: 1.5, sm: 2, md: 2 },
+                          minHeight: { xs: '100px', sm: '120px', md: '120px' },
                           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                           color: 'white',
                           border: '2px solid #4a5568',
-                          borderRadius: '12px',
+                          borderRadius: { xs: '8px', sm: '12px', md: '12px' },
                           boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
                           transition: 'all 0.3s ease',
                           '&:hover': {
@@ -375,14 +396,22 @@ function SimpleBillboard() {
                           }
                         }}
                       >
-                        <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                        <CardContent sx={{ 
+                          p: { xs: 1.5, sm: 2, md: 2 }, 
+                          textAlign: 'center' 
+                        }}>
                           {/* Child Name */}
                           <Typography variant="h3" sx={{
                             fontWeight: 900,
                             color: 'black',
                             textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
                             letterSpacing: '2px',
-                            fontSize: { xs: '3rem', md: '3.5rem', lg: '4rem' },
+                            fontSize: { 
+                              xs: '2.5rem', 
+                              sm: '3rem', 
+                              md: '3.5rem', 
+                              lg: '4rem' 
+                            },
                             textAlign: 'center',
                             lineHeight: 1.2
                           }}>
@@ -394,7 +423,12 @@ function SimpleBillboard() {
                             fontWeight: 700,
                             color: 'black',
                             textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
-                            fontSize: { xs: '1.8rem', md: '2rem', lg: '2.5rem' },
+                            fontSize: { 
+                              xs: '1.5rem', 
+                              sm: '1.8rem', 
+                              md: '2rem', 
+                              lg: '2.5rem' 
+                            },
                             mt: 1,
                             mb: 1
                           }}>
@@ -404,7 +438,12 @@ function SimpleBillboard() {
                           {/* Time and Location */}
                           <Typography variant="h6" sx={{
                             color: 'black',
-                            fontSize: { xs: '1.1rem', md: '1.2rem', lg: '1.5rem' },
+                            fontSize: { 
+                              xs: '1rem', 
+                              sm: '1.1rem', 
+                              md: '1.2rem', 
+                              lg: '1.5rem' 
+                            },
                             opacity: 0.9
                           }}>
                             {formatTime(notification.notifiedAt)} • {notification.locationName}
@@ -415,19 +454,31 @@ function SimpleBillboard() {
                 </Grid>
 
                 {/* Right Column */}
-                <Grid item xs={12} md={6} sx={{ flex: '0 0 50%', maxWidth: '50%' }}>
+                <Grid 
+                  item 
+                  xs={12} 
+                  sm={6} 
+                  md={6} 
+                  sx={{ 
+                    flex: '0 0 50%', 
+                    maxWidth: '50%',
+                    minWidth: '50%',
+                    // Ensure proper spacing on tablets
+                    pl: { xs: 1, sm: 1.5, md: 1.5 }
+                  }}
+                >
                   {activeNotifications
                     .filter((_, index) => index % 2 === 1)
                     .map((notification) => (
                       <Card
                         key={notification.id}
                         sx={{
-                          mb: 2,
-                          minHeight: '120px',
+                          mb: { xs: 1.5, sm: 2, md: 2 },
+                          minHeight: { xs: '100px', sm: '120px', md: '120px' },
                           background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
                           color: 'white',
                           border: '2px solid #4a5568',
-                          borderRadius: '12px',
+                          borderRadius: { xs: '8px', sm: '12px', md: '12px' },
                           boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
                           transition: 'all 0.3s ease',
                           '&:hover': {
@@ -436,14 +487,22 @@ function SimpleBillboard() {
                           }
                         }}
                       >
-                        <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                        <CardContent sx={{ 
+                          p: { xs: 1.5, sm: 2, md: 2 }, 
+                          textAlign: 'center' 
+                        }}>
                           {/* Child Name */}
                           <Typography variant="h3" sx={{
                             fontWeight: 900,
                             color: 'black',
                             textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
                             letterSpacing: '2px',
-                            fontSize: { xs: '3rem', md: '3.5rem', lg: '4rem' },
+                            fontSize: { 
+                              xs: '2.5rem', 
+                              sm: '3rem', 
+                              md: '3.5rem', 
+                              lg: '4rem' 
+                            },
                             textAlign: 'center',
                             lineHeight: 1.2
                           }}>
@@ -455,7 +514,12 @@ function SimpleBillboard() {
                             fontWeight: 700,
                             color: 'black',
                             textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
-                            fontSize: { xs: '1.8rem', md: '2rem', lg: '2.5rem' },
+                            fontSize: { 
+                              xs: '1.5rem', 
+                              sm: '1.8rem', 
+                              md: '2rem', 
+                              lg: '2.5rem' 
+                            },
                             mt: 1,
                             mb: 1
                           }}>
@@ -465,7 +529,12 @@ function SimpleBillboard() {
                           {/* Time and Location */}
                           <Typography variant="h6" sx={{
                             color: 'black',
-                            fontSize: { xs: '1.1rem', md: '1.2rem', lg: '1.5rem' },
+                            fontSize: { 
+                              xs: '1rem', 
+                              sm: '1.1rem', 
+                              md: '1.2rem', 
+                              lg: '1.5rem' 
+                            },
                             opacity: 0.9
                           }}>
                             {formatTime(notification.notifiedAt)} • {notification.locationName}
