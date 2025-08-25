@@ -131,7 +131,19 @@ function AdminPanel() {
     const fetchGlobalBillboard = async () => {
       try {
         const response = await api.get('/global-billboard');
+        const previousState = globalBillboardState;
         setGlobalBillboardState(response.data);
+        
+        // Check if this is a cross-user update
+        if (previousState && response.data?.activeBillboard && 
+            previousState.activeBillboard?.eventId !== response.data.activeBillboard?.eventId) {
+          console.log('🔄 [CROSS-USER] Admin panel syncing with update from another user:', {
+            previous: previousState.activeBillboard?.eventName,
+            current: response.data.activeBillboard?.eventName,
+            updatedBy: response.data.createdBy
+          });
+        }
+        
         // Only sync if not adding a security code and not in manual change mode
         // Also don't sync if user has selected an event but no billboard is active
         const hasUserSelections = selectedEvent && !globalBillboardState?.activeBillboard;

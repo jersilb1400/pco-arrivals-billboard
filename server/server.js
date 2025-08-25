@@ -587,6 +587,64 @@ app.get('/api/debug/session', (req, res) => {
   });
 });
 
+// Debug endpoint to check cross-user access and active sessions
+app.get('/api/debug/cross-user-access', async (req, res) => {
+  try {
+    // Get all active sessions from MongoDB store
+    const sessionStore = req.sessionStore;
+    let activeSessions = [];
+    
+    if (sessionStore && sessionStore.store && sessionStore.store.get) {
+      try {
+        // This is a simplified approach - in production you might want to use a more robust method
+        activeSessions = await new Promise((resolve) => {
+          sessionStore.store.get('*', (err, sessions) => {
+            if (err) {
+              console.log('[DEBUG] Could not retrieve all sessions:', err.message);
+              resolve([]);
+            } else {
+              resolve(sessions || []);
+            }
+          });
+        });
+      } catch (sessionError) {
+        console.log('[DEBUG] Session retrieval error:', sessionError.message);
+      }
+    }
+    
+    res.json({
+      currentUser: req.session?.user ? {
+        id: req.session.user.id,
+        name: req.session.user.name,
+        isAdmin: req.session.user.isAdmin
+      } : null,
+      globalBillboardState: {
+        hasActiveBillboard: !!globalBillboardState.activeBillboard,
+        eventName: globalBillboardState.activeBillboard?.eventName,
+        eventId: globalBillboardState.activeBillboard?.eventId,
+        createdBy: globalBillboardState.createdBy,
+        lastUpdated: globalBillboardState.lastUpdated
+      },
+      activeNotifications: {
+        count: activeNotifications.length,
+        recent: activeNotifications.slice(0, 5) // Show first 5
+      },
+      authorizedUsers: authorizedUsers.map(user => ({
+        id: user.id,
+        name: user.name,
+        email: user.email
+      })),
+      sessionInfo: {
+        totalSessions: activeSessions.length,
+        sessionStoreType: sessionStore?.constructor?.name || 'Unknown'
+      }
+    });
+  } catch (error) {
+    console.error('[DEBUG] Error in cross-user access debug:', error);
+    res.status(500).json({ error: 'Debug endpoint error', message: error.message });
+  }
+});
+
 // Update logout route to clear cookies properly
 app.get('/api/auth/logout', (req, res) => {
   console.log('🔴 Logout route hit');
@@ -1410,6 +1468,21 @@ app.get('/api/check-ins', requireAuth, async (req, res) => {
 // Global billboard state endpoints
 app.get('/api/global-billboard', (req, res) => {
   try {
+    // Log access for debugging cross-user access
+    const userInfo = req.session?.user ? {
+      id: req.session.user.id,
+      name: req.session.user.name,
+      isAdmin: req.session.user.isAdmin
+    } : 'No user session';
+    
+    console.log(`[CROSS-USER] Global billboard accessed by:`, userInfo);
+    console.log(`[CROSS-USER] Current global state:`, {
+      hasActiveBillboard: !!globalBillboardState.activeBillboard,
+      eventName: globalBillboardState.activeBillboard?.eventName,
+      createdBy: globalBillboardState.createdBy,
+      lastUpdated: globalBillboardState.lastUpdated
+    });
+    
     res.json(globalBillboardState);
   } catch (error) {
     console.error('Error getting global billboard state:', error);
@@ -1423,11 +1496,18 @@ app.post('/api/global-billboard', requireAuthOnly, async (req, res) => {
     const userId = req.session.user?.id;
     const userName = req.session.user?.name;
     
+    console.log(`[CROSS-USER] Setting global billboard by user:`, { userId, userName });
+    
     if (!eventId || !eventName) {
       return res.status(400).json({ error: 'Event ID and event name are required' });
     }
     
     updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName);
+    
+    // Log the update for cross-user debugging
+    console.log(`[CROSS-USER] Global billboard updated successfully by ${userName} (${userId})`);
+    console.log(`[CROSS-USER] New state:`, globalBillboardState);
+    
     res.json(globalBillboardState);
   } catch (error) {
     console.error('Error setting global billboard state:', error);
