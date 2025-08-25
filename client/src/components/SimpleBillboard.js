@@ -326,12 +326,48 @@ function SimpleBillboard() {
               </Typography>
               {globalBillboard.activeBillboard.eventDate && (
                 <Typography variant="h5" sx={{ opacity: 0.9 }}>
-                  {new Date(globalBillboard.activeBillboard.eventDate).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
+                  {(() => {
+                    const eventDate = globalBillboard.activeBillboard.eventDate;
+                    console.log('📅 Billboard event date:', eventDate);
+                    
+                    try {
+                      // Handle different date formats
+                      let dateObj;
+                      if (typeof eventDate === 'string') {
+                        // If it's already a date string, parse it
+                        dateObj = new Date(eventDate);
+                      } else if (eventDate instanceof Date) {
+                        // If it's already a Date object
+                        dateObj = eventDate;
+                      } else {
+                        console.warn('📅 Unknown date format:', eventDate);
+                        return 'Date not available';
+                      }
+                      
+                      // Check if date is valid
+                      if (isNaN(dateObj.getTime())) {
+                        console.warn('📅 Invalid date:', eventDate);
+                        return 'Invalid date';
+                      }
+                      
+                      console.log('📅 Parsed date object:', dateObj);
+                      
+                      // Format the date
+                      const formattedDate = dateObj.toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      });
+                      
+                      console.log('📅 Formatted date:', formattedDate);
+                      return formattedDate;
+                      
+                    } catch (error) {
+                      console.error('📅 Error formatting date:', error);
+                      return 'Date formatting error';
+                    }
+                  })()}
                 </Typography>
               )}
             </Box>
