@@ -102,45 +102,79 @@ function SimpleBillboard() {
 
   // Play notification sound
   const playNotificationSound = useCallback(() => {
+    console.log('🔊 playNotificationSound called:', { soundEnabled, audioLoaded, hasAudioRef: !!audioRef.current });
+    
     if (soundEnabled && audioLoaded && audioRef.current) {
       try {
         const { context } = audioRef.current;
+        console.log('🔊 Audio context state:', context.state);
         
         // Resume context if suspended (required by modern browsers)
         if (context.state === 'suspended') {
-          context.resume();
+          console.log('🔊 Resuming suspended audio context...');
+          context.resume().then(() => {
+            console.log('🔊 Audio context resumed successfully');
+            // Play sound after context is resumed
+            playSoundAfterResume(context);
+          }).catch(error => {
+            console.error('🔊 Failed to resume audio context:', error);
+          });
+        } else {
+          // Context is already running, play sound immediately
+          playSoundAfterResume(context);
         }
         
-        // Create new oscillator for each play (can't reuse)
-        const newOscillator = context.createOscillator();
-        const newGainNode = context.createGain();
-        
-        newOscillator.connect(newGainNode);
-        newGainNode.connect(context.destination);
-        
-        // Set up the chime sound
-        newOscillator.type = 'sine';
-        newOscillator.frequency.setValueAtTime(800, context.currentTime);
-        newOscillator.frequency.setValueAtTime(1000, context.currentTime + 0.1);
-        newOscillator.frequency.setValueAtTime(600, context.currentTime + 0.2);
-        
-        newGainNode.gain.setValueAtTime(0.3, context.currentTime);
-        newGainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.5);
-        
-        // Play the sound
-        newOscillator.start(context.currentTime);
-        newOscillator.stop(context.currentTime + 0.5);
-        
       } catch (error) {
-        console.warn('Error playing notification sound:', error);
+        console.warn('🔊 Error in playNotificationSound:', error);
       }
+    } else {
+      console.log('🔊 Sound not played - conditions not met:', { soundEnabled, audioLoaded, hasAudioRef: !!audioRef.current });
     }
   }, [soundEnabled, audioLoaded]);
 
+  // Helper function to play sound after context is ready
+  const playSoundAfterResume = (context) => {
+    try {
+      console.log('🔊 Playing chime sound...');
+      
+      // Create new oscillator for each play (can't reuse)
+      const newOscillator = context.createOscillator();
+      const newGainNode = context.createGain();
+      
+      newOscillator.connect(newGainNode);
+      newGainNode.connect(context.destination);
+      
+      // Set up the chime sound
+      newOscillator.type = 'sine';
+      newOscillator.frequency.setValueAtTime(800, context.currentTime);
+      newOscillator.frequency.setValueAtTime(1000, context.currentTime + 0.1);
+      newOscillator.frequency.setValueAtTime(600, context.currentTime + 0.2);
+      
+      newGainNode.gain.setValueAtTime(0.3, context.currentTime);
+      newGainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.5);
+      
+      // Play the sound
+      newOscillator.start(context.currentTime);
+      newOscillator.stop(context.currentTime + 0.5);
+      
+      console.log('🔊 Chime sound started successfully');
+      
+    } catch (error) {
+      console.error('🔊 Error playing sound after resume:', error);
+    }
+  };
+
   // Check for new notifications and play sound
   useEffect(() => {
+    console.log('🔊 Notification count changed:', { 
+      current: activeNotifications.length, 
+      previous: previousNotificationCount,
+      shouldPlay: activeNotifications.length > previousNotificationCount && previousNotificationCount > 0
+    });
+    
     if (activeNotifications.length > previousNotificationCount && previousNotificationCount > 0) {
       // New notifications were added
+      console.log('🔊 New notifications detected, playing sound...');
       playNotificationSound();
     }
     setPreviousNotificationCount(activeNotifications.length);
@@ -197,8 +231,30 @@ function SimpleBillboard() {
           zIndex: 1000,
           backgroundColor: 'rgba(255, 255, 255, 0.9)',
           borderRadius: 1,
-          p: 1
+          p: 1,
+          gap: 1
         }}>
+          {/* Test Sound Button */}
+          <Tooltip title="Test sound notification">
+            <IconButton
+              onClick={() => {
+                console.log('🔊 Test sound button clicked');
+                playNotificationSound();
+              }}
+              color="secondary"
+              sx={{
+                backgroundColor: 'secondary.main',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'secondary.dark',
+                }
+              }}
+            >
+              🔊
+            </IconButton>
+          </Tooltip>
+          
+          {/* Sound Toggle Button */}
           <Tooltip title={soundEnabled ? "Turn off sound notifications" : "Turn on sound notifications"}>
             <IconButton
               onClick={handleSoundToggle}
