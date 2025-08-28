@@ -668,17 +668,29 @@ app.get('/api/auth/success', (req, res) => {
       <html>
         <body>
           <script>
+            console.log('🟡 OAuth Success Page: Setting localStorage data');
+            
             // Store the session info in localStorage for cross-domain access
-            localStorage.setItem('pco_session_token', '${tempToken}');
-            localStorage.setItem('pco_session_data', JSON.stringify({
+            const sessionData = {
               authenticated: true,
               user: {
                 id: '${req.session.user.id}',
                 name: '${req.session.user.name}',
                 isAdmin: ${req.session.user.isAdmin}
               }
-            }));
-            window.location.href = '${clientUrl}/admin';
+            };
+            
+            console.log('🟡 OAuth Success Page: Session data:', sessionData);
+            
+            localStorage.setItem('pco_session_token', '${tempToken}');
+            localStorage.setItem('pco_session_data', JSON.stringify(sessionData));
+            
+            console.log('🟡 OAuth Success Page: localStorage set, redirecting to:', '${clientUrl}/admin');
+            
+            // Add a small delay to ensure localStorage is set
+            setTimeout(() => {
+              window.location.href = '${clientUrl}/admin';
+            }, 100);
           </script>
         </body>
       </html>
