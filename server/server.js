@@ -618,50 +618,63 @@ app.get('/api/auth/callback', async (req, res) => {
 
 // Intermediate success route to set cookie and redirect to client
 app.get('/api/auth/success', (req, res) => {
-  console.log('🟡 /api/auth/success hit');
-  console.log('🟡 Session user:', req.session.user);
-  console.log('🟡 Complete session state:', {
-    sessionId: req.sessionID,
-    hasAccessToken: !!req.session.accessToken,
-    hasUser: !!req.session.user,
-    userName: req.session.user?.name,
-    userEmail: req.session.user?.email,
-    isAdmin: req.session.user?.isAdmin,
-    cookieSettings: {
-      secure: req.session.cookie?.secure,
-      sameSite: req.session.cookie?.sameSite,
-      httpOnly: req.session.cookie?.httpOnly,
-      domain: req.session.cookie?.domain,
-      maxAge: req.session.cookie?.maxAge
+  try {
+    console.log('🟡 /api/auth/success hit');
+    console.log('🟡 Session user:', req.session.user);
+    console.log('🟡 Complete session state:', {
+      sessionId: req.sessionID,
+      hasAccessToken: !!req.session.accessToken,
+      hasUser: !!req.session.user,
+      userName: req.session.user?.name,
+      userEmail: req.session.user?.email,
+      isAdmin: req.session.user?.isAdmin,
+      cookieSettings: {
+        secure: req.session.cookie?.secure,
+        sameSite: req.session.cookie?.sameSite,
+        httpOnly: req.session.cookie?.httpOnly,
+        domain: req.session.cookie?.domain,
+        maxAge: req.session.cookie?.maxAge
+      }
+    });
+    
+    let clientUrl = process.env.CLIENT_URL;
+    
+    // If CLIENT_URL is not set, try to determine from request headers
+    if (!clientUrl) {
+      // Use the host header to determine the domain
+      const host = req.get('host');
+      const protocol = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
+      clientUrl = `${protocol}://${host}`;
+      console.log('🟡 CLIENT_URL not set, using derived URL:', clientUrl);
     }
-  });
-  
-  let clientUrl = process.env.CLIENT_URL;
-  
-  // If CLIENT_URL is not set, try to determine from request headers
-  if (!clientUrl) {
-    // Use the host header to determine the domain
-    const host = req.get('host');
-    const protocol = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
-    clientUrl = `${protocol}://${host}`;
-    console.log('🟡 CLIENT_URL not set, using derived URL:', clientUrl);
+    
+    // Fallback to localhost only in development
+    if (!clientUrl && process.env.NODE_ENV === 'development') {
+      clientUrl = 'http://localhost:3000';
+    }
+    
+    console.log('🟡 Redirecting to client URL:', clientUrl + '/admin');
+    res.send(`
+      <html>
+        <body>
+          <script>
+            window.location.href = '${clientUrl}/admin';
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('❌ Error in /api/auth/success:', error);
+    res.status(500).send(`
+      <html>
+        <body>
+          <h1>Authentication Error</h1>
+          <p>There was an error processing your authentication. Please try again.</p>
+          <p>Error: ${error.message}</p>
+        </body>
+      </html>
+    `);
   }
-  
-  // Fallback to localhost only in development
-  if (!clientUrl && process.env.NODE_ENV === 'development') {
-    clientUrl = 'http://localhost:3000';
-  }
-  
-  console.log('🟡 Redirecting to client URL:', clientUrl + '/admin');
-  res.send(`
-    <html>
-      <body>
-        <script>
-          window.location.href = '${clientUrl}/admin';
-        </script>
-      </body>
-    </html>
-  `);
 });
 
 // Debug endpoint to check environment variables
