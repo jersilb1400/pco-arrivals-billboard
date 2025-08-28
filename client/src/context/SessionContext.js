@@ -15,8 +15,13 @@ export function SessionProvider({ children }) {
       console.log('🔄 SessionContext: Starting session check...');
       
       // First check localStorage for session data (from OAuth redirect)
-      const storedSessionData = localStorage.getItem('pco_session_data');
-      console.log('🔄 SessionContext: localStorage check - pco_session_data:', storedSessionData ? 'Present' : 'Not Present');
+      let storedSessionData = null;
+      try {
+        storedSessionData = localStorage.getItem('pco_session_data');
+        console.log('🔄 SessionContext: localStorage check - pco_session_data:', storedSessionData ? 'Present' : 'Not Present');
+      } catch (localStorageError) {
+        console.warn('🔄 SessionContext: localStorage not available:', localStorageError);
+      }
       
       if (storedSessionData) {
         try {
@@ -24,14 +29,22 @@ export function SessionProvider({ children }) {
           console.log('🔄 SessionContext: Found stored session data:', parsedSession);
           setSession(parsedSession);
           // Clear the stored data after using it
-          localStorage.removeItem('pco_session_data');
-          localStorage.removeItem('pco_session_token');
+          try {
+            localStorage.removeItem('pco_session_data');
+            localStorage.removeItem('pco_session_token');
+          } catch (clearError) {
+            console.warn('🔄 SessionContext: Could not clear localStorage:', clearError);
+          }
           console.log('🔄 SessionContext: Using stored session data, skipping API call');
           return parsedSession;
         } catch (parseError) {
           console.error('Error parsing stored session data:', parseError);
-          localStorage.removeItem('pco_session_data');
-          localStorage.removeItem('pco_session_token');
+          try {
+            localStorage.removeItem('pco_session_data');
+            localStorage.removeItem('pco_session_token');
+          } catch (clearError) {
+            console.warn('🔄 SessionContext: Could not clear localStorage:', clearError);
+          }
         }
       }
       

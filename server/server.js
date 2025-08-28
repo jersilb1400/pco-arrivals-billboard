@@ -665,32 +665,57 @@ app.get('/api/auth/success', (req, res) => {
     })).toString('base64');
     
     res.send(`
+      <!DOCTYPE html>
       <html>
+        <head>
+          <title>Authentication Success</title>
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            .success { color: green; font-size: 18px; }
+            .loading { color: #666; }
+          </style>
+        </head>
         <body>
+          <div class="success">✅ Authentication Successful!</div>
+          <div class="loading">Redirecting to admin panel...</div>
+          
           <script>
-            console.log('🟡 OAuth Success Page: Setting localStorage data');
+            console.log('🟡 OAuth Success Page: Starting localStorage setup');
             
-            // Store the session info in localStorage for cross-domain access
-            const sessionData = {
-              authenticated: true,
-              user: {
-                id: '${req.session.user.id}',
-                name: '${req.session.user.name}',
-                isAdmin: ${req.session.user.isAdmin}
+            try {
+              // Store the session info in localStorage for cross-domain access
+              const sessionData = {
+                authenticated: true,
+                user: {
+                  id: '${req.session.user.id}',
+                  name: '${req.session.user.name}',
+                  isAdmin: ${req.session.user.isAdmin}
+                }
+              };
+              
+              console.log('🟡 OAuth Success Page: Session data:', sessionData);
+              
+              // Set localStorage with error handling
+              localStorage.setItem('pco_session_token', '${tempToken}');
+              localStorage.setItem('pco_session_data', JSON.stringify(sessionData));
+              
+              // Verify the data was set
+              const verifyData = localStorage.getItem('pco_session_data');
+              console.log('🟡 OAuth Success Page: Verification - localStorage data:', verifyData);
+              
+              if (verifyData) {
+                console.log('🟡 OAuth Success Page: localStorage set successfully, redirecting in 500ms');
+                setTimeout(() => {
+                  window.location.href = '${clientUrl}/admin';
+                }, 500);
+              } else {
+                console.error('🟡 OAuth Success Page: Failed to set localStorage');
+                document.body.innerHTML = '<div style="color: red;">Error: Failed to set session data. Please try again.</div>';
               }
-            };
-            
-            console.log('🟡 OAuth Success Page: Session data:', sessionData);
-            
-            localStorage.setItem('pco_session_token', '${tempToken}');
-            localStorage.setItem('pco_session_data', JSON.stringify(sessionData));
-            
-            console.log('🟡 OAuth Success Page: localStorage set, redirecting to:', '${clientUrl}/admin');
-            
-            // Add a small delay to ensure localStorage is set
-            setTimeout(() => {
-              window.location.href = '${clientUrl}/admin';
-            }, 100);
+            } catch (error) {
+              console.error('🟡 OAuth Success Page: JavaScript error:', error);
+              document.body.innerHTML = '<div style="color: red;">Error: ' + error.message + '</div>';
+            }
           </script>
         </body>
       </html>
