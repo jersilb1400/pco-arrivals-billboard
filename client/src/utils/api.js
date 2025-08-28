@@ -27,13 +27,21 @@ const api = axios.create({
   timeout: 30000 // 30 second timeout
 });
 
-// Add request interceptor for debugging
+// Add request interceptor for debugging and authentication
 api.interceptors.request.use(
   (config) => {
+    // Add auth token to headers if available
+    const authToken = sessionStorage.getItem('pco_auth_token');
+    if (authToken) {
+      config.headers['X-Auth-Token'] = authToken;
+      console.log('🔑 API Request: Adding auth token to headers');
+    }
+    
     console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
       baseURL: config.baseURL,
       params: config.params,
-      data: config.data
+      data: config.data,
+      hasAuthToken: !!authToken
     });
     return config;
   },

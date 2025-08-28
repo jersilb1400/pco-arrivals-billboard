@@ -135,6 +135,50 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Middleware to handle X-Auth-Token header for cross-domain authentication
+app.use((req, res, next) => {
+  const authToken = req.headers['x-auth-token'];
+  if (authToken) {
+    try {
+      // Decode the token to get session information
+      const tokenData = JSON.parse(Buffer.from(authToken, 'base64').toString());
+      console.log('🔑 Auth token received:', {
+        sessionId: tokenData.sessionId,
+        userId: tokenData.userId,
+        userName: tokenData.userName,
+        isAdmin: tokenData.isAdmin,
+        timestamp: tokenData.timestamp
+      });
+      
+      // Check if token is not too old (1 hour)
+      const tokenAge = Date.now() - tokenData.timestamp;
+      if (tokenAge > 60 * 60 * 1000) {
+        console.log('🔑 Auth token expired:', tokenAge, 'ms old');
+        return next();
+      }
+      
+      // Set session data from token
+      req.session.accessToken = 'token-based-auth';
+      req.session.user = {
+        id: tokenData.userId,
+        name: tokenData.userName,
+        isAdmin: tokenData.isAdmin
+      };
+      req.session.tokenExpiry = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+      
+      console.log('🔑 Session set from auth token:', {
+        hasAccessToken: !!req.session.accessToken,
+        hasUser: !!req.session.user,
+        userName: req.session.user?.name,
+        isAdmin: req.session.user?.isAdmin
+      });
+    } catch (error) {
+      console.error('🔑 Error parsing auth token:', error);
+    }
+  }
+  next();
+});
+
 // Update session configuration to use MongoDB for persistence
 app.use(session({
   secret: COOKIE_SECRET,

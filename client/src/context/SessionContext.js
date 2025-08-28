@@ -25,6 +25,11 @@ export function SessionProvider({ children }) {
         try {
           const parsedSession = JSON.parse(decodeURIComponent(sessionParam));
           console.log('🔄 SessionContext: Found session data in URL:', parsedSession);
+          
+          // Store the token for API authentication
+          sessionStorage.setItem('pco_auth_token', tokenParam);
+          console.log('🔄 SessionContext: Auth token stored in sessionStorage');
+          
           setSession(parsedSession);
           
           // Clear URL parameters after using them
