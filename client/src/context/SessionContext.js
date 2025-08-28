@@ -30,6 +30,30 @@ export function SessionProvider({ children }) {
     checkSession();
   }, [checkSession]);
 
+  // Add a more frequent check when returning from OAuth callback
+  useEffect(() => {
+    // Check if we're returning from an OAuth callback (URL might have auth-related params)
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasAuthParams = urlParams.has('code') || urlParams.has('state') || window.location.pathname.includes('callback');
+    
+    if (hasAuthParams) {
+      console.log('🔄 SessionContext: Detected OAuth callback, checking session more frequently');
+      
+      // Check session immediately and then every 2 seconds for 10 seconds
+      const checkInterval = setInterval(() => {
+        checkSession();
+      }, 2000);
+      
+      // Clear interval after 10 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        console.log('🔄 SessionContext: Stopped frequent OAuth callback checks');
+      }, 10000);
+      
+      return () => clearInterval(checkInterval);
+    }
+  }, [checkSession]);
+
   // Set up periodic session checks to detect when users log in/out independently
   useEffect(() => {
     const intervalId = setInterval(async () => {

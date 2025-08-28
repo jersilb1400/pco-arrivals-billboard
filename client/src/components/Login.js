@@ -16,42 +16,41 @@ import {
   Login as LoginIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
+import { useSession } from '../context/SessionContext';
 import api from '../utils/api';
 
 // Configure axios to send cookies with requests
 api.defaults.withCredentials = true;
 
 function Login() {
-  const [authStatus, setAuthStatus] = useState('checking');
-  const [error, setError] = useState(null);
   const [rememberMe, setRememberMe] = useState(
     localStorage.getItem('rememberMe') === 'true' || false
   );
   const navigate = useNavigate();
+  const { session, loading } = useSession();
 
+  // Handle authentication status changes
   useEffect(() => {
-    // Check if user is already authenticated
-    const checkAuthStatus = async () => {
-      try {
-        const response = await api.get('/auth-status');
-        if (response.data.authenticated) {
-          if (response.data.user?.isAdmin) {
-            navigate('/admin');
-          } else {
-            navigate('/unauthorized');
-          }
+    if (!loading && session) {
+      console.log('🔐 Login component: Session status changed:', {
+        authenticated: session.authenticated,
+        user: session.user?.name,
+        isAdmin: session.user?.isAdmin
+      });
+      
+      if (session.authenticated) {
+        if (session.user?.isAdmin) {
+          console.log('🔐 Login component: Redirecting to admin');
+          navigate('/admin');
         } else {
-          setAuthStatus('unauthenticated');
+          console.log('🔐 Login component: Redirecting to unauthorized');
+          navigate('/unauthorized');
         }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        setAuthStatus('unauthenticated');
-        setError('Failed to connect to server. Please try again.');
+      } else {
+        console.log('🔐 Login component: User not authenticated, showing login form');
       }
-    };
-
-    checkAuthStatus();
-  }, [navigate]);
+    }
+  }, [session, loading, navigate]);
 
   const handleLogin = () => {
     // Save rememberMe preference to localStorage
@@ -73,7 +72,8 @@ function Login() {
     setRememberMe(e.target.checked);
   };
 
-  if (authStatus === 'checking') {
+  // Show loading while SessionContext is checking authentication
+  if (loading) {
     return (
       <Container maxWidth="sm" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Box sx={{ textAlign: 'center' }}>

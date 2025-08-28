@@ -244,25 +244,37 @@ async function ensureValidToken(req) {
 
 // Auth status endpoint
 app.get('/api/auth-status', (req, res) => {
-  console.log('Auth status check - Session:', {
+  const sessionInfo = {
     hasAccessToken: !!req.session.accessToken,
     hasUser: !!req.session.user,
     userIsAdmin: req.session.user?.isAdmin,
-    sessionId: req.sessionID
-  });
+    sessionId: req.sessionID,
+    userAgent: req.get('User-Agent')?.substring(0, 50) + '...',
+    referer: req.get('Referer'),
+    origin: req.get('Origin')
+  };
+  
+  console.log('🔍 Auth status check - Session:', sessionInfo);
   
   const isAuthenticated = !!req.session.accessToken;
   const userData = req.session.user || null;
   
-  // Add some user-friendly information
-  res.json({ 
+  const response = { 
     authenticated: isAuthenticated,
     user: userData,
     loginUrl: isAuthenticated ? null : '/api/auth/pco',
     message: isAuthenticated 
       ? `Logged in as ${userData?.name || 'User'}` 
       : 'Not logged in'
+  };
+  
+  console.log('🔍 Auth status response:', {
+    authenticated: response.authenticated,
+    userName: response.user?.name,
+    isAdmin: response.user?.isAdmin
   });
+  
+  res.json(response);
 });
 
 // User info endpoint
