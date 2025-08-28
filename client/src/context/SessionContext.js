@@ -12,9 +12,12 @@ export function SessionProvider({ children }) {
 
   const checkSession = useCallback(async () => {
     try {
+      console.log('🔄 SessionContext: Making auth-status request...');
       const response = await api.get('/auth-status');
+      console.log('🔄 SessionContext: Received response:', response.data);
       const newSession = response.data;
       setSession(newSession);
+      console.log('🔄 SessionContext: Session state updated:', newSession);
       return newSession;
     } catch (error) {
       console.error('Session check failed:', error);
