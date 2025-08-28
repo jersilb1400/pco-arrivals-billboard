@@ -14,7 +14,35 @@ export function SessionProvider({ children }) {
     try {
       console.log('🔄 SessionContext: Starting session check...');
       
-      // First check localStorage for session data (from OAuth redirect)
+      // First check URL parameters for session data (from OAuth redirect)
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionParam = urlParams.get('session');
+      const tokenParam = urlParams.get('token');
+      
+      console.log('🔄 SessionContext: URL params check - session:', sessionParam ? 'Present' : 'Not Present', 'token:', tokenParam ? 'Present' : 'Not Present');
+      
+      if (sessionParam && tokenParam) {
+        try {
+          const parsedSession = JSON.parse(decodeURIComponent(sessionParam));
+          console.log('🔄 SessionContext: Found session data in URL:', parsedSession);
+          setSession(parsedSession);
+          
+          // Clear URL parameters after using them
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+          console.log('🔄 SessionContext: URL parameters cleared');
+          
+          console.log('🔄 SessionContext: Using URL session data, skipping API call');
+          return parsedSession;
+        } catch (parseError) {
+          console.error('Error parsing URL session data:', parseError);
+          // Clear invalid URL parameters
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      }
+      
+      // Second check localStorage for session data (fallback)
       let storedSessionData = null;
       try {
         storedSessionData = localStorage.getItem('pco_session_data');
@@ -48,7 +76,7 @@ export function SessionProvider({ children }) {
         }
       }
       
-      console.log('🔄 SessionContext: No stored session data, making auth-status request...');
+      console.log('🔄 SessionContext: No session data found, making auth-status request...');
       const response = await api.get('/auth-status');
       console.log('🔄 SessionContext: Received response:', response.data);
       const newSession = response.data;

@@ -664,62 +664,23 @@ app.get('/api/auth/success', (req, res) => {
       timestamp: Date.now()
     })).toString('base64');
     
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Authentication Success</title>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .success { color: green; font-size: 18px; }
-            .loading { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="success">✅ Authentication Successful!</div>
-          <div class="loading">Redirecting to admin panel...</div>
-          
-          <script>
-            console.log('🟡 OAuth Success Page: Starting localStorage setup');
-            
-            try {
-              // Store the session info in localStorage for cross-domain access
-              const sessionData = {
-                authenticated: true,
-                user: {
-                  id: '${req.session.user.id}',
-                  name: '${req.session.user.name}',
-                  isAdmin: ${req.session.user.isAdmin}
-                }
-              };
-              
-              console.log('🟡 OAuth Success Page: Session data:', sessionData);
-              
-              // Set localStorage with error handling
-              localStorage.setItem('pco_session_token', '${tempToken}');
-              localStorage.setItem('pco_session_data', JSON.stringify(sessionData));
-              
-              // Verify the data was set
-              const verifyData = localStorage.getItem('pco_session_data');
-              console.log('🟡 OAuth Success Page: Verification - localStorage data:', verifyData);
-              
-              if (verifyData) {
-                console.log('🟡 OAuth Success Page: localStorage set successfully, redirecting in 500ms');
-                setTimeout(() => {
-                  window.location.href = '${clientUrl}/admin';
-                }, 500);
-              } else {
-                console.error('🟡 OAuth Success Page: Failed to set localStorage');
-                document.body.innerHTML = '<div style="color: red;">Error: Failed to set session data. Please try again.</div>';
-              }
-            } catch (error) {
-              console.error('🟡 OAuth Success Page: JavaScript error:', error);
-              document.body.innerHTML = '<div style="color: red;">Error: ' + error.message + '</div>';
-            }
-          </script>
-        </body>
-      </html>
-    `);
+    // Create session data for URL parameter
+    const sessionData = {
+      authenticated: true,
+      user: {
+        id: req.session.user.id,
+        name: req.session.user.name,
+        isAdmin: req.session.user.isAdmin
+      }
+    };
+    
+    // Encode session data for URL parameter
+    const encodedSessionData = encodeURIComponent(JSON.stringify(sessionData));
+    
+    console.log('🟡 Redirecting with session data in URL parameter');
+    
+    // Redirect directly to admin with session data in URL parameter
+    res.redirect(`${clientUrl}/admin?session=${encodedSessionData}&token=${tempToken}`);
   } catch (error) {
     console.error('❌ Error in /api/auth/success:', error);
     res.status(500).send(`
