@@ -148,9 +148,8 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true', // Use secure in production or when forced
     sameSite: 'lax', // Changed from 'none' to 'lax' for better mobile browser compatibility
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true,
-    // Add domain setting for better cross-subdomain support
-    domain: process.env.NODE_ENV === 'production' ? '.gracefm.org' : undefined
+    httpOnly: true
+    // Removed domain setting - let the browser handle it automatically for cross-origin requests
   }
 }));
 
@@ -427,9 +426,17 @@ app.get('/auth/callback', async (req, res) => {
     req.session.refreshToken = tokenResponse.data.refresh_token;
     req.session.tokenExpiry = new Date().getTime() + (tokenResponse.data.expires_in * 1000);
     
+    console.log('🟢 Session tokens stored:', {
+      hasAccessToken: !!req.session.accessToken,
+      hasRefreshToken: !!req.session.refreshToken,
+      tokenExpiry: req.session.tokenExpiry,
+      sessionId: req.sessionID
+    });
+    
     // Apply "Remember me" if requested
     if (req.session.rememberMe) {
       req.session.cookie.maxAge = REMEMBER_ME_DAYS * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+      console.log('🟢 Remember me applied, maxAge set to:', req.session.cookie.maxAge);
     }
     
     // Fetch user information
@@ -455,6 +462,21 @@ app.get('/auth/callback', async (req, res) => {
       };
       
       console.log('🟢 User data fetched:', req.session.user.name, 'ID:', userId);
+      console.log('🟢 Complete session data:', {
+        sessionId: req.sessionID,
+        hasAccessToken: !!req.session.accessToken,
+        hasUser: !!req.session.user,
+        userName: req.session.user?.name,
+        userEmail: req.session.user?.email,
+        isAdmin: req.session.user?.isAdmin,
+        cookieSettings: {
+          secure: req.session.cookie?.secure,
+          sameSite: req.session.cookie?.sameSite,
+          httpOnly: req.session.cookie?.httpOnly,
+          domain: req.session.cookie?.domain,
+          maxAge: req.session.cookie?.maxAge
+        }
+      });
       
       // Check if user is authorized
       const isAuthorized = authorizedUsers.some(user => user.id === userId);
@@ -470,13 +492,23 @@ app.get('/auth/callback', async (req, res) => {
         
         console.log(`🟢 First user automatically authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
         console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
-        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, req.session);
+        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, {
+          hasAccessToken: !!req.session.accessToken,
+          hasUser: !!req.session.user,
+          userName: req.session.user?.name,
+          isAdmin: req.session.user?.isAdmin
+        });
         return req.session.save((err) => {
           if (err) {
             console.error('❌ [DEBUG] Session save error:', err);
             return res.status(500).send('Session save failed');
           }
-          console.log('🟢 [DEBUG] After session.save:', req.sessionID, req.session);
+          console.log('🟢 [DEBUG] After session.save:', req.sessionID, {
+            hasAccessToken: !!req.session.accessToken,
+            hasUser: !!req.session.user,
+            userName: req.session.user?.name,
+            isAdmin: req.session.user?.isAdmin
+          });
           res.redirect('/api/auth/success');
         });
       }
@@ -500,13 +532,23 @@ app.get('/auth/callback', async (req, res) => {
         
         // Redirect to admin panel
         console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
-        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, req.session);
+        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, {
+          hasAccessToken: !!req.session.accessToken,
+          hasUser: !!req.session.user,
+          userName: req.session.user?.name,
+          isAdmin: req.session.user?.isAdmin
+        });
         return req.session.save((err) => {
           if (err) {
             console.error('❌ [DEBUG] Session save error:', err);
             return res.status(500).send('Session save failed');
           }
-          console.log('🟢 [DEBUG] After session.save:', req.sessionID, req.session);
+          console.log('🟢 [DEBUG] After session.save:', req.sessionID, {
+            hasAccessToken: !!req.session.accessToken,
+            hasUser: !!req.session.user,
+            userName: req.session.user?.name,
+            isAdmin: req.session.user?.isAdmin
+          });
           res.redirect('/api/auth/success');
         });
       } else {
@@ -515,13 +557,23 @@ app.get('/auth/callback', async (req, res) => {
         // Unauthorized user
         req.session.user.isAdmin = false;
         console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
-        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, req.session);
+        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, {
+          hasAccessToken: !!req.session.accessToken,
+          hasUser: !!req.session.user,
+          userName: req.session.user?.name,
+          isAdmin: req.session.user?.isAdmin
+        });
         return req.session.save((err) => {
           if (err) {
             console.error('❌ [DEBUG] Session save error:', err);
             return res.status(500).send('Session save failed');
           }
-          console.log('🟢 [DEBUG] After session.save:', req.sessionID, req.session);
+          console.log('🟢 [DEBUG] After session.save:', req.sessionID, {
+            hasAccessToken: !!req.session.accessToken,
+            hasUser: !!req.session.user,
+            userName: req.session.user?.name,
+            isAdmin: req.session.user?.isAdmin
+          });
           res.redirect('/api/auth/success');
         });
       }

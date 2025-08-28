@@ -9,7 +9,6 @@ import {
   Box,
   FormControlLabel,
   Checkbox,
-  Alert,
   CircularProgress,
 } from '@mui/material';
 import {
@@ -114,11 +113,7 @@ function Login() {
               Sign in to access your PCO Arrivals Billboard
             </Typography>
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {error}
-              </Alert>
-            )}
+
 
             <Button
               variant="contained"
