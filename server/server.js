@@ -135,6 +135,24 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Update session configuration to use MongoDB for persistence
+app.use(session({
+  secret: COOKIE_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI,
+    collectionName: 'sessions'
+  }),
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true', // Use secure in production or when forced
+    sameSite: 'none', // Must be 'none' for cross-origin XHR requests to send cookies
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    httpOnly: true
+    // Removed domain setting - let the browser handle it automatically for cross-origin requests
+  }
+}));
+
 // Middleware to handle X-Auth-Token header for cross-domain authentication
 app.use((req, res, next) => {
   const authToken = req.headers['x-auth-token'];
@@ -174,28 +192,11 @@ app.use((req, res, next) => {
       });
     } catch (error) {
       console.error('🔑 Error parsing auth token:', error);
+      // Don't crash the server, just log the error and continue
     }
   }
   next();
 });
-
-// Update session configuration to use MongoDB for persistence
-app.use(session({
-  secret: COOKIE_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI,
-    collectionName: 'sessions'
-  }),
-  cookie: { 
-    secure: process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true', // Use secure in production or when forced
-    sameSite: 'none', // Must be 'none' for cross-origin XHR requests to send cookies
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true
-    // Removed domain setting - let the browser handle it automatically for cross-origin requests
-  }
-}));
 
 // Note: This server only serves API endpoints
 // The React frontend should be deployed separately
