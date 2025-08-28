@@ -12,6 +12,24 @@ export function SessionProvider({ children }) {
 
   const checkSession = useCallback(async () => {
     try {
+      // First check localStorage for session data (from OAuth redirect)
+      const storedSessionData = localStorage.getItem('pco_session_data');
+      if (storedSessionData) {
+        try {
+          const parsedSession = JSON.parse(storedSessionData);
+          console.log('🔄 SessionContext: Found stored session data:', parsedSession);
+          setSession(parsedSession);
+          // Clear the stored data after using it
+          localStorage.removeItem('pco_session_data');
+          localStorage.removeItem('pco_session_token');
+          return parsedSession;
+        } catch (parseError) {
+          console.error('Error parsing stored session data:', parseError);
+          localStorage.removeItem('pco_session_data');
+          localStorage.removeItem('pco_session_token');
+        }
+      }
+      
       console.log('🔄 SessionContext: Making auth-status request...');
       const response = await api.get('/auth-status');
       console.log('🔄 SessionContext: Received response:', response.data);

@@ -654,10 +654,30 @@ app.get('/api/auth/success', (req, res) => {
     }
     
     console.log('🟡 Redirecting to client URL:', clientUrl + '/admin');
+    
+    // Create a temporary token for cross-domain authentication
+    const tempToken = Buffer.from(JSON.stringify({
+      sessionId: req.sessionID,
+      userId: req.session.user.id,
+      userName: req.session.user.name,
+      isAdmin: req.session.user.isAdmin,
+      timestamp: Date.now()
+    })).toString('base64');
+    
     res.send(`
       <html>
         <body>
           <script>
+            // Store the session info in localStorage for cross-domain access
+            localStorage.setItem('pco_session_token', '${tempToken}');
+            localStorage.setItem('pco_session_data', JSON.stringify({
+              authenticated: true,
+              user: {
+                id: '${req.session.user.id}',
+                name: '${req.session.user.name}',
+                isAdmin: ${req.session.user.isAdmin}
+              }
+            }));
             window.location.href = '${clientUrl}/admin';
           </script>
         </body>
