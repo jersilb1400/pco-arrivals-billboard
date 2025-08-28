@@ -146,9 +146,11 @@ app.use(session({
   }),
   cookie: { 
     secure: process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true', // Use secure in production or when forced
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Use 'none' only in production, 'lax' in development
+    sameSite: 'lax', // Changed from 'none' to 'lax' for better mobile browser compatibility
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true
+    httpOnly: true,
+    // Add domain setting for better cross-subdomain support
+    domain: process.env.NODE_ENV === 'production' ? '.gracefm.org' : undefined
   }
 }));
 
@@ -355,6 +357,11 @@ app.get('/api/auth/pco', (req, res) => {
   console.log('🔵 OAuth route hit: /api/auth/pco');
   console.log('🔵 Query params:', req.query);
   req.session.rememberMe = req.query.remember === 'true';
+  
+  // Enhanced mobile debugging
+  const userAgent = req.get('User-Agent') || '';
+  const isMobile = isMobileDevice(userAgent) || req.query.mobile === 'true';
+  console.log('📱 OAuth initiation from mobile:', { isMobile, userAgent: userAgent.substring(0, 100) + '...' });
   const scopes = ['check_ins', 'people'];
   const redirectUri = REDIRECT_URI;
   const authUrl = `https://api.planningcenteronline.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scopes.join(' ')}`;
@@ -366,6 +373,13 @@ app.get('/api/auth/pco', (req, res) => {
 app.get('/auth/callback', async (req, res) => {
   console.log('==== /auth/callback route hit ====');
   console.log('🔵 /auth/callback hit with query:', req.query);
+  
+  // Enhanced mobile debugging
+  const userAgent = req.get('User-Agent') || '';
+  const isMobile = isMobileDevice(userAgent);
+  console.log('📱 Mobile detection:', { isMobile, userAgent: userAgent.substring(0, 100) + '...' });
+  console.log('🍪 Cookie header present:', !!req.get('Cookie'));
+  console.log('🌐 Request origin:', req.get('Origin') || 'No origin header');
   const { code } = req.query;
   if (!code) {
     console.log('❌ No authorization code provided');
@@ -584,6 +598,56 @@ app.get('/api/debug/session', (req, res) => {
     hasAccessToken: !!req.session?.accessToken,
     globalBillboardState: globalBillboardState,
     authorizedUsers: authorizedUsers.length
+  });
+});
+
+// Helper function to detect mobile devices
+function isMobileDevice(userAgent) {
+  const mobileKeywords = [
+    'Mobile', 'Android', 'iPhone', 'iPad', 'iPod', 'BlackBerry', 
+    'Windows Phone', 'Opera Mini', 'IEMobile', 'Mobile Safari'
+  ];
+  return mobileKeywords.some(keyword => userAgent.includes(keyword));
+}
+
+// Debug endpoint for mobile-specific issues
+app.get('/api/debug/mobile', (req, res) => {
+  const userAgent = req.get('User-Agent') || '';
+  const isMobile = isMobileDevice(userAgent);
+  
+  res.json({
+    userAgent,
+    isMobile,
+    headers: {
+      'user-agent': req.get('User-Agent'),
+      'accept': req.get('Accept'),
+      'accept-language': req.get('Accept-Language'),
+      'accept-encoding': req.get('Accept-Encoding'),
+      'connection': req.get('Connection'),
+      'upgrade-insecure-requests': req.get('Upgrade-Insecure-Requests'),
+      'sec-fetch-dest': req.get('Sec-Fetch-Dest'),
+      'sec-fetch-mode': req.get('Sec-Fetch-Mode'),
+      'sec-fetch-site': req.get('Sec-Fetch-Site'),
+      'cookie': req.get('Cookie') ? 'Present' : 'Not Present'
+    },
+    session: {
+      sessionId: req.sessionID,
+      hasSession: !!req.session,
+      hasUser: !!req.session?.user,
+      hasAccessToken: !!req.session?.accessToken,
+      cookieSettings: {
+        secure: req.session?.cookie?.secure,
+        sameSite: req.session?.cookie?.sameSite,
+        httpOnly: req.session?.cookie?.httpOnly,
+        domain: req.session?.cookie?.domain,
+        maxAge: req.session?.cookie?.maxAge
+      }
+    },
+    environment: {
+      nodeEnv: process.env.NODE_ENV,
+      clientUrl: process.env.CLIENT_URL,
+      redirectUri: REDIRECT_URI
+    }
   });
 });
 

@@ -57,9 +57,16 @@ function Login() {
     // Save rememberMe preference to localStorage
     localStorage.setItem('rememberMe', rememberMe);
 
+    // Detect mobile device for enhanced debugging
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    console.log('📱 Mobile login attempt:', { isMobile, userAgent: navigator.userAgent.substring(0, 100) + '...' });
+
     // Redirect to your server's OAuth endpoint using the API base URL
     const apiBase = process.env.REACT_APP_API_BASE || 'https://pco-arrivals-billboard.onrender.com/api';
-    window.location.href = `${apiBase}/auth/pco?remember=${rememberMe}&prompt=login`;
+    const loginUrl = `${apiBase}/auth/pco?remember=${rememberMe}&prompt=login&mobile=${isMobile}`;
+    
+    console.log('🔐 Redirecting to login URL:', loginUrl);
+    window.location.href = loginUrl;
   };
 
   const handleRememberMeChange = (e) => {

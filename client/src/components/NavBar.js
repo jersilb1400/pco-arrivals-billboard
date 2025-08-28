@@ -30,7 +30,7 @@ function NavBar({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { session } = useSession();
+  const { session, setSession } = useSession();
 
   // Prefer props, but fall back to location.state if not provided
   const eventId = selectedEvent || location.state?.eventId;
@@ -40,10 +40,23 @@ function NavBar({
   const existingCodes = existingSecurityCodes.length ? existingSecurityCodes : (location.state?.existingSecurityCodes || []);
   const user = session?.user;
 
-  const handleLogout = () => {
-    // Use the current domain for redirect
-    const redirectTo = `${window.location.origin}/admin`;
-    window.location.href = `/api/auth/logout?redirectTo=${encodeURIComponent(redirectTo)}`;
+  const handleLogout = async () => {
+    try {
+      // Clear frontend session state immediately
+      setSession({ authenticated: false, user: null });
+      
+      // Show logout feedback
+      console.log('🚪 Logging out user...');
+      
+      // Redirect to logout endpoint which will handle server-side cleanup
+      const redirectTo = `${window.location.origin}/login`;
+      window.location.href = `/api/auth/logout?redirectTo=${encodeURIComponent(redirectTo)}`;
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback: still redirect to logout endpoint
+      const redirectTo = `${window.location.origin}/login`;
+      window.location.href = `/api/auth/logout?redirectTo=${encodeURIComponent(redirectTo)}`;
+    }
   };
   
   const handleLogin = () => {
