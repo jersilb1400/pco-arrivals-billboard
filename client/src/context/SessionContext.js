@@ -185,6 +185,14 @@ export function SessionProvider({ children }) {
       // Clear local session state immediately
       setSession({ authenticated: false, user: null });
       
+      // Clear auth token from sessionStorage
+      try {
+        sessionStorage.removeItem('pco_auth_token');
+        console.log('🚪 SessionContext: Auth token cleared from sessionStorage');
+      } catch (storageError) {
+        console.warn('🚪 SessionContext: Could not clear sessionStorage:', storageError);
+      }
+      
       // Call logout endpoint
       const redirectTo = `${window.location.origin}/login`;
       window.location.href = `/api/auth/logout?redirectTo=${encodeURIComponent(redirectTo)}`;
@@ -192,6 +200,11 @@ export function SessionProvider({ children }) {
       console.error('Logout error:', error);
       // Fallback: clear state and redirect
       setSession({ authenticated: false, user: null });
+      try {
+        sessionStorage.removeItem('pco_auth_token');
+      } catch (storageError) {
+        console.warn('Could not clear sessionStorage:', storageError);
+      }
       window.location.href = '/login';
     }
   }, []);
