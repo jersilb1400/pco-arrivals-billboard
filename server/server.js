@@ -2533,6 +2533,48 @@ app.get('/api/debug/mongodb', async (req, res) => {
   }
 });
 
+// Test session creation and retrieval
+app.get('/api/debug/session-test', (req, res) => {
+  console.log('🧪 Session test endpoint hit');
+  console.log('🧪 Request headers:', {
+    cookie: req.get('Cookie'),
+    userAgent: req.get('User-Agent'),
+    origin: req.get('Origin'),
+    referer: req.get('Referer')
+  });
+  
+  // Set a test value in the session
+  req.session.testValue = 'Hello from server!';
+  req.session.testTime = new Date().toISOString();
+  
+  console.log('🧪 Session test data set:', {
+    sessionId: req.sessionID,
+    testValue: req.session.testValue,
+    testTime: req.session.testTime
+  });
+  
+  req.session.save((err) => {
+    if (err) {
+      console.error('🧪 Session save error:', err);
+      return res.status(500).json({ error: 'Session save failed', details: err.message });
+    }
+    
+    console.log('🧪 Session saved successfully');
+    res.json({
+      message: 'Test session created',
+      sessionId: req.sessionID,
+      testValue: req.session.testValue,
+      testTime: req.session.testTime,
+      cookieHeader: req.get('Cookie'),
+      sessionData: {
+        hasAccessToken: !!req.session.accessToken,
+        hasUser: !!req.session.user,
+        userName: req.session.user?.name
+      }
+    });
+  });
+});
+
 // Apply rate limiting
 app.use('/api', apiLimiter);
 // Note: Auth routes are defined directly in this file, so we don't apply authLimiter to /api/auth
