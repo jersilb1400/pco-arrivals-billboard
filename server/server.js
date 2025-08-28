@@ -146,7 +146,7 @@ app.use(session({
   }),
   cookie: { 
     secure: process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true', // Use secure in production or when forced
-    sameSite: 'lax', // Changed from 'none' to 'lax' for better mobile browser compatibility
+    sameSite: 'none', // Must be 'none' for cross-origin XHR requests to send cookies
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     httpOnly: true
     // Removed domain setting - let the browser handle it automatically for cross-origin requests
