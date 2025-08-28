@@ -250,7 +250,8 @@ app.get('/api/auth-status', (req, res) => {
     sessionId: req.sessionID,
     userAgent: req.get('User-Agent')?.substring(0, 50) + '...',
     referer: req.get('Referer'),
-    origin: req.get('Origin')
+    origin: req.get('Origin'),
+    cookieHeader: req.get('Cookie') ? 'Present' : 'Not Present'
   };
   
   console.log('🔍 Auth status check - Session:', sessionInfo);
@@ -270,7 +271,9 @@ app.get('/api/auth-status', (req, res) => {
   console.log('🔍 Auth status response:', {
     authenticated: response.authenticated,
     userName: response.user?.name,
-    isAdmin: response.user?.isAdmin
+    isAdmin: response.user?.isAdmin,
+    sessionId: req.sessionID,
+    cookiePresent: !!req.get('Cookie')
   });
   
   res.json(response);
