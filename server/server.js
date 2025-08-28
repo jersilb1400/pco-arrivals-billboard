@@ -498,7 +498,9 @@ app.get('/auth/callback', async (req, res) => {
           userName: req.session.user?.name,
           isAdmin: req.session.user?.isAdmin
         });
-        return req.session.save((err) => {
+        
+        // Force session save and wait for it to complete
+        req.session.save((err) => {
           if (err) {
             console.error('❌ [DEBUG] Session save error:', err);
             return res.status(500).send('Session save failed');
@@ -509,7 +511,11 @@ app.get('/auth/callback', async (req, res) => {
             userName: req.session.user?.name,
             isAdmin: req.session.user?.isAdmin
           });
-          res.redirect('/api/auth/success');
+          
+          // Add a small delay to ensure session is fully persisted
+          setTimeout(() => {
+            res.redirect('/api/auth/success');
+          }, 100);
         });
       }
       
@@ -538,7 +544,9 @@ app.get('/auth/callback', async (req, res) => {
           userName: req.session.user?.name,
           isAdmin: req.session.user?.isAdmin
         });
-        return req.session.save((err) => {
+        
+        // Force session save and wait for it to complete
+        req.session.save((err) => {
           if (err) {
             console.error('❌ [DEBUG] Session save error:', err);
             return res.status(500).send('Session save failed');
@@ -549,7 +557,11 @@ app.get('/auth/callback', async (req, res) => {
             userName: req.session.user?.name,
             isAdmin: req.session.user?.isAdmin
           });
-          res.redirect('/api/auth/success');
+          
+          // Add a small delay to ensure session is fully persisted
+          setTimeout(() => {
+            res.redirect('/api/auth/success');
+          }, 100);
         });
       } else {
         console.log(`🟡 User not authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
@@ -563,7 +575,9 @@ app.get('/auth/callback', async (req, res) => {
           userName: req.session.user?.name,
           isAdmin: req.session.user?.isAdmin
         });
-        return req.session.save((err) => {
+        
+        // Force session save and wait for it to complete
+        req.session.save((err) => {
           if (err) {
             console.error('❌ [DEBUG] Session save error:', err);
             return res.status(500).send('Session save failed');
@@ -574,7 +588,11 @@ app.get('/auth/callback', async (req, res) => {
             userName: req.session.user?.name,
             isAdmin: req.session.user?.isAdmin
           });
-          res.redirect('/api/auth/success');
+          
+          // Add a small delay to ensure session is fully persisted
+          setTimeout(() => {
+            res.redirect('/api/auth/success');
+          }, 100);
         });
       }
     } catch (userError) {
@@ -599,6 +617,21 @@ app.get('/api/auth/callback', async (req, res) => {
 app.get('/api/auth/success', (req, res) => {
   console.log('🟡 /api/auth/success hit');
   console.log('🟡 Session user:', req.session.user);
+  console.log('🟡 Complete session state:', {
+    sessionId: req.sessionID,
+    hasAccessToken: !!req.session.accessToken,
+    hasUser: !!req.session.user,
+    userName: req.session.user?.name,
+    userEmail: req.session.user?.email,
+    isAdmin: req.session.user?.isAdmin,
+    cookieSettings: {
+      secure: req.session.cookie?.secure,
+      sameSite: req.session.cookie?.sameSite,
+      httpOnly: req.session.cookie?.httpOnly,
+      domain: req.session.cookie?.domain,
+      maxAge: req.session.cookie?.maxAge
+    }
+  });
   
   let clientUrl = process.env.CLIENT_URL;
   
@@ -661,7 +694,25 @@ app.get('/api/debug/session', (req, res) => {
     userIsAdmin: req.session?.user?.isAdmin,
     hasAccessToken: !!req.session?.accessToken,
     globalBillboardState: globalBillboardState,
-    authorizedUsers: authorizedUsers.length
+    authorizedUsers: authorizedUsers.length,
+    sessionData: {
+      accessToken: req.session?.accessToken ? 'Present' : 'Missing',
+      refreshToken: req.session?.refreshToken ? 'Present' : 'Missing',
+      tokenExpiry: req.session?.tokenExpiry,
+      user: req.session?.user ? {
+        id: req.session.user.id,
+        name: req.session.user.name,
+        email: req.session.user.email,
+        isAdmin: req.session.user.isAdmin
+      } : null,
+      cookieSettings: {
+        secure: req.session?.cookie?.secure,
+        sameSite: req.session?.cookie?.sameSite,
+        httpOnly: req.session?.cookie?.httpOnly,
+        domain: req.session?.cookie?.domain,
+        maxAge: req.session?.cookie?.maxAge
+      }
+    }
   });
 });
 
@@ -2455,6 +2506,32 @@ app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
 
 // Connect to MongoDB
 connectDB();
+
+// Test MongoDB connection
+app.get('/api/debug/mongodb', async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const connectionState = mongoose.connection.readyState;
+    const states = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting'
+    };
+    
+    res.json({
+      connectionState: states[connectionState],
+      readyState: connectionState,
+      host: mongoose.connection.host,
+      port: mongoose.connection.port,
+      name: mongoose.connection.name,
+      sessionStore: req.sessionStore ? 'Present' : 'Missing',
+      sessionStoreType: req.sessionStore?.constructor?.name || 'Unknown'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Apply rate limiting
 app.use('/api', apiLimiter);
