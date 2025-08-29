@@ -988,13 +988,44 @@ app.get('/api/auth/logout', (req, res) => {
       const mongoose = require('mongoose');
       if (mongoose.connection.readyState === 1) {
         console.log('🔴 Attempting direct MongoDB collection cleanup...');
+        console.log('🔴 Deleting session ID:', currentSessionId);
+        
+        // Also try to delete the old session ID that keeps appearing
+        const oldSessionId = 'JzLDfFpv2CxXuxTUXXit7W8FD3amtRPa';
+        console.log('🔴 Also deleting old session ID:', oldSessionId);
+        
         mongoose.connection.db.collection('sessions').deleteOne(
           { _id: currentSessionId },
           (mongoErr, result) => {
             if (mongoErr) {
               console.error('🔴 MongoDB direct delete error:', mongoErr);
             } else {
-              console.log('🔴 MongoDB direct delete result:', result);
+              console.log('🔴 MongoDB direct delete result for current session:', result);
+            }
+          }
+        );
+        
+        // Delete the old session as well
+        mongoose.connection.db.collection('sessions').deleteOne(
+          { _id: oldSessionId },
+          (mongoErr2, result2) => {
+            if (mongoErr2) {
+              console.error('🔴 MongoDB direct delete error for old session:', mongoErr2);
+            } else {
+              console.log('🔴 MongoDB direct delete result for old session:', result2);
+            }
+          }
+        );
+        
+        // Nuclear option: Delete ALL sessions for this user
+        console.log('🔴 Nuclear option: Deleting ALL sessions for user 163050178');
+        mongoose.connection.db.collection('sessions').deleteMany(
+          { 'session.user.id': '163050178' },
+          (mongoErr3, result3) => {
+            if (mongoErr3) {
+              console.error('🔴 MongoDB nuclear delete error:', mongoErr3);
+            } else {
+              console.log('🔴 MongoDB nuclear delete result:', result3);
             }
           }
         );
