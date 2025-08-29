@@ -40,13 +40,14 @@ function SimpleBillboard() {
   }, []);
 
   // Fetch active notifications
-  const fetchActiveNotifications = useCallback(async () => {
+  const fetchActiveNotifications = useCallback(async (billboardData = null) => {
     try {
-      if (globalBillboard?.activeBillboard) {
+      const currentBillboard = billboardData || globalBillboard;
+      if (currentBillboard?.activeBillboard) {
         const response = await api.get('/active-notifications', {
           params: {
-            eventId: globalBillboard.activeBillboard.eventId,
-            eventDate: globalBillboard.activeBillboard.eventDate
+            eventId: currentBillboard.activeBillboard.eventId,
+            eventDate: currentBillboard.activeBillboard.eventDate
           }
         });
         setActiveNotifications(response.data);
@@ -182,16 +183,47 @@ function SimpleBillboard() {
 
   // Fetch data on mount and set up polling
   useEffect(() => {
-    fetchGlobalBillboard();
-    fetchActiveNotifications();
+    // Initial data fetch
+    const initialFetch = async () => {
+      await fetchGlobalBillboard();
+      // Wait a bit for globalBillboard to be set, then fetch notifications
+      setTimeout(() => {
+        fetchActiveNotifications();
+      }, 100);
+    };
     
-    const interval = setInterval(() => {
-      fetchGlobalBillboard();
-      fetchActiveNotifications();
+    initialFetch();
+    
+    // Set up polling interval
+    const interval = setInterval(async () => {
+      const billboardResponse = await api.get('/global-billboard');
+      setGlobalBillboard(billboardResponse.data);
+      
+      // Fetch notifications with the fresh billboard data
+      if (billboardResponse.data?.activeBillboard) {
+        try {
+          const notificationsResponse = await api.get('/active-notifications', {
+            params: {
+              eventId: billboardResponse.data.activeBillboard.eventId,
+              eventDate: billboardResponse.data.activeBillboard.eventDate
+            }
+          });
+          setActiveNotifications(notificationsResponse.data);
+        } catch (error) {
+          console.error('Error fetching notifications in interval:', error);
+        }
+      }
     }, 10000); // Poll every 10 seconds
     
     return () => clearInterval(interval);
-  }, [fetchGlobalBillboard, fetchActiveNotifications]);
+  }, []); // Empty dependency array - only run on mount
+
+  // Handle notifications when global billboard changes (but avoid infinite loops)
+  useEffect(() => {
+    if (globalBillboard?.activeBillboard) {
+      fetchActiveNotifications(globalBillboard);
+    }
+  }, [globalBillboard?.activeBillboard?.eventId, globalBillboard?.activeBillboard?.eventDate]); // Only depend on the actual data, not the whole object
 
   // Get child emoji based on name
   const getChildEmoji = (childName) => {
