@@ -915,11 +915,28 @@ app.get('/api/auth/logout', (req, res) => {
   console.log('  - x-forwarded-host:', req.get('x-forwarded-host'));
   console.log('  - referer:', req.get('referer'));
   
+  console.log('🔴 Session before destroy:', {
+    sessionId: req.sessionID,
+    hasAccessToken: !!req.session.accessToken,
+    hasUser: !!req.session.user,
+    userName: req.session.user?.name
+  });
+  
   req.session.destroy((err) => {
     if (err) {
-      console.error('Error destroying session:', err);
+      console.error('🔴 Error destroying session:', err);
+    } else {
+      console.log('🔴 Session destroyed successfully');
     }
-    res.clearCookie('connect.sid');
+    
+    // Clear the session cookie with proper options
+    res.clearCookie('connect.sid', {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true',
+      sameSite: 'none'
+    });
+    console.log('🔴 Session cookie cleared');
 
     // Support redirectTo query parameter
     let clientUrl = process.env.CLIENT_URL;
@@ -972,6 +989,27 @@ app.get('/api/auth/logout', (req, res) => {
     const finalRedirectUrl = `${clientUrl}/login`;
     console.log('🔴 Final logout redirect to:', finalRedirectUrl);
     res.redirect(finalRedirectUrl);
+  });
+});
+
+// Debug endpoint to verify session destruction
+app.get('/api/debug/logout-test', (req, res) => {
+  console.log('🧪 Logout test endpoint hit');
+  console.log('🧪 Session state:', {
+    sessionId: req.sessionID,
+    hasSession: !!req.session,
+    hasAccessToken: !!req.session?.accessToken,
+    hasUser: !!req.session?.user,
+    userName: req.session?.user?.name
+  });
+  
+  res.json({
+    sessionId: req.sessionID,
+    hasSession: !!req.session,
+    hasAccessToken: !!req.session?.accessToken,
+    hasUser: !!req.session?.user,
+    userName: req.session?.user?.name,
+    message: req.session?.accessToken ? 'Session still active' : 'Session destroyed'
   });
 });
 
