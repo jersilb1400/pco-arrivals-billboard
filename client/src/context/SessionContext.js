@@ -15,77 +15,20 @@ export function SessionProvider({ children }) {
     try {
       console.log('🔄 SessionContext: Starting session check...');
       
-      // First check URL parameters for session data (from OAuth redirect)
-      const urlParams = new URLSearchParams(window.location.search);
-      const sessionParam = urlParams.get('session');
-      const tokenParam = urlParams.get('token');
+      // Check if we have API key and user ID in localStorage
+      const apiKey = localStorage.getItem('pco_api_key');
+      const userId = localStorage.getItem('pco_user_id');
       
-      console.log('🔄 SessionContext: URL params check - session:', sessionParam ? 'Present' : 'Not Present', 'token:', tokenParam ? 'Present' : 'Not Present');
+      console.log('🔄 SessionContext: localStorage check - apiKey:', apiKey ? 'Present' : 'Not Present', 'userId:', userId ? 'Present' : 'Not Present');
       
-      if (sessionParam && tokenParam) {
-        try {
-          const parsedSession = JSON.parse(decodeURIComponent(sessionParam));
-          console.log('🔄 SessionContext: Found session data in URL:', parsedSession);
-          
-          // Store the token for API authentication
-          sessionStorage.setItem('pco_auth_token', tokenParam);
-          console.log('🔄 SessionContext: Auth token stored in sessionStorage');
-          
-          // Reset logout flag since user is logging in
-          setUserLoggedOut(false);
-          
-          setSession(parsedSession);
-          
-          // Clear URL parameters after using them
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, newUrl);
-          console.log('🔄 SessionContext: URL parameters cleared');
-          
-          console.log('🔄 SessionContext: Using URL session data, skipping API call');
-          return parsedSession;
-        } catch (parseError) {
-          console.error('Error parsing URL session data:', parseError);
-          // Clear invalid URL parameters
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, newUrl);
-        }
+      if (!apiKey || !userId) {
+        console.log('🔄 SessionContext: No authentication data found');
+        const errorSession = { authenticated: false };
+        setSession(errorSession);
+        return errorSession;
       }
       
-      // Second check localStorage for session data (fallback)
-      let storedSessionData = null;
-      try {
-        storedSessionData = localStorage.getItem('pco_session_data');
-        console.log('🔄 SessionContext: localStorage check - pco_session_data:', storedSessionData ? 'Present' : 'Not Present');
-      } catch (localStorageError) {
-        console.warn('🔄 SessionContext: localStorage not available:', localStorageError);
-      }
-      
-      if (storedSessionData) {
-        try {
-          const parsedSession = JSON.parse(storedSessionData);
-          console.log('🔄 SessionContext: Found stored session data:', parsedSession);
-          setSession(parsedSession);
-          // Clear the stored data after using it
-          try {
-            localStorage.removeItem('pco_session_data');
-            localStorage.removeItem('pco_session_token');
-          } catch (clearError) {
-            console.warn('🔄 SessionContext: Could not clear localStorage:', clearError);
-          }
-          console.log('🔄 SessionContext: Using stored session data, skipping API call');
-          return parsedSession;
-        } catch (parseError) {
-          console.error('Error parsing stored session data:', parseError);
-          try {
-            localStorage.removeItem('pco_session_data');
-            localStorage.removeItem('pco_session_token');
-          } catch (clearError) {
-            console.warn('🔄 SessionContext: Could not clear localStorage:', clearError);
-          }
-        }
-      }
-      
-      console.log('🔄 SessionContext: No session data found, making auth-status request...');
+      console.log('🔄 SessionContext: Making auth-status request...');
       const response = await api.get('/auth-status');
       console.log('🔄 SessionContext: Received response:', response.data);
       const newSession = response.data;
@@ -106,29 +49,7 @@ export function SessionProvider({ children }) {
     checkSession();
   }, [checkSession]);
 
-  // Add a more frequent check when returning from OAuth callback
-  useEffect(() => {
-    // Check if we're returning from an OAuth callback (URL might have auth-related params)
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasAuthParams = urlParams.has('code') || urlParams.has('state') || window.location.pathname.includes('callback');
-    
-    if (hasAuthParams) {
-      console.log('🔄 SessionContext: Detected OAuth callback, checking session more frequently');
-      
-      // Check session immediately and then every 2 seconds for 10 seconds
-      const checkInterval = setInterval(() => {
-        checkSession();
-      }, 2000);
-      
-      // Clear interval after 10 seconds
-      setTimeout(() => {
-        clearInterval(checkInterval);
-        console.log('🔄 SessionContext: Stopped frequent OAuth callback checks');
-      }, 10000);
-      
-      return () => clearInterval(checkInterval);
-    }
-  }, [checkSession]);
+
 
   // Set up periodic session checks to detect when users log in/out independently
   useEffect(() => {
@@ -187,7 +108,7 @@ export function SessionProvider({ children }) {
     }
   }, [selectedEvent]);
 
-  // Enhanced logout function
+  // Simple logout function
   const logout = useCallback(async () => {
     try {
       console.log('🚪 SessionContext: Initiating logout...');
@@ -198,24 +119,17 @@ export function SessionProvider({ children }) {
       // Clear local session state immediately
       setSession({ authenticated: false, user: null });
       
-      // Clear auth token from sessionStorage
+      // Clear authentication data from localStorage
       try {
-        sessionStorage.removeItem('pco_auth_token');
-        console.log('🚪 SessionContext: Auth token cleared from sessionStorage');
+        localStorage.removeItem('pco_api_key');
+        localStorage.removeItem('pco_user_id');
+        console.log('🚪 SessionContext: Authentication data cleared from localStorage');
       } catch (storageError) {
-        console.warn('🚪 SessionContext: Could not clear sessionStorage:', storageError);
+        console.warn('🚪 SessionContext: Could not clear localStorage:', storageError);
       }
       
-      // Redirect to login page immediately (don't wait for server logout)
+      // Redirect to login page immediately
       window.location.href = '/login';
-      
-      // Call server logout in background (don't wait for response)
-      fetch('/api/auth/logout', { 
-        method: 'GET',
-        credentials: 'include'
-      }).catch(error => {
-        console.warn('🚪 Background logout call failed:', error);
-      });
       
     } catch (error) {
       console.error('Logout error:', error);
@@ -223,9 +137,10 @@ export function SessionProvider({ children }) {
       setUserLoggedOut(true);
       setSession({ authenticated: false, user: null });
       try {
-        sessionStorage.removeItem('pco_auth_token');
+        localStorage.removeItem('pco_api_key');
+        localStorage.removeItem('pco_user_id');
       } catch (storageError) {
-        console.warn('Could not clear sessionStorage:', storageError);
+        console.warn('Could not clear localStorage:', storageError);
       }
       window.location.href = '/login';
     }

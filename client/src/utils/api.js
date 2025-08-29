@@ -30,18 +30,22 @@ const api = axios.create({
 // Add request interceptor for debugging and authentication
 api.interceptors.request.use(
   (config) => {
-    // Add auth token to headers if available
-    const authToken = sessionStorage.getItem('pco_auth_token');
-    if (authToken) {
-      config.headers['X-Auth-Token'] = authToken;
-      console.log('🔑 API Request: Adding auth token to headers');
+    // Add API key and user ID to headers if available
+    const apiKey = localStorage.getItem('pco_api_key');
+    const userId = localStorage.getItem('pco_user_id');
+    
+    if (apiKey && userId) {
+      config.headers['X-API-Key'] = apiKey;
+      config.headers['X-User-ID'] = userId;
+      console.log('🔑 API Request: Adding API key and user ID to headers');
     }
     
     console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
       baseURL: config.baseURL,
       params: config.params,
       data: config.data,
-      hasAuthToken: !!authToken
+      hasApiKey: !!apiKey,
+      hasUserId: !!userId
     });
     return config;
   },

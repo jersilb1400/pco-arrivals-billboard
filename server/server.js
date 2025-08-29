@@ -2,20 +2,17 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 const connectDB = require('./db/config');
 const logger = require('./utils/logger');
 const { errorHandler } = require('./middleware/errorHandler');
-const { authLimiter, apiLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
-const MongoStore = require('connect-mongo');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
-const { requireAuth, requireAuthOnly } = require('./middleware/auth');
 
 // Import routes
 // Note: Admin routes are defined directly in this file, not imported
@@ -26,16 +23,13 @@ const app = express();
 app.set('trust proxy', 1); // trust first proxy for secure cookies on Render
 
 // Environment variables (from .env file)
-const CLIENT_ID = process.env.PCO_CLIENT_ID || 'YOUR_CLIENT_ID';
-const CLIENT_SECRET = process.env.PCO_CLIENT_SECRET || 'YOUR_CLIENT_SECRET'; 
-const REDIRECT_URI = 'https://pco-arrivals-billboard.onrender.com/auth/callback';
 const PORT = process.env.PORT || 3001;
 const PCO_API_BASE = 'https://api.planningcenteronline.com/check-ins/v2';
-const ACCESS_TOKEN = process.env.PCO_ACCESS_TOKEN;
+const PCO_ACCESS_TOKEN = process.env.PCO_ACCESS_TOKEN;
+const PCO_ACCESS_SECRET = process.env.PCO_ACCESS_SECRET;
 
-// Environment variables for cookie settings
-const COOKIE_SECRET = process.env.SESSION_SECRET || process.env.COOKIE_SECRET || 'pco-arrivals-session-secret';
-const REMEMBER_ME_DAYS = 30; // Number of days to remember the user
+// Simple authentication - no sessions needed
+const API_SECRET = process.env.API_SECRET || 'pco-arrivals-api-secret';
 
 // IDs of PCO users who are allowed to access the application
 // Either hardcode them here or load from environment variables
@@ -135,78 +129,33 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Update session configuration to use MongoDB for persistence
-app.use(session({
-  secret: COOKIE_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI || process.env.MONGO_URI,
-    collectionName: 'sessions'
-  }),
-  cookie: { 
-    secure: process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true', // Use secure in production or when forced
-    sameSite: 'none', // Must be 'none' for cross-origin XHR requests to send cookies
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true
-    // Removed domain setting - let the browser handle it automatically for cross-origin requests
+// Simple authentication middleware - no sessions needed
+app.use('/api', (req, res, next) => {
+  // Skip authentication for public endpoints
+  if (req.path === '/auth-status' || req.path === '/debug/env') {
+    return next();
   }
-}));
-
-// Middleware to handle X-Auth-Token header for cross-domain authentication
-app.use((req, res, next) => {
-  const authToken = req.headers['x-auth-token'];
-  if (authToken) {
-    try {
-      // Decode the token to get session information
-      const tokenData = JSON.parse(Buffer.from(authToken, 'base64').toString());
-      console.log('🔑 Auth token received:', {
-        sessionId: tokenData.sessionId,
-        userId: tokenData.userId,
-        userName: tokenData.userName,
-        isAdmin: tokenData.isAdmin,
-        timestamp: tokenData.timestamp
-      });
-      
-      // Check if token is not too old (1 hour)
-      const tokenAge = Date.now() - tokenData.timestamp;
-      if (tokenAge > 60 * 60 * 1000) {
-        console.log('🔑 Auth token expired:', tokenAge, 'ms old');
-        return next();
-      }
-      
-      // Check if this is a logout request - don't recreate session
-      if (req.path === '/api/auth/logout') {
-        console.log('🔑 Logout request detected, skipping token-based session creation');
-        return next();
-      }
-      
-      // Check if session already has user data - don't overwrite existing session
-      if (req.session && req.session.user && req.session.accessToken) {
-        console.log('🔑 Session already has user data, skipping token-based session creation');
-        return next();
-      }
-      
-      // Set session data from token
-      req.session.accessToken = 'token-based-auth';
-      req.session.user = {
-        id: tokenData.userId,
-        name: tokenData.userName,
-        isAdmin: tokenData.isAdmin
-      };
-      req.session.tokenExpiry = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
-      
-      console.log('🔑 Session set from auth token:', {
-        hasAccessToken: !!req.session.accessToken,
-        hasUser: !!req.session.user,
-        userName: req.session.user?.name,
-        isAdmin: req.session.user?.isAdmin
-      });
-    } catch (error) {
-      console.error('🔑 Error parsing auth token:', error);
-      // Don't crash the server, just log the error and continue
-    }
+  
+  // Check for API key in headers
+  const apiKey = req.headers['x-api-key'];
+  const userId = req.headers['x-user-id'];
+  
+  if (!apiKey || apiKey !== API_SECRET) {
+    return res.status(401).json({ error: 'Invalid API key' });
   }
+  
+  if (!userId) {
+    return res.status(401).json({ error: 'User ID required' });
+  }
+  
+  // Check if user is authorized
+  const isAuthorized = authorizedUsers.some(user => user.id === userId);
+  if (!isAuthorized) {
+    return res.status(403).json({ error: 'User not authorized' });
+  }
+  
+  // Add user info to request for use in routes
+  req.user = { id: userId, isAdmin: true };
   next();
 });
 
@@ -249,110 +198,73 @@ if (AUTHORIZED_USER_IDS.length > 0) {
 // Authentication middleware
 // (removed requireAuth and requireAuthOnly, now imported from middleware/auth.js)
 
-// Utility function to ensure token is valid
-async function ensureValidToken(req) {
-  // If no token exists or session is invalid, return null
-  if (!req.session.accessToken) {
-    return null;
-  }
-  
-  const now = new Date().getTime();
-  
-  // If token is expired and we have a refresh token, try to refresh
-  if (req.session.tokenExpiry && now >= req.session.tokenExpiry && req.session.refreshToken) {
-    try {
-      const params = new URLSearchParams();
-      params.append('grant_type', 'refresh_token');
-      params.append('refresh_token', req.session.refreshToken);
-      params.append('client_id', CLIENT_ID);
-      params.append('client_secret', CLIENT_SECRET);
-
-      const tokenResponse = await axios.post(
-        'https://api.planningcenteronline.com/oauth/token', 
-        params.toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
-        }
-      );
-      
-      req.session.accessToken = tokenResponse.data.access_token;
-      req.session.refreshToken = tokenResponse.data.refresh_token;
-      req.session.tokenExpiry = new Date().getTime() + (tokenResponse.data.expires_in * 1000);
-      
-      return req.session.accessToken;
-    } catch (error) {
-      console.error('Token refresh failed:', error.response?.data || error.message);
-      // Clear invalid tokens
-      req.session.accessToken = null;
-      req.session.refreshToken = null;
-      return null;
-    }
-  }
-  
-  return req.session.accessToken;
+// Utility function to get PCO API credentials
+function getPcoCredentials() {
+  return {
+    username: PCO_ACCESS_TOKEN,
+    password: PCO_ACCESS_SECRET
+  };
 }
 
 // Mount routes
 // Note: Admin routes are defined directly in this file, not mounted from admin.routes.js
 // Note: Auth routes are defined directly in this file, not mounted from auth.routes.js
 
-// Auth status endpoint
+// Simple auth status endpoint
 app.get('/api/auth-status', (req, res) => {
-  const sessionInfo = {
-    hasAccessToken: !!req.session.accessToken,
-    hasUser: !!req.session.user,
-    userIsAdmin: req.session.user?.isAdmin,
-    sessionId: req.sessionID,
-    userAgent: req.get('User-Agent')?.substring(0, 50) + '...',
-    referer: req.get('Referer'),
-    origin: req.get('Origin'),
-    cookieHeader: req.get('Cookie') ? 'Present' : 'Not Present'
-  };
+  const apiKey = req.headers['x-api-key'];
+  const userId = req.headers['x-user-id'];
   
-  console.log('🔍 Auth status check - Session:', sessionInfo);
+  if (!apiKey || apiKey !== API_SECRET || !userId) {
+    return res.json({
+      authenticated: false,
+      user: null,
+      loginUrl: '/login',
+      message: 'Not authenticated'
+    });
+  }
   
-  const isAuthenticated = !!req.session.accessToken;
-  const userData = req.session.user || null;
+  // Check if user is authorized
+  const user = authorizedUsers.find(u => u.id === userId);
+  if (!user) {
+    return res.json({
+      authenticated: false,
+      user: null,
+      loginUrl: '/login',
+      message: 'User not authorized'
+    });
+  }
   
-  const response = { 
-    authenticated: isAuthenticated,
-    user: userData,
-    loginUrl: isAuthenticated ? null : '/api/auth/pco',
-    message: isAuthenticated 
-      ? `Logged in as ${userData?.name || 'User'}` 
-      : 'Not logged in'
-  };
-  
-  console.log('🔍 Auth status response:', {
-    authenticated: response.authenticated,
-    userName: response.user?.name,
-    isAdmin: response.user?.isAdmin,
-    sessionId: req.sessionID,
-    cookiePresent: !!req.get('Cookie')
+  res.json({ 
+    authenticated: true,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      isAdmin: true
+    },
+    loginUrl: null,
+    message: `Logged in as ${user.name}`
   });
-  
-  res.json(response);
 });
 
 // User info endpoint
-app.get('/api/user-info', requireAuth, (req, res) => {
-  res.json(req.session.user);
+app.get('/api/user-info', (req, res) => {
+  const user = authorizedUsers.find(u => u.id === req.user.id);
+  res.json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    isAdmin: true
+  });
 });
 
 // User management endpoints
-app.get('/api/admin/users', requireAuth, (req, res) => {
-  if (!req.session.user?.isAdmin) {
-    return res.status(403).json({ error: 'Not authorized' });
-  }
+app.get('/api/admin/users', (req, res) => {
   res.json(authorizedUsers);
 });
 
-app.post('/api/admin/users', requireAuth, (req, res) => {
-  if (!req.session.user?.isAdmin) {
-    return res.status(403).json({ error: 'Not authorized' });
-  }
+app.post('/api/admin/users', (req, res) => {
   const { userId, name, email } = req.body;
   if (!userId) {
     return res.status(400).json({ message: 'User ID is required' });
@@ -366,10 +278,7 @@ app.post('/api/admin/users', requireAuth, (req, res) => {
   res.status(201).json(newUser);
 });
 
-app.put('/api/admin/users/:id', requireAuth, (req, res) => {
-  if (!req.session.user?.isAdmin) {
-    return res.status(403).json({ error: 'Not authorized' });
-  }
+app.put('/api/admin/users/:id', (req, res) => {
   const userId = req.params.id;
   const { name, email } = req.body;
   
@@ -406,15 +315,12 @@ app.put('/api/admin/users/:id', requireAuth, (req, res) => {
   }
 });
 
-app.delete('/api/admin/users/:id', requireAuth, (req, res) => {
-  if (!req.session.user?.isAdmin) {
-    return res.status(403).json({ error: 'Not authorized' });
-  }
+app.delete('/api/admin/users/:id', (req, res) => {
   const userId = req.params.id;
-  if (userId === req.session.user.id) {
+  if (userId === req.user.id) {
     return res.status(400).json({ message: 'Cannot remove your own account' });
   }
-  const userIndex = authorizedUsers.findIndex(user => user.id === userId);
+        const userIndex = authorizedUsers.findIndex(user => user.id === userId);
   if (userIndex === -1) {
     return res.status(404).json({ message: 'User not found' });
   }
@@ -423,333 +329,36 @@ app.delete('/api/admin/users/:id', requireAuth, (req, res) => {
   res.status(200).json({ message: 'User removed successfully' });
 });
 
-// OAuth routes
-app.get('/api/auth/pco', (req, res) => {
-  console.log('🔵 OAuth route hit: /api/auth/pco');
-  console.log('🔵 Query params:', req.query);
-  req.session.rememberMe = req.query.remember === 'true';
+// Simple login endpoint - no OAuth needed
+app.get('/api/auth/login', (req, res) => {
+  const { userId } = req.query;
   
-  // Enhanced mobile debugging
-  const userAgent = req.get('User-Agent') || '';
-  const isMobile = isMobileDevice(userAgent) || req.query.mobile === 'true';
-  console.log('📱 OAuth initiation from mobile:', { isMobile, userAgent: userAgent.substring(0, 100) + '...' });
-  const scopes = ['check_ins', 'people'];
-  const redirectUri = REDIRECT_URI;
-  const authUrl = `https://api.planningcenteronline.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scopes.join(' ')}`;
-  console.log('🔵 Redirecting to:', authUrl);
-  res.redirect(authUrl);
-});
-
-// OAuth callback route (must be before catch-all)
-app.get('/auth/callback', async (req, res) => {
-  console.log('==== /auth/callback route hit ====');
-  console.log('🔵 /auth/callback hit with query:', req.query);
-  
-  // Enhanced mobile debugging
-  const userAgent = req.get('User-Agent') || '';
-  const isMobile = isMobileDevice(userAgent);
-  console.log('📱 Mobile detection:', { isMobile, userAgent: userAgent.substring(0, 100) + '...' });
-  console.log('🍪 Cookie header present:', !!req.get('Cookie'));
-  console.log('🌐 Request origin:', req.get('Origin') || 'No origin header');
-  const { code } = req.query;
-  if (!code) {
-    console.log('❌ No authorization code provided');
-    return res.status(400).send('Authorization code missing');
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID required' });
   }
   
-  console.log('🟢 Processing authorization code:', code.substring(0, 10) + '...');
+  // Check if user is authorized
+  const user = authorizedUsers.find(u => u.id === userId);
+  if (!user) {
+    return res.status(403).json({ error: 'User not authorized' });
+  }
   
-  try {
-    // Form data for token request
-    const params = new URLSearchParams();
-    params.append('grant_type', 'authorization_code');
-    params.append('code', code);
-    params.append('client_id', CLIENT_ID);
-    params.append('client_secret', CLIENT_SECRET);
-    params.append('redirect_uri', REDIRECT_URI);
-    
-    console.log('🟢 Exchanging code for token...');
-    const tokenResponse = await axios.post(
-      'https://api.planningcenteronline.com/oauth/token', 
-      params.toString(),
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }
-    );
-    
-    console.log('🟢 Token exchange successful');
-    
-    // Store tokens in session
-    req.session.accessToken = tokenResponse.data.access_token;
-    req.session.refreshToken = tokenResponse.data.refresh_token;
-    req.session.tokenExpiry = new Date().getTime() + (tokenResponse.data.expires_in * 1000);
-    
-    console.log('🟢 Session tokens stored:', {
-      hasAccessToken: !!req.session.accessToken,
-      hasRefreshToken: !!req.session.refreshToken,
-      tokenExpiry: req.session.tokenExpiry,
-      sessionId: req.sessionID
-    });
-    
-    // Apply "Remember me" if requested
-    if (req.session.rememberMe) {
-      req.session.cookie.maxAge = REMEMBER_ME_DAYS * 24 * 60 * 60 * 1000; // Convert days to milliseconds
-      console.log('🟢 Remember me applied, maxAge set to:', req.session.cookie.maxAge);
-    }
-    
-    // Fetch user information
-    try {
-      console.log('🟢 Fetching user information...');
-      const userResponse = await axios.get('https://api.planningcenteronline.com/people/v2/me', {
-        headers: {
-          'Authorization': `Bearer ${req.session.accessToken}`,
-          'Accept': 'application/json'
-        }
-      });
-      
-      // Store user information in session
-      const userData = userResponse.data.data;
-      const userId = userData.id;
-      
-      req.session.user = {
-        id: userId,
-        name: `${userData.attributes.first_name} ${userData.attributes.last_name}`,
-        email: userData.attributes.email,
-        avatar: userData.attributes.avatar,
-        isAdmin: false // Default to non-admin
-      };
-      
-      console.log('🟢 User data fetched:', req.session.user.name, 'ID:', userId);
-      console.log('🟢 Complete session data:', {
-        sessionId: req.sessionID,
-        hasAccessToken: !!req.session.accessToken,
-        hasUser: !!req.session.user,
-        userName: req.session.user?.name,
-        userEmail: req.session.user?.email,
-        isAdmin: req.session.user?.isAdmin,
-        cookieSettings: {
-          secure: req.session.cookie?.secure,
-          sameSite: req.session.cookie?.sameSite,
-          httpOnly: req.session.cookie?.httpOnly,
-          domain: req.session.cookie?.domain,
-          maxAge: req.session.cookie?.maxAge
-        }
-      });
-      
-      // Check if user is authorized
-      const isAuthorized = authorizedUsers.some(user => user.id === userId);
-      
-      // If user is not in our authorized list but we're allowing all users, add them
-      if (!isAuthorized && authorizedUsers.length === 0) {
-        authorizedUsers.push({ 
-          id: userId, 
-          name: req.session.user.name, 
-          email: req.session.user.email 
-        });
-        req.session.user.isAdmin = true; // First user becomes admin
-        
-        console.log(`🟢 First user automatically authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
-        console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
-        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, {
-          hasAccessToken: !!req.session.accessToken,
-          hasUser: !!req.session.user,
-          userName: req.session.user?.name,
-          isAdmin: req.session.user?.isAdmin
-        });
-        
-        // Force session save and wait for it to complete
-        req.session.save((err) => {
-          if (err) {
-            console.error('❌ [DEBUG] Session save error:', err);
-            return res.status(500).send('Session save failed');
-          }
-          console.log('🟢 [DEBUG] After session.save:', req.sessionID, {
-            hasAccessToken: !!req.session.accessToken,
-            hasUser: !!req.session.user,
-            userName: req.session.user?.name,
-            isAdmin: req.session.user?.isAdmin
-          });
-          
-          // Add a small delay to ensure session is fully persisted
-          setTimeout(() => {
-            res.redirect('/api/auth/success');
-          }, 100);
-        });
-      }
-      
-      // Update user information if they're authorized
-      if (isAuthorized) {
-        // Update the user's info in our records
-        const userIndex = authorizedUsers.findIndex(user => user.id === userId);
-        if (userIndex !== -1) {
-          // Update name and email if they weren't set before
-          if (!authorizedUsers[userIndex].name) {
-            authorizedUsers[userIndex].name = req.session.user.name;
-          }
-          if (!authorizedUsers[userIndex].email) {
-            authorizedUsers[userIndex].email = req.session.user.email;
-          }
-        }
-        
-        req.session.user.isAdmin = true; // All authorized users are admins for simplicity
-        console.log(`🟢 User authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
-        
-        // Redirect to admin panel
-        console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
-        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, {
-          hasAccessToken: !!req.session.accessToken,
-          hasUser: !!req.session.user,
-          userName: req.session.user?.name,
-          isAdmin: req.session.user?.isAdmin
-        });
-        
-        // Force session save and wait for it to complete
-        req.session.save((err) => {
-          if (err) {
-            console.error('❌ [DEBUG] Session save error:', err);
-            return res.status(500).send('Session save failed');
-          }
-          console.log('🟢 [DEBUG] After session.save:', req.sessionID, {
-            hasAccessToken: !!req.session.accessToken,
-            hasUser: !!req.session.user,
-            userName: req.session.user?.name,
-            isAdmin: req.session.user?.isAdmin
-          });
-          
-          // Add a small delay to ensure session is fully persisted
-          setTimeout(() => {
-            res.redirect('/api/auth/success');
-          }, 100);
-        });
-      } else {
-        console.log(`🟡 User not authorized: ${req.session.user.name} (${req.session.user.email}) - ID: ${userId}`);
-        
-        // Unauthorized user
-        req.session.user.isAdmin = false;
-        console.log('🟢 CLIENT_URL:', process.env.CLIENT_URL);
-        console.log('🔵 [DEBUG] Before session.save:', req.sessionID, {
-          hasAccessToken: !!req.session.accessToken,
-          hasUser: !!req.session.user,
-          userName: req.session.user?.name,
-          isAdmin: req.session.user?.isAdmin
-        });
-        
-        // Force session save and wait for it to complete
-        req.session.save((err) => {
-          if (err) {
-            console.error('❌ [DEBUG] Session save error:', err);
-            return res.status(500).send('Session save failed');
-          }
-          console.log('🟢 [DEBUG] After session.save:', req.sessionID, {
-            hasAccessToken: !!req.session.accessToken,
-            hasUser: !!req.session.user,
-            userName: req.session.user?.name,
-            isAdmin: req.session.user?.isAdmin
-          });
-          
-          // Add a small delay to ensure session is fully persisted
-          setTimeout(() => {
-            res.redirect('/api/auth/success');
-          }, 100);
-        });
-      }
-    } catch (userError) {
-      console.error('❌ Failed to fetch user data:', userError.response?.data || userError.message);
-      req.session.destroy();
-      res.status(500).send('Authentication successful but failed to retrieve user data. Please try again.');
-    }
-  } catch (error) {
-    console.error('❌ OAuth Error:', error.response?.data || error.message);
-    res.status(500).send(`Authentication failed: ${error.message}`);
-  }
+  res.json({
+    success: true,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      isAdmin: true
+    },
+    apiKey: API_SECRET
+  });
 });
 
-// Keep the API callback route for backward compatibility but make it redirect to the main callback
-app.get('/api/auth/callback', async (req, res) => {
-  console.log('🟡 /api/auth/callback hit - redirecting to /auth/callback');
-  const queryString = req.url.split('?')[1] || '';
-  res.redirect(`/auth/callback?${queryString}`);
-});
-
-// Intermediate success route to set cookie and redirect to client
-app.get('/api/auth/success', (req, res) => {
-  try {
-    console.log('🟡 /api/auth/success hit');
-    console.log('🟡 Session user:', req.session.user);
-    console.log('🟡 Complete session state:', {
-      sessionId: req.sessionID,
-      hasAccessToken: !!req.session.accessToken,
-      hasUser: !!req.session.user,
-      userName: req.session.user?.name,
-      userEmail: req.session.user?.email,
-      isAdmin: req.session.user?.isAdmin,
-      cookieSettings: {
-        secure: req.session.cookie?.secure,
-        sameSite: req.session.cookie?.sameSite,
-        httpOnly: req.session.cookie?.httpOnly,
-        domain: req.session.cookie?.domain,
-        maxAge: req.session.cookie?.maxAge
-      }
-    });
-    
-    let clientUrl = process.env.CLIENT_URL;
-    
-    // If CLIENT_URL is not set, try to determine from request headers
-    if (!clientUrl) {
-      // Use the host header to determine the domain
-      const host = req.get('host');
-      const protocol = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
-      clientUrl = `${protocol}://${host}`;
-      console.log('🟡 CLIENT_URL not set, using derived URL:', clientUrl);
-    }
-    
-    // Fallback to localhost only in development
-    if (!clientUrl && process.env.NODE_ENV === 'development') {
-      clientUrl = 'http://localhost:3000';
-    }
-    
-    console.log('🟡 Redirecting to client URL:', clientUrl + '/admin');
-    
-    // Create a temporary token for cross-domain authentication
-    const tempToken = Buffer.from(JSON.stringify({
-      sessionId: req.sessionID,
-      userId: req.session.user.id,
-      userName: req.session.user.name,
-      isAdmin: req.session.user.isAdmin,
-      timestamp: Date.now()
-    })).toString('base64');
-    
-    // Create session data for URL parameter
-    const sessionData = {
-      authenticated: true,
-      user: {
-        id: req.session.user.id,
-        name: req.session.user.name,
-        isAdmin: req.session.user.isAdmin
-      }
-    };
-    
-    // Encode session data for URL parameter
-    const encodedSessionData = encodeURIComponent(JSON.stringify(sessionData));
-    
-    console.log('🟡 Redirecting with session data in URL parameter');
-    
-    // Redirect directly to admin with session data in URL parameter
-    res.redirect(`${clientUrl}/admin?session=${encodedSessionData}&token=${tempToken}`);
-  } catch (error) {
-    console.error('❌ Error in /api/auth/success:', error);
-    res.status(500).send(`
-      <html>
-        <body>
-          <h1>Authentication Error</h1>
-          <p>There was an error processing your authentication. Please try again.</p>
-          <p>Error: ${error.message}</p>
-        </body>
-      </html>
-    `);
-  }
+// Simple logout endpoint - no sessions to clear
+app.get('/api/auth/logout', (req, res) => {
+  console.log('🔴 Simple logout - no sessions to clear');
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // Debug endpoint to check environment variables
@@ -757,8 +366,9 @@ app.get('/api/debug/env', (req, res) => {
   res.json({
     NODE_ENV: process.env.NODE_ENV,
     CLIENT_URL: process.env.CLIENT_URL,
-    REDIRECT_URI: process.env.REDIRECT_URI,
-    HARDCODED_REDIRECT_URI: REDIRECT_URI,
+    PCO_ACCESS_TOKEN: process.env.PCO_ACCESS_TOKEN ? 'Set' : 'Not Set',
+    PCO_ACCESS_SECRET: process.env.PCO_ACCESS_SECRET ? 'Set' : 'Not Set',
+    API_SECRET: process.env.API_SECRET ? 'Set' : 'Not Set',
     host: req.get('host'),
     'x-forwarded-proto': req.get('x-forwarded-proto'),
     'x-forwarded-host': req.get('x-forwarded-host'),
@@ -776,117 +386,53 @@ app.get('/api/debug/notifications', (req, res) => {
   });
 });
 
-// Debug endpoint to check session and global state
+// Debug endpoint to check authentication and global state
 app.get('/api/debug/session', (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  const userId = req.headers['x-user-id'];
+  
   res.json({
-    sessionId: req.sessionID,
-    hasSession: !!req.session,
-    hasUser: !!req.session?.user,
-    userIsAdmin: req.session?.user?.isAdmin,
-    hasAccessToken: !!req.session?.accessToken,
+    hasApiKey: !!apiKey,
+    hasUserId: !!userId,
+    currentUser: req.user || null,
     globalBillboardState: globalBillboardState,
     authorizedUsers: authorizedUsers.length,
-    sessionData: {
-      accessToken: req.session?.accessToken ? 'Present' : 'Missing',
-      refreshToken: req.session?.refreshToken ? 'Present' : 'Missing',
-      tokenExpiry: req.session?.tokenExpiry,
-      user: req.session?.user ? {
-        id: req.session.user.id,
-        name: req.session.user.name,
-        email: req.session.user.email,
-        isAdmin: req.session.user.isAdmin
-      } : null,
-      cookieSettings: {
-        secure: req.session?.cookie?.secure,
-        sameSite: req.session?.cookie?.sameSite,
-        httpOnly: req.session?.cookie?.httpOnly,
-        domain: req.session?.cookie?.domain,
-        maxAge: req.session?.cookie?.maxAge
-      }
+    authData: {
+      apiKey: apiKey ? 'Present' : 'Missing',
+      userId: userId || 'Missing',
+      user: req.user ? {
+        id: req.user.id,
+        isAdmin: req.user.isAdmin
+      } : null
     }
   });
 });
 
-// Helper function to detect mobile devices
-function isMobileDevice(userAgent) {
-  const mobileKeywords = [
-    'Mobile', 'Android', 'iPhone', 'iPad', 'iPod', 'BlackBerry', 
-    'Windows Phone', 'Opera Mini', 'IEMobile', 'Mobile Safari'
-  ];
-  return mobileKeywords.some(keyword => userAgent.includes(keyword));
-}
-
-// Debug endpoint for mobile-specific issues
-app.get('/api/debug/mobile', (req, res) => {
-  const userAgent = req.get('User-Agent') || '';
-  const isMobile = isMobileDevice(userAgent);
-  
+// Debug endpoint for system status
+app.get('/api/debug/system', (req, res) => {
   res.json({
-    userAgent,
-    isMobile,
-    headers: {
-      'user-agent': req.get('User-Agent'),
-      'accept': req.get('Accept'),
-      'accept-language': req.get('Accept-Language'),
-      'accept-encoding': req.get('Accept-Encoding'),
-      'connection': req.get('Connection'),
-      'upgrade-insecure-requests': req.get('Upgrade-Insecure-Requests'),
-      'sec-fetch-dest': req.get('Sec-Fetch-Dest'),
-      'sec-fetch-mode': req.get('Sec-Fetch-Mode'),
-      'sec-fetch-site': req.get('Sec-Fetch-Site'),
-      'cookie': req.get('Cookie') ? 'Present' : 'Not Present'
-    },
-    session: {
-      sessionId: req.sessionID,
-      hasSession: !!req.session,
-      hasUser: !!req.session?.user,
-      hasAccessToken: !!req.session?.accessToken,
-      cookieSettings: {
-        secure: req.session?.cookie?.secure,
-        sameSite: req.session?.cookie?.sameSite,
-        httpOnly: req.session?.cookie?.httpOnly,
-        domain: req.session?.cookie?.domain,
-        maxAge: req.session?.cookie?.maxAge
-      }
-    },
+    system: 'PCO Arrivals Billboard - Hybrid Auth',
+    version: '2.0.0',
+    auth: 'Simple API Key Authentication',
+    pco: 'Service Account Integration',
     environment: {
       nodeEnv: process.env.NODE_ENV,
       clientUrl: process.env.CLIENT_URL,
-      redirectUri: REDIRECT_URI
-    }
+      hasPcoToken: !!process.env.PCO_ACCESS_TOKEN,
+      hasPcoSecret: !!process.env.PCO_ACCESS_SECRET
+    },
+    authorizedUsers: authorizedUsers.length,
+    globalBillboardState: !!globalBillboardState.activeBillboard
   });
 });
 
-// Debug endpoint to check cross-user access and active sessions
+// Debug endpoint to check cross-user access and global state
 app.get('/api/debug/cross-user-access', async (req, res) => {
   try {
-    // Get all active sessions from MongoDB store
-    const sessionStore = req.sessionStore;
-    let activeSessions = [];
-    
-    if (sessionStore && sessionStore.store && sessionStore.store.get) {
-      try {
-        // This is a simplified approach - in production you might want to use a more robust method
-        activeSessions = await new Promise((resolve) => {
-          sessionStore.store.get('*', (err, sessions) => {
-            if (err) {
-              console.log('[DEBUG] Could not retrieve all sessions:', err.message);
-              resolve([]);
-            } else {
-              resolve(sessions || []);
-            }
-          });
-        });
-      } catch (sessionError) {
-        console.log('[DEBUG] Session retrieval error:', sessionError.message);
-      }
-    }
-    
     res.json({
-      currentUser: req.session?.user ? {
-        id: req.session.user.id,
-        name: req.session.user.name,
-        isAdmin: req.session.user.isAdmin
+      currentUser: req.user ? {
+        id: req.user.id,
+        isAdmin: req.user.isAdmin
       } : null,
       globalBillboardState: {
         hasActiveBillboard: !!globalBillboardState.activeBillboard,
@@ -904,9 +450,10 @@ app.get('/api/debug/cross-user-access', async (req, res) => {
         name: user.name,
         email: user.email
       })),
-      sessionInfo: {
-        totalSessions: activeSessions.length,
-        sessionStoreType: sessionStore?.constructor?.name || 'Unknown'
+      authInfo: {
+        authType: 'Simple API Key',
+        hasApiKey: !!req.headers['x-api-key'],
+        hasUserId: !!req.headers['x-user-id']
       }
     });
   } catch (error) {
@@ -915,232 +462,32 @@ app.get('/api/debug/cross-user-access', async (req, res) => {
   }
 });
 
-// Update logout route to clear cookies properly
-app.get('/api/auth/logout', (req, res) => {
-  console.log('🔴 Logout route hit');
-  console.log('🔴 Environment variables:');
-  console.log('  - NODE_ENV:', process.env.NODE_ENV);
-  console.log('  - CLIENT_URL:', process.env.CLIENT_URL);
-  console.log('🔴 Request headers:');
-  console.log('  - host:', req.get('host'));
-  console.log('  - x-forwarded-proto:', req.get('x-forwarded-proto'));
-  console.log('  - x-forwarded-host:', req.get('x-forwarded-host'));
-  console.log('  - referer:', req.get('referer'));
-  
-  // Get the current session ID and user ID before any operations
-  const currentSessionId = req.sessionID;
-  const currentUserId = req.session?.user?.id;
-  console.log('🔴 Current session ID:', currentSessionId);
-  console.log('🔴 Current user ID:', currentUserId);
-  
-  // Clear the auth token from headers to prevent recreation
-  if (req.headers['x-auth-token']) {
-    console.log('🔴 Clearing X-Auth-Token header to prevent session recreation');
-    delete req.headers['x-auth-token'];
-  }
-  
-  console.log('🔴 Session before destroy:', {
-    sessionId: req.sessionID,
-    hasAccessToken: !!req.session.accessToken,
-    hasUser: !!req.session.user,
-    userName: req.session.user?.name,
-    sessionStore: req.sessionStore ? 'Present' : 'Missing',
-    sessionStoreType: req.sessionStore?.constructor?.name || 'Unknown'
-  });
-  
-  // Try to destroy the session with more detailed logging
-  console.log('🔴 Attempting to destroy session...');
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('🔴 Error destroying session:', err);
-      console.error('🔴 Error details:', {
-        message: err.message,
-        stack: err.stack,
-        code: err.code
-      });
-    } else {
-      console.log('🔴 Session destroyed successfully');
-      console.log('🔴 Session ID after destroy:', req.sessionID);
-    }
-    
-    // Clear the session cookie with proper options
-    res.clearCookie('connect.sid', {
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true',
-      sameSite: 'none'
-    });
-    console.log('🔴 Session cookie cleared');
-    
-    // Manual session clearing as fallback
-    if (req.session) {
-      console.log('🔴 Manually clearing session data...');
-      req.session.accessToken = null;
-      req.session.user = null;
-      req.session.tokenExpiry = null;
-      req.session.refreshToken = null;
-      console.log('🔴 Session data manually cleared');
-    }
-    
-    // Try to manually delete from MongoDB store as well
-    if (req.sessionStore && req.sessionStore.destroy) {
-      console.log('🔴 Attempting manual store destruction...');
-      req.sessionStore.destroy(currentSessionId, (storeErr) => {
-        if (storeErr) {
-          console.error('🔴 Store destruction error:', storeErr);
-        } else {
-          console.log('🔴 Store destruction successful');
-        }
-      });
-    }
-    
-    // Skip session regeneration since it's causing crashes
-    console.log('🔴 Skipping session regeneration to avoid crashes');
-    
-    // Last resort: Try to directly delete from MongoDB collection
-    try {
-      const mongoose = require('mongoose');
-      if (mongoose.connection.readyState === 1) {
-        console.log('🔴 Attempting direct MongoDB collection cleanup...');
-        console.log('🔴 Deleting session ID:', currentSessionId);
-        
-        // Also try to delete the old session ID that keeps appearing
-        const oldSessionId = 'JzLDfFpv2CxXuxTUXXit7W8FD3amtRPa';
-        console.log('🔴 Also deleting old session ID:', oldSessionId);
-        
-        mongoose.connection.db.collection('sessions').deleteOne(
-          { _id: currentSessionId },
-          (mongoErr, result) => {
-            if (mongoErr) {
-              console.error('🔴 MongoDB direct delete error:', mongoErr);
-            } else {
-              console.log('🔴 MongoDB direct delete result for current session:', result);
-            }
-          }
-        );
-        
-        // Delete the old session as well
-        mongoose.connection.db.collection('sessions').deleteOne(
-          { _id: oldSessionId },
-          (mongoErr2, result2) => {
-            if (mongoErr2) {
-              console.error('🔴 MongoDB direct delete error for old session:', mongoErr2);
-            } else {
-              console.log('🔴 MongoDB direct delete result for old session:', result2);
-            }
-          }
-        );
-        
-        // Nuclear option: Delete ALL sessions for this user
-        if (currentUserId) {
-          console.log('🔴 Nuclear option: Deleting ALL sessions for user', currentUserId);
-          mongoose.connection.db.collection('sessions').deleteMany(
-            { 'session.user.id': currentUserId },
-            (mongoErr3, result3) => {
-              if (mongoErr3) {
-                console.error('🔴 MongoDB nuclear delete error:', mongoErr3);
-              } else {
-                console.log('🔴 MongoDB nuclear delete result:', result3);
-              }
-            }
-          );
-        } else {
-          console.log('🔴 No user ID found, skipping nuclear delete');
-        }
-      } else {
-        console.log('🔴 MongoDB not connected, skipping direct collection cleanup');
-      }
-    } catch (mongoError) {
-      console.error('🔴 MongoDB cleanup error:', mongoError);
-    }
 
-    // Support redirectTo query parameter
-    let clientUrl = process.env.CLIENT_URL;
-    console.log('🔴 Initial clientUrl from env:', clientUrl);
-    
-    // If CLIENT_URL is not set, try to determine from request headers
-    if (!clientUrl) {
-      // Use the host header to determine the domain
-      const host = req.get('host');
-      const protocol = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
-      clientUrl = `${protocol}://${host}`;
-      console.log('🔴 CLIENT_URL not set, using derived URL:', clientUrl);
-    }
-    
-    // Fallback to localhost only in development
-    if (!clientUrl && process.env.NODE_ENV === 'development') {
-      clientUrl = 'http://localhost:3000';
-      console.log('🔴 Using localhost fallback for development');
-    }
-    
-    console.log('🔴 Final clientUrl:', clientUrl);
-    
-    let redirectTo = req.query.redirectTo;
-    console.log('🔴 redirectTo query param:', redirectTo);
-    
-    if (redirectTo) {
-      // Only allow redirects to the client URL or its subpaths for security
-      const allowedOrigins = [clientUrl];
-      if (process.env.NODE_ENV === 'development') {
-        allowedOrigins.push('http://localhost:3000');
-      }
-      
-      console.log('🔴 Allowed origins:', allowedOrigins);
-      
-      try {
-        const url = new URL(redirectTo, clientUrl);
-        console.log('🔴 Parsed redirect URL:', url.href);
-        if (allowedOrigins.some(origin => url.origin === origin)) {
-          console.log('🔴 Redirecting to:', url.href);
-          return res.redirect(url.href);
-        } else {
-          console.log('🔴 Redirect URL not allowed:', url.href);
-        }
-      } catch (e) {
-        console.log('🔴 Invalid redirect URL:', redirectTo, 'Error:', e.message);
-        // Invalid URL, fall back to default
-      }
-    }
-    
-    const finalRedirectUrl = `${clientUrl}/login`;
-    console.log('🔴 Final logout redirect to:', finalRedirectUrl);
-    res.redirect(finalRedirectUrl);
-  });
-});
 
-// Debug endpoint to verify session destruction
-app.get('/api/debug/logout-test', (req, res) => {
-  console.log('🧪 Logout test endpoint hit');
-  console.log('🧪 Session state:', {
-    sessionId: req.sessionID,
-    hasSession: !!req.session,
-    hasAccessToken: !!req.session?.accessToken,
-    hasUser: !!req.session?.user,
-    userName: req.session?.user?.name
+// Debug endpoint to verify authentication
+app.get('/api/debug/auth-test', (req, res) => {
+  console.log('🧪 Auth test endpoint hit');
+  console.log('🧪 Auth state:', {
+    hasApiKey: !!req.headers['x-api-key'],
+    hasUserId: !!req.headers['x-user-id'],
+    currentUser: req.user
   });
   
   res.json({
-    sessionId: req.sessionID,
-    hasSession: !!req.session,
-    hasAccessToken: !!req.session?.accessToken,
-    hasUser: !!req.session?.user,
-    userName: req.session?.user?.name,
-    message: req.session?.accessToken ? 'Session still active' : 'Session destroyed'
+    hasApiKey: !!req.headers['x-api-key'],
+    hasUserId: !!req.headers['x-user-id'],
+    currentUser: req.user,
+    message: req.user ? 'User authenticated' : 'User not authenticated'
   });
 });
 
-// API endpoints
-app.get('/api/events', requireAuth, async (req, res) => {
+// API endpoints - using service account for PCO API calls
+app.get('/api/events', async (req, res) => {
   try {
-    const accessToken = await ensureValidToken(req);
-    if (!accessToken) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-    
     const response = await axios.get(`${PCO_API_BASE}/events`, {
       auth: {
-        username: process.env.PCO_ACCESS_TOKEN,
-        password: process.env.PCO_ACCESS_SECRET
+        username: PCO_ACCESS_TOKEN,
+        password: PCO_ACCESS_SECRET
       },
       headers: {
         'Accept': 'application/json'
@@ -1161,19 +508,14 @@ app.get('/api/events', requireAuth, async (req, res) => {
     console.error('API Error:', error.response?.data || error.message);
     const status = error.response?.status || 500;
     res.status(status).json({ 
-      error: status === 401 ? 'Authentication expired' : 'Failed to fetch events'
+      error: status === 401 ? 'PCO API authentication failed' : 'Failed to fetch events'
     });
   }
 });
 
 // Fetch events by date endpoint with archived filter
-app.get('/api/events-by-date', requireAuthOnly, async (req, res) => {
+app.get('/api/events-by-date', async (req, res) => {
   try {
-    const accessToken = await ensureValidToken(req);
-    if (!accessToken) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-    
     const { date } = req.query;
     console.log('Server: events-by-date called with date:', date);
     
@@ -1196,8 +538,8 @@ app.get('/api/events-by-date', requireAuthOnly, async (req, res) => {
     
     const response = await axios.get(url, {
       auth: {
-        username: process.env.PCO_ACCESS_TOKEN,
-        password: process.env.PCO_ACCESS_SECRET
+        username: PCO_ACCESS_TOKEN,
+        password: PCO_ACCESS_SECRET
       },
       headers: {
         'Accept': 'application/json'
@@ -1237,18 +579,14 @@ app.get('/api/events-by-date', requireAuthOnly, async (req, res) => {
     
     const status = error.response?.status || 500;
     res.status(status).json({ 
-      error: status === 401 ? 'Authentication expired' : 'Failed to fetch events',
+      error: status === 401 ? 'PCO API authentication failed' : 'Failed to fetch events',
       details: error.response?.data || error.message
     });
   }
 });
 
-app.post('/api/security-codes', requireAuthOnly, async (req, res) => {
+app.post('/api/security-codes', async (req, res) => {
   try {
-    const accessToken = await ensureValidToken(req);
-    if (!accessToken) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
     
     const { eventId, securityCodes, eventName, eventDate } = req.body;
     
@@ -1273,8 +611,8 @@ app.post('/api/security-codes', requireAuthOnly, async (req, res) => {
           const checkInResponse = await axios.get(
             `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,household`, {
             auth: {
-              username: process.env.PCO_ACCESS_TOKEN,
-              password: process.env.PCO_ACCESS_SECRET
+              username: PCO_ACCESS_TOKEN,
+              password: PCO_ACCESS_SECRET
             },
             headers: {
               'Accept': 'application/json'
@@ -1357,8 +695,8 @@ app.post('/api/security-codes', requireAuthOnly, async (req, res) => {
         
         // Update global billboard state if eventName is provided
         if (eventName) {
-          const userId = req.session.user?.id;
-          const userName = req.session.user?.name;
+          const userId = req.user?.id;
+          const userName = authorizedUsers.find(u => u.id === userId)?.name || 'Unknown User';
           updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName);
         }
         
@@ -1400,8 +738,8 @@ app.post('/api/security-codes', requireAuthOnly, async (req, res) => {
       const checkInResponse = await axios.get(
         `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,household`, {
         auth: {
-          username: process.env.PCO_ACCESS_TOKEN,
-          password: process.env.PCO_ACCESS_SECRET
+          username: PCO_ACCESS_TOKEN,
+          password: PCO_ACCESS_SECRET
         },
         headers: {
           'Accept': 'application/json'
@@ -1432,25 +770,23 @@ app.post('/api/security-codes', requireAuthOnly, async (req, res) => {
     console.error('API Error:', error.response?.data || error.message);
     const status = error.response?.status || 500;
     res.status(status).json({ 
-      error: status === 401 ? 'Authentication expired' : 'Failed to fetch security code data'
+      error: status === 401 ? 'PCO API authentication failed' : 'Failed to fetch security code data'
     });
   }
 });
 
-app.get('/api/events/:eventId/active-people', requireAuthOnly, async (req, res) => {
+app.get('/api/events/:eventId/active-people', async (req, res) => {
   try {
     const { eventId } = req.params;
     const { date } = req.query; // YYYY-MM-DD
-    const accessToken = await ensureValidToken(req);
-    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
     // 1. Fetch all event times for the event
     const eventTimesResponse = await axios.get(
       `${PCO_API_BASE}/events/${eventId}/event_times`,
       {
         auth: {
-          username: process.env.PCO_ACCESS_TOKEN,
-          password: process.env.PCO_ACCESS_SECRET
+          username: PCO_ACCESS_TOKEN,
+          password: PCO_ACCESS_SECRET
         },
         headers: {
           'Accept': 'application/json'
@@ -1530,19 +866,17 @@ app.get('/api/events/:eventId/active-people', requireAuthOnly, async (req, res) 
 });
 
 // GET /api/events/:eventId/event-times
-app.get('/api/events/:eventId/event-times', requireAuth, async (req, res) => {
+app.get('/api/events/:eventId/event-times', async (req, res) => {
   try {
     const { eventId } = req.params;
-    const accessToken = await ensureValidToken(req);
-    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
     let allEventTimes = [];
     let nextPage = `${PCO_API_BASE}/events/${eventId}/event_times`;
     while (nextPage) {
       const response = await axios.get(nextPage, {
         auth: {
-          username: process.env.PCO_ACCESS_TOKEN,
-          password: process.env.PCO_ACCESS_SECRET
+          username: PCO_ACCESS_TOKEN,
+          password: PCO_ACCESS_SECRET
         },
         headers: {
           'Accept': 'application/json'
@@ -1561,11 +895,9 @@ app.get('/api/events/:eventId/event-times', requireAuth, async (req, res) => {
 });
 
 // GET /api/event-times/:eventTimeId/active-people
-app.get('/api/event-times/:eventTimeId/active-people', requireAuth, async (req, res) => {
+app.get('/api/event-times/:eventTimeId/active-people', async (req, res) => {
   try {
     const { eventTimeId } = req.params;
-    const accessToken = await ensureValidToken(req);
-    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
     let allCheckIns = [];
     let allIncluded = [];
@@ -1573,8 +905,8 @@ app.get('/api/event-times/:eventTimeId/active-people', requireAuth, async (req, 
     while (nextPage) {
       const response = await axios.get(nextPage, {
         auth: {
-          username: process.env.PCO_ACCESS_TOKEN,
-          password: process.env.PCO_ACCESS_SECRET
+          username: PCO_ACCESS_TOKEN,
+          password: PCO_ACCESS_SECRET
         },
         headers: {
           'Accept': 'application/json'
@@ -1611,12 +943,10 @@ app.get('/api/event-times/:eventTimeId/active-people', requireAuth, async (req, 
 });
 
 // GET /api/events/:eventId/remaining-checkins?date=YYYY-MM-DD
-app.get('/api/events/:eventId/remaining-checkins', requireAuth, async (req, res) => {
+app.get('/api/events/:eventId/remaining-checkins', async (req, res) => {
   try {
     const { eventId } = req.params;
     const { date } = req.query; // Expecting YYYY-MM-DD
-    const accessToken = await ensureValidToken(req);
-    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
     // 1. Fetch all event times for the event
     let eventTimes = [];
@@ -1695,39 +1025,37 @@ app.get('/api/events/:eventId/remaining-checkins', requireAuth, async (req, res)
 });
 
 // GET /api/events/:eventId/locations
-app.get('/api/events/:eventId/locations', requireAuthOnly, async (req, res) => {
+app.get('/api/events/:eventId/locations', async (req, res) => {
   try {
     const { eventId } = req.params;
-    const accessToken = await ensureValidToken(req);
-    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
     console.log(`[DEBUG] Fetching locations for event: ${eventId}`);
-    
+
     let allLocations = [];
     let nextPage = `${PCO_API_BASE}/events/${eventId}/locations?per_page=100`;
     console.log(`[DEBUG] Initial PCO API URL: ${nextPage}`);
     
     while (nextPage) {
       try {
-        const response = await axios.get(nextPage, {
-          auth: {
-            username: process.env.PCO_ACCESS_TOKEN,
-            password: process.env.PCO_ACCESS_SECRET
-          },
-          headers: { 'Accept': 'application/json' }
-        });
+      const response = await axios.get(nextPage, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: { 'Accept': 'application/json' }
+      });
         
         console.log(`[DEBUG] PCO API response status: ${response.status}`);
         console.log(`[DEBUG] PCO API returned ${response.data.data?.length || 0} locations`);
         
-        allLocations = allLocations.concat(response.data.data || []);
-        nextPage = response.data.links?.next;
+      allLocations = allLocations.concat(response.data.data || []);
+      nextPage = response.data.links?.next;
       } catch (apiError) {
         console.error(`[DEBUG] PCO API error for URL ${nextPage}:`, apiError.response?.data || apiError.message);
         if (apiError.response?.status === 404) {
           console.log(`[DEBUG] Event ${eventId} not found or has no locations`);
           break;
-        }
+    }
         throw apiError;
       }
     }
@@ -1741,7 +1069,7 @@ app.get('/api/events/:eventId/locations', requireAuthOnly, async (req, res) => {
 });
 
 // GET /api/events/:eventId/locations/:locationId/active-checkins?date=YYYY-MM-DD
-app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAuthOnly, async (req, res) => {
+app.get('/api/events/:eventId/locations/:locationId/active-checkins', async (req, res) => {
   try {
     const { eventId, locationId } = req.params;
     const { date } = req.query;
@@ -1749,8 +1077,6 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
       console.error('No date provided in request!');
       return res.status(400).json({ error: 'Date parameter is required' });
     }
-    const accessToken = await ensureValidToken(req);
-    if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
     // Build the Planning Center API URL with event, date, and include locations
     let url = `https://api.planningcenteronline.com/check-ins/v2/check_ins?where[event_id]=${eventId}&include=locations&where[created_at][gte]=${encodeURIComponent(date + 'T00:00:00Z')}`;
@@ -1821,7 +1147,7 @@ app.get('/api/events/:eventId/locations/:locationId/active-checkins', requireAut
 });
 
 // Get all active check-ins
-app.get('/api/check-ins', requireAuth, async (req, res) => {
+app.get('/api/check-ins', async (req, res) => {
   try {
     const { locationId } = req.query;
     
@@ -1832,8 +1158,8 @@ app.get('/api/check-ins', requireAuth, async (req, res) => {
     // Get check-ins from PCO API
     const response = await axios.get(`${PCO_API_BASE}/check_ins?include=person,locations`, {
       auth: {
-        username: process.env.PCO_ACCESS_TOKEN,
-        password: process.env.PCO_ACCESS_SECRET
+        username: PCO_ACCESS_TOKEN,
+        password: PCO_ACCESS_SECRET
       },
       headers: {
         'Accept': 'application/json'
@@ -1902,11 +1228,11 @@ app.get('/api/global-billboard', (req, res) => {
   }
 });
 
-app.post('/api/global-billboard', requireAuthOnly, async (req, res) => {
+app.post('/api/global-billboard', async (req, res) => {
   try {
     const { eventId, eventName, securityCodes, eventDate } = req.body;
-    const userId = req.session.user?.id;
-    const userName = req.session.user?.name;
+    const userId = req.user?.id;
+    const userName = authorizedUsers.find(u => u.id === userId)?.name || 'Unknown User';
     
     console.log(`[CROSS-USER] Setting global billboard by user:`, { userId, userName });
     
@@ -1927,7 +1253,7 @@ app.post('/api/global-billboard', requireAuthOnly, async (req, res) => {
   }
 });
 
-app.delete('/api/global-billboard', requireAuthOnly, (req, res) => {
+app.delete('/api/global-billboard', (req, res) => {
   try {
     clearGlobalBillboardState();
     // Also clear active notifications when global billboard is cleared
@@ -1945,7 +1271,7 @@ app.delete('/api/global-billboard', requireAuthOnly, (req, res) => {
 });
 
 // GET /api/billboard/check-ins - Get active check-ins for a location
-app.get('/api/billboard/check-ins', requireAuthOnly, async (req, res) => {
+app.get('/api/billboard/check-ins', async (req, res) => {
   try {
     const { locationId, eventId, date } = req.query;
     
@@ -1974,8 +1300,8 @@ app.get('/api/billboard/check-ins', requireAuthOnly, async (req, res) => {
     while (nextPage) {
       const response = await axios.get(nextPage, {
         auth: {
-          username: process.env.PCO_ACCESS_TOKEN,
-          password: process.env.PCO_ACCESS_SECRET
+          username: PCO_ACCESS_TOKEN,
+          password: PCO_ACCESS_SECRET
         },
         headers: {
           'Accept': 'application/json'
@@ -2080,7 +1406,7 @@ app.get('/api/billboard/check-ins', requireAuthOnly, async (req, res) => {
 });
 
 // Check for billboard updates endpoint
-app.get('/api/billboard-updates', requireAuthOnly, async (req, res) => {
+app.get('/api/billboard-updates', async (req, res) => {
   try {
     const { lastUpdate, eventId } = req.query;
     
@@ -2118,13 +1444,9 @@ app.get('/api/billboard-updates', requireAuthOnly, async (req, res) => {
   }
 });
 
-// Test session route for debugging session/cookie issues
-app.get('/test-session', (req, res) => {
-  req.session.test = 'hello';
-  req.session.save((err) => {
-    if (err) return res.status(500).send('Session save failed');
-    res.send('Session set');
-  });
+// Test route for debugging
+app.get('/test', (req, res) => {
+  res.json({ message: 'PCO Arrivals Billboard - Hybrid Auth System', timestamp: new Date().toISOString() });
 });
 
 // POST /api/security-code-entry - Volunteers enter security codes from parents
@@ -2327,25 +1649,25 @@ app.get('/api/active-notifications', async (req, res) => {
           
           const batchResults = await Promise.all(
             batch.map(async (id) => {
-              try {
-                const resp = await axios.get(
-                  `${PCO_API_BASE}/check_ins/${id}`,
-                  {
-                    auth: {
-                      username: process.env.PCO_ACCESS_TOKEN,
-                      password: process.env.PCO_ACCESS_SECRET
-                    },
-                    headers: { 'Accept': 'application/json' }
-                  }
-                );
-                return resp.data.data;
-              } catch (err) {
-                console.error(`[DEBUG] Individual call failed for ${id}:`, err.message);
-                return null;
-              }
-            })
-          );
-          
+            try {
+              const resp = await axios.get(
+                `${PCO_API_BASE}/check_ins/${id}`,
+                {
+                  auth: {
+                    username: process.env.PCO_ACCESS_TOKEN,
+                    password: process.env.PCO_ACCESS_SECRET
+                  },
+                  headers: { 'Accept': 'application/json' }
+                }
+              );
+              return resp.data.data;
+            } catch (err) {
+              console.error(`[DEBUG] Individual call failed for ${id}:`, err.message);
+              return null;
+            }
+          })
+        );
+        
           // Check which ones are checked out
           batchResults.forEach(checkIn => {
             if (checkIn && checkIn.attributes && checkIn.attributes.checked_out_at) {
@@ -2452,10 +1774,10 @@ setInterval(async () => {
                 const resp = await axios.get(
                   `${PCO_API_BASE}/check_ins/${id}`,
                   {
-                    auth: {
-                      username: process.env.PCO_ACCESS_TOKEN,
-                      password: process.env.PCO_ACCESS_SECRET
-                    },
+          auth: {
+            username: process.env.PCO_ACCESS_TOKEN,
+            password: process.env.PCO_ACCESS_SECRET
+          },
                     headers: { 'Accept': 'application/json' }
                   }
                 );
@@ -2584,20 +1906,20 @@ app.get('/api/location-status', async (req, res) => {
     
     while (nextPage && pageCount < maxPages) {
       try {
-        const checkInResponse = await axios.get(nextPage, {
-          auth: {
-            username: process.env.PCO_ACCESS_TOKEN,
-            password: process.env.PCO_ACCESS_SECRET
-          },
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-        
-        const { data, included, links } = checkInResponse.data;
-        allCheckIns = allCheckIns.concat(data || []);
-        if (included) allIncluded = allIncluded.concat(included);
-        nextPage = links && links.next ? links.next : null;
+      const checkInResponse = await axios.get(nextPage, {
+      auth: {
+        username: process.env.PCO_ACCESS_TOKEN,
+        password: process.env.PCO_ACCESS_SECRET
+      },
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+      
+      const { data, included, links } = checkInResponse.data;
+      allCheckIns = allCheckIns.concat(data || []);
+      if (included) allIncluded = allIncluded.concat(included);
+      nextPage = links && links.next ? links.next : null;
         pageCount++;
         
         console.log(`[DEBUG] Location-status: Fetched page ${pageCount} with ${data?.length || 0} check-ins, total so far: ${allCheckIns.length}`);
@@ -2689,7 +2011,7 @@ app.get('/api/location-status', async (req, res) => {
 });
 
 // POST /api/set-global-billboard - Set the global billboard state directly
-app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
+app.post('/api/set-global-billboard', async (req, res) => {
   try {
     const { eventId, eventName, securityCodes, eventDate } = req.body;
     console.log('Server: set-global-billboard called with:', { eventId, eventName, securityCodes, eventDate });
@@ -2705,8 +2027,8 @@ app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
       return res.status(400).json({ error: 'Invalid eventDate format. Expected YYYY-MM-DD' });
     }
     
-    const userId = req.session.user?.id;
-    const userName = req.session.user?.name;
+    const userId = req.user?.id;
+    const userName = authorizedUsers.find(u => u.id === userId)?.name || 'Unknown User';
     
     console.log('Server: Updating global billboard state with user:', { userId, userName });
     
@@ -2740,72 +2062,23 @@ app.post('/api/set-global-billboard', requireAuthOnly, async (req, res) => {
 // Connect to MongoDB
 connectDB();
 
-// Test MongoDB connection
-app.get('/api/debug/mongodb', async (req, res) => {
+// Test system status
+app.get('/api/debug/status', async (req, res) => {
   try {
-    const mongoose = require('mongoose');
-    const connectionState = mongoose.connection.readyState;
-    const states = {
-      0: 'disconnected',
-      1: 'connected',
-      2: 'connecting',
-      3: 'disconnecting'
-    };
-    
     res.json({
-      connectionState: states[connectionState],
-      readyState: connectionState,
-      host: mongoose.connection.host,
-      port: mongoose.connection.port,
-      name: mongoose.connection.name,
-      sessionStore: req.sessionStore ? 'Present' : 'Missing',
-      sessionStoreType: req.sessionStore?.constructor?.name || 'Unknown'
+      system: 'PCO Arrivals Billboard - Hybrid Auth',
+      version: '2.0.0',
+      auth: 'Simple API Key Authentication',
+      pco: 'Service Account Integration',
+      status: 'Running',
+      timestamp: new Date().toISOString(),
+      authorizedUsers: authorizedUsers.length,
+      globalBillboardState: !!globalBillboardState.activeBillboard,
+      activeNotifications: activeNotifications.length
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-});
-
-// Test session creation and retrieval
-app.get('/api/debug/session-test', (req, res) => {
-  console.log('🧪 Session test endpoint hit');
-  console.log('🧪 Request headers:', {
-    cookie: req.get('Cookie'),
-    userAgent: req.get('User-Agent'),
-    origin: req.get('Origin'),
-    referer: req.get('Referer')
-  });
-  
-  // Set a test value in the session
-  req.session.testValue = 'Hello from server!';
-  req.session.testTime = new Date().toISOString();
-  
-  console.log('🧪 Session test data set:', {
-    sessionId: req.sessionID,
-    testValue: req.session.testValue,
-    testTime: req.session.testTime
-  });
-  
-  req.session.save((err) => {
-    if (err) {
-      console.error('🧪 Session save error:', err);
-      return res.status(500).json({ error: 'Session save failed', details: err.message });
-    }
-    
-    console.log('🧪 Session saved successfully');
-    res.json({
-      message: 'Test session created',
-      sessionId: req.sessionID,
-      testValue: req.session.testValue,
-      testTime: req.session.testTime,
-      cookieHeader: req.get('Cookie'),
-      sessionData: {
-        hasAccessToken: !!req.session.accessToken,
-        hasUser: !!req.session.user,
-        userName: req.session.user?.name
-      }
-    });
-  });
 });
 
 // Apply rate limiting
@@ -2834,7 +2107,7 @@ app.use((req, res, next) => {
 // Handle unmatched routes
 app.use('*', (req, res) => {
   // Only handle API routes
-  if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+  if (req.path.startsWith('/api')) {
     console.log('🔍 [CATCH-ALL] Unmatched API request:', {
     method: req.method,
     originalUrl: req.originalUrl,
@@ -2847,12 +2120,12 @@ app.use('*', (req, res) => {
       error: 'API route not found',
     requestedPath: req.originalUrl,
     availableRoutes: [
-      '/api/auth/pco',
-      '/auth/callback', 
-      '/api/auth/callback',
+      '/api/auth/login',
+      '/api/auth/logout',
       '/api/auth-status',
       '/api/events',
-      '/api/security-codes'
+      '/api/security-codes',
+      '/api/global-billboard'
     ]
   });
   } else {
@@ -2878,14 +2151,15 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`PCO OAuth callback URL: ${REDIRECT_URI}`);
-  console.log(`Hardcoded REDIRECT_URI: ${REDIRECT_URI}`);
+  console.log(`🚀 PCO Arrivals Billboard - Hybrid Auth System`);
+  console.log(`📡 Server is running on port ${PORT}`);
+  console.log(`🔐 Authentication: Simple API Key`);
+  console.log(`🔗 PCO Integration: Service Account`);
+  console.log(`👥 Authorized users: ${authorizedUsers.length}`);
   if (authorizedUsers.length === 0) {
-    console.log('Warning: No authorized users configured. The first user to log in will be granted admin access.');
+    console.log('⚠️  Warning: No authorized users configured.');
   } else {
-    console.log(`Authorized users: ${authorizedUsers.length}`);
-    console.log(`Remember Me duration: ${REMEMBER_ME_DAYS} days`);
+    console.log(`✅ Authorized users: ${authorizedUsers.map(u => u.name).join(', ')}`);
   }
 });
 // Render deployment trigger - Wed Jul 16 15:57:44 CDT 2025

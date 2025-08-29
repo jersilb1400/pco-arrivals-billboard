@@ -7,8 +7,6 @@ import {
   Typography,
   Button,
   Box,
-  FormControlLabel,
-  Checkbox,
   CircularProgress,
 } from '@mui/material';
 import {
@@ -22,15 +20,15 @@ import api from '../utils/api';
 api.defaults.withCredentials = true;
 
 function Login() {
-  const [rememberMe, setRememberMe] = useState(
-    localStorage.getItem('rememberMe') === 'true' || false
-  );
+  const [userId, setUserId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { session, loading } = useSession();
+  const { session, checkSession } = useSession();
 
   // Handle authentication status changes
   useEffect(() => {
-    if (!loading && session) {
+    if (session) {
       console.log('🔐 Login component: Session status changed:', {
         authenticated: session.authenticated,
         user: session.user?.name,
@@ -49,36 +47,60 @@ function Login() {
         console.log('🔐 Login component: User not authenticated, showing login form');
       }
     }
-  }, [session, loading, navigate]);
+  }, [session, navigate]);
 
-  const handleLogin = () => {
-    // Save rememberMe preference to localStorage
-    localStorage.setItem('rememberMe', rememberMe);
+  const handleLogin = async () => {
+    if (!userId.trim()) {
+      setError('Please enter your User ID');
+      return;
+    }
 
-    // Detect mobile device for enhanced debugging
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    console.log('📱 Mobile login attempt:', { isMobile, userAgent: navigator.userAgent.substring(0, 100) + '...' });
+    setLoading(true);
+    setError('');
 
-    // Redirect to your server's OAuth endpoint using the API base URL
-    const apiBase = process.env.REACT_APP_API_BASE || 'https://pco-arrivals-billboard.onrender.com/api';
-    const loginUrl = `${apiBase}/auth/pco?remember=${rememberMe}&prompt=login&mobile=${isMobile}`;
-    
-    console.log('🔐 Redirecting to login URL:', loginUrl);
-    window.location.href = loginUrl;
+    try {
+      console.log('🔐 Attempting login with User ID:', userId);
+      
+      // Call the simple login endpoint
+      const response = await api.get(`/auth/login?userId=${encodeURIComponent(userId)}`);
+      
+      if (response.data.success) {
+        console.log('🔐 Login successful:', response.data.user);
+        
+        // Store authentication data in localStorage
+        localStorage.setItem('pco_api_key', response.data.apiKey);
+        localStorage.setItem('pco_user_id', response.data.user.id);
+        
+        // Check session to update the context
+        await checkSession();
+        
+        // Navigate to admin
+        navigate('/admin');
+      } else {
+        setError('Login failed. Please check your User ID.');
+      }
+    } catch (error) {
+      console.error('🔐 Login error:', error);
+      if (error.response?.status === 403) {
+        setError('User not authorized. Please contact your administrator.');
+      } else if (error.response?.status === 400) {
+        setError('Please enter a valid User ID.');
+      } else {
+        setError('Login failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRememberMeChange = (e) => {
-    setRememberMe(e.target.checked);
-  };
-
-  // Show loading while SessionContext is checking authentication
+  // Show loading while checking authentication
   if (loading) {
     return (
       <Container maxWidth="sm" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Box sx={{ textAlign: 'center' }}>
           <CircularProgress size={48} sx={{ mb: 2 }} />
           <Typography variant="h6" color="text.secondary">
-            Checking authentication status...
+            Logging in...
           </Typography>
         </Box>
       </Container>
@@ -110,10 +132,41 @@ function Login() {
               Welcome Back
             </Typography>
             <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
-              Sign in to access your PCO Arrivals Billboard
+              Enter your User ID to access the PCO Arrivals Billboard
             </Typography>
 
+            {error && (
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
+                <Typography variant="body2" color="error.contrastText">
+                  {error}
+                </Typography>
+              </Box>
+            )}
 
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                User ID
+              </Typography>
+              <input
+                type="text"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                placeholder="Enter your User ID"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleLogin();
+                  }
+                }}
+              />
+            </Box>
 
             <Button
               variant="contained"
@@ -121,6 +174,7 @@ function Login() {
               size="large"
               startIcon={<LoginIcon />}
               onClick={handleLogin}
+              disabled={loading || !userId.trim()}
               sx={{
                 py: 1.5,
                 mb: 3,
@@ -128,24 +182,12 @@ function Login() {
                 fontSize: '1rem',
               }}
             >
-              Sign in with Planning Center
+              {loading ? 'Logging in...' : 'Sign In'}
             </Button>
 
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={rememberMe}
-                  onChange={handleRememberMeChange}
-                  color="primary"
-                />
-              }
-              label="Remember me for 30 days"
-              sx={{ mb: 3 }}
-            />
-
             <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
-              You'll be redirected to Planning Center to authorize this application. 
-              Only authorized Planning Center users can access this application.
+              Only authorized users can access this application. 
+              Contact your administrator if you need access.
             </Typography>
           </CardContent>
         </Card>
@@ -153,7 +195,7 @@ function Login() {
         {/* Footer */}
         <Box sx={{ textAlign: 'center', mt: 4 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Need access? Please contact your Planning Center administrator.
+            Need access? Please contact your administrator.
           </Typography>
           <Button
             variant="outlined"
@@ -161,7 +203,7 @@ function Login() {
             onClick={() => window.location.reload()}
             size="small"
           >
-            Login with Different Account
+            Refresh Page
           </Button>
         </Box>
       </Box>
