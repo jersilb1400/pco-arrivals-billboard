@@ -9,6 +9,7 @@ export function SessionProvider({ children }) {
   const [eventTimes, setEventTimes] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState('');
   const [selectedEventTime, setSelectedEventTime] = useState('');
+  const [userLoggedOut, setUserLoggedOut] = useState(false);
 
   const checkSession = useCallback(async () => {
     try {
@@ -29,6 +30,9 @@ export function SessionProvider({ children }) {
           // Store the token for API authentication
           sessionStorage.setItem('pco_auth_token', tokenParam);
           console.log('🔄 SessionContext: Auth token stored in sessionStorage');
+          
+          // Reset logout flag since user is logging in
+          setUserLoggedOut(false);
           
           setSession(parsedSession);
           
@@ -129,6 +133,12 @@ export function SessionProvider({ children }) {
   // Set up periodic session checks to detect when users log in/out independently
   useEffect(() => {
     const intervalId = setInterval(async () => {
+      // Skip session checks if user explicitly logged out
+      if (userLoggedOut) {
+        console.log('🔄 Skipping session check - user explicitly logged out');
+        return;
+      }
+      
       try {
         const currentSession = await checkSession();
         
@@ -157,7 +167,7 @@ export function SessionProvider({ children }) {
     }, 120000); // Increased from 60 seconds to 120 seconds (2 minutes) to reduce API calls further
     
     return () => clearInterval(intervalId);
-  }, [checkSession, session?.authenticated]);
+  }, [checkSession, session?.authenticated, userLoggedOut]);
 
   useEffect(() => {
     if (selectedEvent) {
@@ -182,6 +192,9 @@ export function SessionProvider({ children }) {
     try {
       console.log('🚪 SessionContext: Initiating logout...');
       
+      // Set logout flag to prevent auto-login
+      setUserLoggedOut(true);
+      
       // Clear local session state immediately
       setSession({ authenticated: false, user: null });
       
@@ -193,12 +206,21 @@ export function SessionProvider({ children }) {
         console.warn('🚪 SessionContext: Could not clear sessionStorage:', storageError);
       }
       
-      // Call logout endpoint
-      const redirectTo = `${window.location.origin}/login`;
-      window.location.href = `/api/auth/logout?redirectTo=${encodeURIComponent(redirectTo)}`;
+      // Redirect to login page immediately (don't wait for server logout)
+      window.location.href = '/login';
+      
+      // Call server logout in background (don't wait for response)
+      fetch('/api/auth/logout', { 
+        method: 'GET',
+        credentials: 'include'
+      }).catch(error => {
+        console.warn('🚪 Background logout call failed:', error);
+      });
+      
     } catch (error) {
       console.error('Logout error:', error);
       // Fallback: clear state and redirect
+      setUserLoggedOut(true);
       setSession({ authenticated: false, user: null });
       try {
         sessionStorage.removeItem('pco_auth_token');
