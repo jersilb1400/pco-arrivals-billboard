@@ -919,14 +919,24 @@ app.get('/api/auth/logout', (req, res) => {
     sessionId: req.sessionID,
     hasAccessToken: !!req.session.accessToken,
     hasUser: !!req.session.user,
-    userName: req.session.user?.name
+    userName: req.session.user?.name,
+    sessionStore: req.sessionStore ? 'Present' : 'Missing',
+    sessionStoreType: req.sessionStore?.constructor?.name || 'Unknown'
   });
   
+  // Try to destroy the session with more detailed logging
+  console.log('🔴 Attempting to destroy session...');
   req.session.destroy((err) => {
     if (err) {
       console.error('🔴 Error destroying session:', err);
+      console.error('🔴 Error details:', {
+        message: err.message,
+        stack: err.stack,
+        code: err.code
+      });
     } else {
       console.log('🔴 Session destroyed successfully');
+      console.log('🔴 Session ID after destroy:', req.sessionID);
     }
     
     // Clear the session cookie with proper options
@@ -937,6 +947,28 @@ app.get('/api/auth/logout', (req, res) => {
       sameSite: 'none'
     });
     console.log('🔴 Session cookie cleared');
+    
+    // Manual session clearing as fallback
+    if (req.session) {
+      console.log('🔴 Manually clearing session data...');
+      req.session.accessToken = null;
+      req.session.user = null;
+      req.session.tokenExpiry = null;
+      req.session.refreshToken = null;
+      console.log('🔴 Session data manually cleared');
+    }
+    
+    // Try to manually delete from MongoDB store as well
+    if (req.sessionStore && req.sessionStore.destroy) {
+      console.log('🔴 Attempting manual store destruction...');
+      req.sessionStore.destroy(req.sessionID, (storeErr) => {
+        if (storeErr) {
+          console.error('🔴 Store destruction error:', storeErr);
+        } else {
+          console.log('🔴 Store destruction successful');
+        }
+      });
+    }
 
     // Support redirectTo query parameter
     let clientUrl = process.env.CLIENT_URL;
