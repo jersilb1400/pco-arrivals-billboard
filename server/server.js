@@ -175,6 +175,12 @@ app.use((req, res, next) => {
         return next();
       }
       
+      // Check if this is a logout request - don't recreate session
+      if (req.path === '/api/auth/logout') {
+        console.log('🔑 Logout request detected, skipping token-based session creation');
+        return next();
+      }
+      
       // Set session data from token
       req.session.accessToken = 'token-based-auth';
       req.session.user = {
@@ -974,21 +980,8 @@ app.get('/api/auth/logout', (req, res) => {
       });
     }
     
-    // Force regenerate session ID to create a completely new session
-    console.log('🔴 Force regenerating session ID...');
-    req.session.regenerate((regenerateErr) => {
-      if (regenerateErr) {
-        console.error('🔴 Session regeneration error:', regenerateErr);
-      } else {
-        console.log('🔴 Session regenerated successfully, new ID:', req.sessionID);
-        // Clear the new session data
-        req.session.accessToken = null;
-        req.session.user = null;
-        req.session.tokenExpiry = null;
-        req.session.refreshToken = null;
-        console.log('🔴 New session data cleared');
-      }
-    });
+    // Skip session regeneration since it's causing crashes
+    console.log('🔴 Skipping session regeneration to avoid crashes');
     
     // Last resort: Try to directly delete from MongoDB collection
     try {
