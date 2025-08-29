@@ -181,6 +181,12 @@ app.use((req, res, next) => {
         return next();
       }
       
+      // Check if session already has user data - don't overwrite existing session
+      if (req.session && req.session.user && req.session.accessToken) {
+        console.log('🔑 Session already has user data, skipping token-based session creation');
+        return next();
+      }
+      
       // Set session data from token
       req.session.accessToken = 'token-based-auth';
       req.session.user = {
@@ -926,6 +932,12 @@ app.get('/api/auth/logout', (req, res) => {
   const currentUserId = req.session?.user?.id;
   console.log('🔴 Current session ID:', currentSessionId);
   console.log('🔴 Current user ID:', currentUserId);
+  
+  // Clear the auth token from headers to prevent recreation
+  if (req.headers['x-auth-token']) {
+    console.log('🔴 Clearing X-Auth-Token header to prevent session recreation');
+    delete req.headers['x-auth-token'];
+  }
   
   console.log('🔴 Session before destroy:', {
     sessionId: req.sessionID,
