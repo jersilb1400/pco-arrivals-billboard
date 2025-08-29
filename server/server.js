@@ -915,6 +915,10 @@ app.get('/api/auth/logout', (req, res) => {
   console.log('  - x-forwarded-host:', req.get('x-forwarded-host'));
   console.log('  - referer:', req.get('referer'));
   
+  // Get the current session ID before any operations
+  const currentSessionId = req.sessionID;
+  console.log('🔴 Current session ID:', currentSessionId);
+  
   console.log('🔴 Session before destroy:', {
     sessionId: req.sessionID,
     hasAccessToken: !!req.session.accessToken,
@@ -961,13 +965,51 @@ app.get('/api/auth/logout', (req, res) => {
     // Try to manually delete from MongoDB store as well
     if (req.sessionStore && req.sessionStore.destroy) {
       console.log('🔴 Attempting manual store destruction...');
-      req.sessionStore.destroy(req.sessionID, (storeErr) => {
+      req.sessionStore.destroy(currentSessionId, (storeErr) => {
         if (storeErr) {
           console.error('🔴 Store destruction error:', storeErr);
         } else {
           console.log('🔴 Store destruction successful');
         }
       });
+    }
+    
+    // Force regenerate session ID to create a completely new session
+    console.log('🔴 Force regenerating session ID...');
+    req.session.regenerate((regenerateErr) => {
+      if (regenerateErr) {
+        console.error('🔴 Session regeneration error:', regenerateErr);
+      } else {
+        console.log('🔴 Session regenerated successfully, new ID:', req.sessionID);
+        // Clear the new session data
+        req.session.accessToken = null;
+        req.session.user = null;
+        req.session.tokenExpiry = null;
+        req.session.refreshToken = null;
+        console.log('🔴 New session data cleared');
+      }
+    });
+    
+    // Last resort: Try to directly delete from MongoDB collection
+    try {
+      const mongoose = require('mongoose');
+      if (mongoose.connection.readyState === 1) {
+        console.log('🔴 Attempting direct MongoDB collection cleanup...');
+        mongoose.connection.db.collection('sessions').deleteOne(
+          { _id: currentSessionId },
+          (mongoErr, result) => {
+            if (mongoErr) {
+              console.error('🔴 MongoDB direct delete error:', mongoErr);
+            } else {
+              console.log('🔴 MongoDB direct delete result:', result);
+            }
+          }
+        );
+      } else {
+        console.log('🔴 MongoDB not connected, skipping direct collection cleanup');
+      }
+    } catch (mongoError) {
+      console.error('🔴 MongoDB cleanup error:', mongoError);
     }
 
     // Support redirectTo query parameter
