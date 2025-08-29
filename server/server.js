@@ -921,9 +921,11 @@ app.get('/api/auth/logout', (req, res) => {
   console.log('  - x-forwarded-host:', req.get('x-forwarded-host'));
   console.log('  - referer:', req.get('referer'));
   
-  // Get the current session ID before any operations
+  // Get the current session ID and user ID before any operations
   const currentSessionId = req.sessionID;
+  const currentUserId = req.session?.user?.id;
   console.log('🔴 Current session ID:', currentSessionId);
+  console.log('🔴 Current user ID:', currentUserId);
   
   console.log('🔴 Session before destroy:', {
     sessionId: req.sessionID,
@@ -1018,17 +1020,21 @@ app.get('/api/auth/logout', (req, res) => {
         );
         
         // Nuclear option: Delete ALL sessions for this user
-        console.log('🔴 Nuclear option: Deleting ALL sessions for user 163050178');
-        mongoose.connection.db.collection('sessions').deleteMany(
-          { 'session.user.id': '163050178' },
-          (mongoErr3, result3) => {
-            if (mongoErr3) {
-              console.error('🔴 MongoDB nuclear delete error:', mongoErr3);
-            } else {
-              console.log('🔴 MongoDB nuclear delete result:', result3);
+        if (currentUserId) {
+          console.log('🔴 Nuclear option: Deleting ALL sessions for user', currentUserId);
+          mongoose.connection.db.collection('sessions').deleteMany(
+            { 'session.user.id': currentUserId },
+            (mongoErr3, result3) => {
+              if (mongoErr3) {
+                console.error('🔴 MongoDB nuclear delete error:', mongoErr3);
+              } else {
+                console.log('🔴 MongoDB nuclear delete result:', result3);
+              }
             }
-          }
-        );
+          );
+        } else {
+          console.log('🔴 No user ID found, skipping nuclear delete');
+        }
       } else {
         console.log('🔴 MongoDB not connected, skipping direct collection cleanup');
       }
