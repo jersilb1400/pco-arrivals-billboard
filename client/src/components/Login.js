@@ -23,6 +23,7 @@ function Login() {
   const [userInput, setUserInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loginMessage, setLoginMessage] = useState('');
   const navigate = useNavigate();
   const { session, checkSession } = useSession();
 
@@ -57,12 +58,23 @@ function Login() {
 
     setLoading(true);
     setError('');
+    setLoginMessage('Connecting to server...');
 
     try {
       console.log('🔐 Attempting login with input:', userInput);
       
+      // Add timeout for hibernation message
+      const hibernationTimer = setTimeout(() => {
+        setLoginMessage('Server is starting up, this may take up to a minute...');
+      }, 10000); // Show hibernation message after 10 seconds
+      
       // Call the simple login endpoint with userInput parameter
-      const response = await api.get(`/auth/login?userInput=${encodeURIComponent(userInput)}`);
+      // Use longer timeout to handle Render service hibernation (can take 30-60s to wake up)
+      const response = await api.get(`/auth/login?userInput=${encodeURIComponent(userInput)}`, {
+        timeout: 90000 // 90 seconds to handle hibernation wakeup
+      });
+      
+      clearTimeout(hibernationTimer);
       
       if (response.data.success) {
         console.log('🔐 Login successful:', response.data.user);
@@ -90,6 +102,7 @@ function Login() {
       }
     } finally {
       setLoading(false);
+      setLoginMessage('');
     }
   };
 
@@ -99,9 +112,14 @@ function Login() {
       <Container maxWidth="sm" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Box sx={{ textAlign: 'center' }}>
           <CircularProgress size={48} sx={{ mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
             Logging in...
           </Typography>
+          {loginMessage && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              {loginMessage}
+            </Typography>
+          )}
         </Box>
       </Container>
     );
