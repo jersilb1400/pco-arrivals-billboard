@@ -331,17 +331,30 @@ app.delete('/api/admin/users/:id', (req, res) => {
 
 // Simple login endpoint - no OAuth needed
 app.get('/api/auth/login', (req, res) => {
-  const { userId } = req.query;
+  const { userId, email, userInput } = req.query;
   
-  if (!userId) {
-    return res.status(400).json({ error: 'User ID required' });
+  // Support multiple input methods: userId, email, or userInput (which could be either)
+  const inputValue = userInput || userId || email;
+  
+  if (!inputValue) {
+    return res.status(400).json({ error: 'User ID or email required' });
   }
   
-  // Check if user is authorized
-  const user = authorizedUsers.find(u => u.id === userId);
+  console.log(`[LOGIN] Attempting login with input: ${inputValue}`);
+  
+  // Check if user is authorized - search by both ID and email
+  const user = authorizedUsers.find(u => 
+    u.id === inputValue || 
+    (u.email && u.email.toLowerCase() === inputValue.toLowerCase())
+  );
+  
   if (!user) {
-    return res.status(403).json({ error: 'User not authorized' });
+    console.log(`[LOGIN] User not found: ${inputValue}`);
+    console.log(`[LOGIN] Available users:`, authorizedUsers.map(u => ({ id: u.id, email: u.email })));
+    return res.status(403).json({ error: 'User not authorized. Please check your User ID or email address.' });
   }
+  
+  console.log(`[LOGIN] User found: ${user.name} (${user.id})`);
   
   res.json({
     success: true,

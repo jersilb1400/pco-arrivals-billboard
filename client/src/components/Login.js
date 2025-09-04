@@ -20,7 +20,7 @@ import api from '../utils/api';
 api.defaults.withCredentials = true;
 
 function Login() {
-  const [userId, setUserId] = useState('');
+  const [userInput, setUserInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -50,8 +50,8 @@ function Login() {
   }, [session, navigate]);
 
   const handleLogin = async () => {
-    if (!userId.trim()) {
-      setError('Please enter your User ID');
+    if (!userInput.trim()) {
+      setError('Please enter your User ID or email address');
       return;
     }
 
@@ -59,10 +59,10 @@ function Login() {
     setError('');
 
     try {
-      console.log('🔐 Attempting login with User ID:', userId);
+      console.log('🔐 Attempting login with input:', userInput);
       
-      // Call the simple login endpoint
-      const response = await api.get(`/auth/login?userId=${encodeURIComponent(userId)}`);
+      // Call the simple login endpoint with userInput parameter
+      const response = await api.get(`/auth/login?userInput=${encodeURIComponent(userInput)}`);
       
       if (response.data.success) {
         console.log('🔐 Login successful:', response.data.user);
@@ -77,14 +77,14 @@ function Login() {
         // Navigate to admin
         navigate('/admin');
       } else {
-        setError('Login failed. Please check your User ID.');
+        setError('Login failed. Please check your User ID or email address.');
       }
     } catch (error) {
       console.error('🔐 Login error:', error);
       if (error.response?.status === 403) {
         setError('User not authorized. Please contact your administrator.');
       } else if (error.response?.status === 400) {
-        setError('Please enter a valid User ID.');
+        setError('Please enter a valid User ID or email address.');
       } else {
         setError('Login failed. Please try again.');
       }
@@ -132,7 +132,7 @@ function Login() {
               Welcome Back
             </Typography>
             <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
-              Enter your User ID to access the PCO Arrivals Billboard
+              Enter your User ID or email address to access the PCO Arrivals Billboard
             </Typography>
 
             {error && (
@@ -145,13 +145,13 @@ function Login() {
 
             <Box sx={{ mb: 3 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                User ID
+                User ID or Email Address
               </Typography>
               <input
                 type="text"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder="Enter your User ID"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder="Enter your User ID or email address"
                 style={{
                   width: '100%',
                   padding: '12px 16px',
@@ -174,7 +174,7 @@ function Login() {
               size="large"
               startIcon={<LoginIcon />}
               onClick={handleLogin}
-              disabled={loading || !userId.trim()}
+              disabled={loading || !userInput.trim()}
               sx={{
                 py: 1.5,
                 mb: 3,
