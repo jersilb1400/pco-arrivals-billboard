@@ -569,6 +569,34 @@ function AdminPanel() {
     }
   };
 
+  // Manual cleanup of checked-out children
+  const handleCleanupCheckedOut = async () => {
+    try {
+      setLoadingNotifications(true);
+      const response = await api.post('/cleanup-checked-out');
+      
+      if (response.data.success) {
+        setSnackbarMsg(response.data.message);
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+        
+        // Refresh notifications after cleanup
+        await fetchActiveNotifications();
+      } else {
+        setSnackbarMsg('Cleanup failed: ' + (response.data.message || 'Unknown error'));
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
+    } catch (error) {
+      console.error('[AdminPanel] Error during cleanup:', error);
+      setSnackbarMsg('Failed to cleanup checked-out children');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
   // Fetch notifications when we have an event selected, regardless of billboard status
   useEffect(() => {
     if (selectedEvent && selectedDate) {
@@ -1011,6 +1039,16 @@ function AdminPanel() {
                     sx={{ ml: 'auto' }}
                   >
                     Refresh
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={handleCleanupCheckedOut}
+                    disabled={loadingNotifications}
+                    color="warning"
+                    variant="outlined"
+                    title="Remove children who have been checked out in PCO"
+                  >
+                    Cleanup Checked-Out
                   </Button>
                 </Box>
                 {loadingNotifications ? (

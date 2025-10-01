@@ -1646,7 +1646,7 @@ app.get('/api/active-notifications', async (req, res) => {
       console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for event ${eventId}`);
     }
     
-    // Only check PCO for checked-out children if we have notifications and it's not too frequent
+    // ALWAYS check PCO for checked-out children to ensure immediate cleanup
     if (filteredNotifications.length > 0) {
       const checkInIds = filteredNotifications.map(n => n.checkInId);
       console.log(`[DEBUG] Checking PCO for ${checkInIds.length} check-in IDs`);
@@ -1692,13 +1692,25 @@ app.get('/api/active-notifications', async (req, res) => {
         console.log(`[DEBUG] Found ${checkedOutIds.length} checked-out check-ins:`, checkedOutIds);
         
         if (checkedOutIds.length > 0) {
-          const beforeCount = filteredNotifications.length;
+          // Remove from the global activeNotifications array immediately
+          const beforeGlobalCount = activeNotifications.length;
+          activeNotifications = activeNotifications.filter(n => 
+            !checkedOutIds.includes(n.checkInId)
+          );
+          const afterGlobalCount = activeNotifications.length;
+          
+          // Also remove from filtered notifications
+          const beforeFilteredCount = filteredNotifications.length;
           filteredNotifications = filteredNotifications.filter(n => 
             !checkedOutIds.includes(n.checkInId)
           );
-          const afterCount = filteredNotifications.length;
-          if (beforeCount !== afterCount) {
-            console.log(`[DEBUG] Removed ${beforeCount - afterCount} notifications for checked-out children`);
+          const afterFilteredCount = filteredNotifications.length;
+          
+          if (beforeGlobalCount !== afterGlobalCount) {
+            console.log(`[DEBUG] Removed ${beforeGlobalCount - afterGlobalCount} notifications from global array for checked-out children`);
+          }
+          if (beforeFilteredCount !== afterFilteredCount) {
+            console.log(`[DEBUG] Removed ${beforeFilteredCount - afterFilteredCount} notifications from filtered results for checked-out children`);
           }
         }
       } catch (apiError) {
@@ -1751,7 +1763,95 @@ app.post('/api/checkout-notification', async (req, res) => {
   }
 });
 
-// Cleanup old notifications and check for checked-out children (run every 5 minutes)
+// POST /api/cleanup-checked-out - Manually trigger cleanup of checked-out children
+app.post('/api/cleanup-checked-out', async (req, res) => {
+  try {
+    console.log(`[CLEANUP] Manual cleanup triggered with ${activeNotifications.length} notifications`);
+    
+    if (activeNotifications.length === 0) {
+      return res.json({ 
+        success: true, 
+        message: 'No notifications to check',
+        removed: 0
+      });
+    }
+
+    const checkInIds = activeNotifications.map(n => n.checkInId);
+    const checkedOutIds = [];
+    
+    try {
+      // Check all notifications in batches
+      const batchSize = 10;
+      for (let i = 0; i < checkInIds.length; i += batchSize) {
+        const batch = checkInIds.slice(i, i + batchSize);
+        
+        const batchResults = await Promise.all(
+          batch.map(async (id) => {
+            try {
+              const resp = await axios.get(
+                `${PCO_API_BASE}/check_ins/${id}`,
+                {
+                  auth: {
+                    username: process.env.PCO_ACCESS_TOKEN,
+                    password: process.env.PCO_ACCESS_SECRET
+                  },
+                  headers: { 'Accept': 'application/json' }
+                }
+              );
+              return resp.data.data;
+            } catch (err) {
+              console.error(`[CLEANUP] Individual call failed for ${id}:`, err.message);
+              return null;
+            }
+          })
+        );
+        
+        // Check which ones are checked out
+        batchResults.forEach(checkIn => {
+          if (checkIn && checkIn.attributes && checkIn.attributes.checked_out_at) {
+            checkedOutIds.push(checkIn.id);
+          }
+        });
+      }
+
+      if (checkedOutIds.length > 0) {
+        const beforeCount = activeNotifications.length;
+        activeNotifications = activeNotifications.filter(n => 
+          !checkedOutIds.includes(n.checkInId)
+        );
+        const afterCount = activeNotifications.length;
+        const removed = beforeCount - afterCount;
+        
+        console.log(`[CLEANUP] Removed ${removed} notifications for checked-out children:`, checkedOutIds);
+        
+        res.json({ 
+          success: true, 
+          message: `Removed ${removed} notifications for checked-out children`,
+          removed,
+          checkedOutIds
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: 'No checked-out children found',
+          removed: 0
+        });
+      }
+    } catch (apiError) {
+      console.error('[CLEANUP] Error checking PCO for checked-out children:', apiError.message);
+      res.status(500).json({ 
+        success: false,
+        error: 'Failed to check PCO API for checked-out children',
+        message: apiError.message
+      });
+    }
+  } catch (error) {
+    console.error('Error in manual cleanup:', error);
+    res.status(500).json({ error: 'Failed to cleanup checked-out children' });
+  }
+});
+
+// Cleanup old notifications and check for checked-out children (run every 1 minute for faster cleanup)
 setInterval(async () => {
   try {
     const currentTime = new Date();
@@ -1828,7 +1928,7 @@ setInterval(async () => {
   } catch (error) {
     console.error('Error in cleanup interval:', error);
   }
-}, 5 * 60 * 1000); // 5 minutes
+}, 1 * 60 * 1000); // 1 minute for faster cleanup
 
 // GET /api/location-status - Get all locations with remaining children for a specific event/date
 app.get('/api/location-status', async (req, res) => {
