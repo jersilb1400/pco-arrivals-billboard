@@ -366,8 +366,14 @@ function SimpleBillboard() {
                       // Handle different date formats
                       let dateObj;
                       if (typeof eventDate === 'string') {
-                        // If it's already a date string, parse it
-                        dateObj = new Date(eventDate);
+                        // If it's a YYYY-MM-DD string, parse it in UTC to avoid timezone issues
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+                          const [year, month, day] = eventDate.split('-').map(num => parseInt(num, 10));
+                          dateObj = new Date(Date.UTC(year, month - 1, day));
+                        } else {
+                          // For other date strings, parse normally
+                          dateObj = new Date(eventDate);
+                        }
                       } else if (eventDate instanceof Date) {
                         // If it's already a Date object
                         dateObj = eventDate;
@@ -384,12 +390,13 @@ function SimpleBillboard() {
                       
                       console.log('📅 Parsed date object:', dateObj);
                       
-                      // Format the date
+                      // Format the date with UTC timezone to avoid timezone shifts
                       const formattedDate = dateObj.toLocaleDateString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
-                        day: 'numeric'
+                        day: 'numeric',
+                        timeZone: 'UTC'
                       });
                       
                       console.log('📅 Formatted date:', formattedDate);

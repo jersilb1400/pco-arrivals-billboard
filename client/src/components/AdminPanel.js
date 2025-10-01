@@ -603,7 +603,8 @@ function AdminPanel() {
     if (!dateString) return '';
     try {
       const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
-      const date = new Date(year, month - 1, day, 12, 0, 0);
+      // Create date in UTC to avoid timezone issues
+      const date = new Date(Date.UTC(year, month - 1, day));
       if (isNaN(date.getTime())) {
         console.error('Invalid date parts:', year, month, day);
         return 'Invalid date';
@@ -612,7 +613,8 @@ function AdminPanel() {
         weekday: 'long', 
         year: 'numeric', 
         month: 'long', 
-        day: 'numeric' 
+        day: 'numeric',
+        timeZone: 'UTC'
       });
     } catch (error) {
       console.error('Error formatting selected date:', error);
