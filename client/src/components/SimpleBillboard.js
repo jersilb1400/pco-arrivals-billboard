@@ -225,9 +225,9 @@ function SimpleBillboard() {
     }
   }, [globalBillboard?.activeBillboard?.eventId, globalBillboard?.activeBillboard?.eventDate]); // Only depend on the actual data, not the whole object
 
-  // Get child emoji based on name
+  // Get child emoji based on name - fun, cute, and child-friendly
   const getChildEmoji = (childName) => {
-    const emojis = ['👶', '👧', '👦', '🧒', '👶', '👧', '👦', '🧒'];
+    const emojis = ['🦄', '🐻', '🐼', '🦊', '🐨', '🐸', '🦁', '🐯', '🐰', '🐶', '🐱', '🐵', '🦉', '🐙', '🦋', '🐝'];
     const index = childName.length % emojis.length;
     return emojis[index];
   };
