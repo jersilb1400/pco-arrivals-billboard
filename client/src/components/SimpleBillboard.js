@@ -429,195 +429,80 @@ function SimpleBillboard() {
             ) : (
               <Grid 
                 container 
-                spacing={{ xs: 2, sm: 3, md: 3 }}
+                spacing={2}
                 sx={{
-                  // Force two-column layout on tablets and larger
-                  display: 'flex',
-                  flexWrap: 'nowrap',
-                  minHeight: '70vh'
+                  // Three-column layout optimized for landscape iPad
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 2
                 }}
               >
-                {/* Left Column */}
-                <Grid 
-                  item 
-                  xs={12} 
-                  sm={6} 
-                  md={6} 
-                  sx={{ 
-                    flex: '0 0 50%', 
-                    maxWidth: '50%',
-                    minWidth: '50%',
-                    // Ensure proper spacing on tablets
-                    pr: { xs: 1, sm: 1.5, md: 1.5 }
-                  }}
-                >
-                  {activeNotifications
-                    .filter((_, index) => index % 2 === 0)
-                    .map((notification) => (
-                      <Card
-                        key={notification.id}
-                        sx={{
-                          mb: { xs: 1.5, sm: 2, md: 2 },
-                          minHeight: { xs: '100px', sm: '120px', md: '120px' },
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          color: 'white',
-                          border: '2px solid #4a5568',
-                          borderRadius: { xs: '8px', sm: '12px', md: '12px' },
-                          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 12px 40px rgba(0,0,0,0.15)'
-                          }
-                        }}
-                      >
-                        <CardContent sx={{ 
-                          p: { xs: 1.5, sm: 2, md: 2 }, 
-                          textAlign: 'center' 
+                {activeNotifications.map((notification, index) => {
+                  // Cycle through gradient colors for visual variety
+                  const gradients = [
+                    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
+                  ];
+                  const gradient = gradients[index % 3];
+                  
+                  return (
+                    <Card
+                      key={notification.id}
+                      sx={{
+                        background: gradient,
+                        color: 'white',
+                        border: '2px solid #4a5568',
+                        borderRadius: 2,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ 
+                        p: 2, 
+                        textAlign: 'center',
+                        '&:last-child': { pb: 2 }
+                      }}>
+                        {/* Child Name */}
+                        <Typography variant="h4" sx={{
+                          fontWeight: 900,
+                          color: 'black',
+                          textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
+                          letterSpacing: '1px',
+                          fontSize: '2rem',
+                          lineHeight: 1.2,
+                          mb: 1
                         }}>
-                          {/* Child Name */}
-                          <Typography variant="h3" sx={{
-                            fontWeight: 900,
-                            color: 'black',
-                            textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
-                            letterSpacing: '2px',
-                            fontSize: { 
-                              xs: '2.5rem', 
-                              sm: '3rem', 
-                              md: '3.5rem', 
-                              lg: '4rem' 
-                            },
-                            textAlign: 'center',
-                            lineHeight: 1.2
-                          }}>
-                            {getChildEmoji(notification.childName)} {notification.childName}
-                          </Typography>
-                          
-                          {/* Security Code */}
-                          <Typography variant="h4" sx={{
-                            fontWeight: 700,
-                            color: 'black',
-                            textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
-                            fontSize: { 
-                              xs: '1.5rem', 
-                              sm: '1.8rem', 
-                              md: '2rem', 
-                              lg: '2.5rem' 
-                            },
-                            mt: 1,
-                            mb: 1
-                          }}>
-                            {notification.securityCode}
-                          </Typography>
-                          
-                          {/* Time and Location */}
-                          <Typography variant="h6" sx={{
-                            color: 'black',
-                            fontSize: { 
-                              xs: '1rem', 
-                              sm: '1.1rem', 
-                              md: '1.2rem', 
-                              lg: '1.5rem' 
-                            },
-                            opacity: 0.9
-                          }}>
-                            {formatTime(notification.notifiedAt)} • {notification.locationName}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    ))}
-                </Grid>
-
-                {/* Right Column */}
-                <Grid 
-                  item 
-                  xs={12} 
-                  sm={6} 
-                  md={6} 
-                  sx={{ 
-                    flex: '0 0 50%', 
-                    maxWidth: '50%',
-                    minWidth: '50%',
-                    // Ensure proper spacing on tablets
-                    pl: { xs: 1, sm: 1.5, md: 1.5 }
-                  }}
-                >
-                  {activeNotifications
-                    .filter((_, index) => index % 2 === 1)
-                    .map((notification) => (
-                      <Card
-                        key={notification.id}
-                        sx={{
-                          mb: { xs: 1.5, sm: 2, md: 2 },
-                          minHeight: { xs: '100px', sm: '120px', md: '120px' },
-                          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                          color: 'white',
-                          border: '2px solid #4a5568',
-                          borderRadius: { xs: '8px', sm: '12px', md: '12px' },
-                          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 12px 40px rgba(0,0,0,0.15)'
-                          }
-                        }}
-                      >
-                        <CardContent sx={{ 
-                          p: { xs: 1.5, sm: 2, md: 2 }, 
-                          textAlign: 'center' 
+                          {getChildEmoji(notification.childName)} {notification.childName}
+                        </Typography>
+                        
+                        {/* Security Code */}
+                        <Typography variant="h5" sx={{
+                          fontWeight: 700,
+                          color: 'black',
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
+                          fontSize: '1.5rem',
+                          mb: 1
                         }}>
-                          {/* Child Name */}
-                          <Typography variant="h3" sx={{
-                            fontWeight: 900,
-                            color: 'black',
-                            textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
-                            letterSpacing: '2px',
-                            fontSize: { 
-                              xs: '2.5rem', 
-                              sm: '3rem', 
-                              md: '3.5rem', 
-                              lg: '4rem' 
-                            },
-                            textAlign: 'center',
-                            lineHeight: 1.2
-                          }}>
-                            {getChildEmoji(notification.childName)} {notification.childName}
-                          </Typography>
-                          
-                          {/* Security Code */}
-                          <Typography variant="h4" sx={{
-                            fontWeight: 700,
-                            color: 'black',
-                            textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
-                            fontSize: { 
-                              xs: '1.5rem', 
-                              sm: '1.8rem', 
-                              md: '2rem', 
-                              lg: '2.5rem' 
-                            },
-                            mt: 1,
-                            mb: 1
-                          }}>
-                            {notification.securityCode}
-                          </Typography>
-                          
-                          {/* Time and Location */}
-                          <Typography variant="h6" sx={{
-                            color: 'black',
-                            fontSize: { 
-                              xs: '1rem', 
-                              sm: '1.1rem', 
-                              md: '1.2rem', 
-                              lg: '1.5rem' 
-                            },
-                            opacity: 0.9
-                          }}>
-                            {formatTime(notification.notifiedAt)} • {notification.locationName}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    ))}
-                </Grid>
+                          {notification.securityCode}
+                        </Typography>
+                        
+                        {/* Time and Location */}
+                        <Typography variant="body1" sx={{
+                          color: 'black',
+                          fontSize: '0.95rem',
+                          opacity: 0.9
+                        }}>
+                          {formatTime(notification.notifiedAt)} • {notification.locationName}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </Grid>
             )}
           </Box>
