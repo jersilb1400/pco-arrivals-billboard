@@ -253,56 +253,6 @@ function SimpleBillboard() {
       px: 2
     }}>
       <Container maxWidth="xl" sx={{ py: 2 }}>
-        {/* Sound Toggle Button */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          mb: 2,
-          position: 'sticky',
-          top: 0,
-          zIndex: 1000,
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          borderRadius: 1,
-          p: 1,
-          gap: 1
-        }}>
-          {/* Test Sound Button */}
-          <Tooltip title="Test sound notification">
-            <IconButton
-              onClick={() => {
-                console.log('🔊 Test sound button clicked');
-                playNotificationSound();
-              }}
-              color="secondary"
-              sx={{
-                backgroundColor: 'secondary.main',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: 'secondary.dark',
-                }
-              }}
-            >
-              🔊
-            </IconButton>
-          </Tooltip>
-          
-          {/* Sound Toggle Button */}
-          <Tooltip title={soundEnabled ? "Turn off sound notifications" : "Turn on sound notifications"}>
-            <IconButton
-              onClick={handleSoundToggle}
-              color={soundEnabled ? "primary" : "default"}
-              sx={{
-                backgroundColor: soundEnabled ? 'primary.main' : 'grey.300',
-                color: soundEnabled ? 'white' : 'grey.600',
-                '&:hover': {
-                  backgroundColor: soundEnabled ? 'primary.dark' : 'grey.400',
-                }
-              }}
-            >
-              {soundEnabled ? <VolumeUp /> : <VolumeOff />}
-            </IconButton>
-          </Tooltip>
-        </Box>
 
         {/* Error Display */}
         {error && (
@@ -351,8 +301,55 @@ function SimpleBillboard() {
               color: 'white',
               py: 3,
               borderRadius: 2,
-              boxShadow: 3
+              boxShadow: 3,
+              position: 'relative'
             }}>
+              {/* Sound Controls */}
+              <Box sx={{ 
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                display: 'flex',
+                gap: 1
+              }}>
+                {/* Test Sound Button */}
+                <Tooltip title="Test sound notification">
+                  <IconButton
+                    onClick={() => {
+                      console.log('🔊 Test sound button clicked');
+                      playNotificationSound();
+                    }}
+                    color="secondary"
+                    sx={{
+                      backgroundColor: 'secondary.main',
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'secondary.dark',
+                      }
+                    }}
+                  >
+                    🔊
+                  </IconButton>
+                </Tooltip>
+                
+                {/* Sound Toggle Button */}
+                <Tooltip title={soundEnabled ? "Turn off sound notifications" : "Turn on sound notifications"}>
+                  <IconButton
+                    onClick={handleSoundToggle}
+                    color={soundEnabled ? "primary" : "default"}
+                    sx={{
+                      backgroundColor: soundEnabled ? 'primary.main' : 'grey.300',
+                      color: soundEnabled ? 'white' : 'grey.600',
+                      '&:hover': {
+                        backgroundColor: soundEnabled ? 'primary.dark' : 'grey.400',
+                      }
+                    }}
+                  >
+                    {soundEnabled ? <VolumeUp /> : <VolumeOff />}
+                  </IconButton>
+                </Tooltip>
+              </Box>
+
               <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1 }}>
                 {globalBillboard.activeBillboard.eventName}
               </Typography>
@@ -477,7 +474,7 @@ function SimpleBillboard() {
                           lineHeight: 1.2,
                           mb: 1
                         }}>
-                          {getChildEmoji(notification.childName)} {notification.childName}
+                          <span style={{ fontSize: '2.5rem' }}>{getChildEmoji(notification.childName)}</span> {notification.childName}
                         </Typography>
                         
                         {/* Security Code */}
