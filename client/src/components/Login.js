@@ -51,8 +51,9 @@ function Login() {
     }
   }, [session, navigate]);
 
-  // Turnstile callback function
+  // Turnstile callback function and widget initialization
   useEffect(() => {
+    // Set up global callback functions
     window.onTurnstileSuccess = (token) => {
       console.log('🔒 Turnstile verification successful');
       setTurnstileToken(token);
@@ -70,8 +71,47 @@ function Login() {
       setTurnstileToken('');
     };
 
+    // Initialize Turnstile widget when component mounts
+    const initializeTurnstile = () => {
+      if (window.turnstile) {
+        console.log('🔒 Initializing Turnstile widget');
+        window.turnstile.render('#turnstile-widget', {
+          sitekey: '0x4AAAAAAB8GhuodRZZpmwu2',
+          callback: (token) => {
+            console.log('🔒 Turnstile verification successful');
+            setTurnstileToken(token);
+            setError('');
+          },
+          'error-callback': (error) => {
+            console.error('🔒 Turnstile verification failed:', error);
+            setTurnstileToken('');
+            setError('Security verification failed. Please try again.');
+          },
+          'expired-callback': () => {
+            console.log('🔒 Turnstile token expired');
+            setTurnstileToken('');
+          },
+          theme: 'light',
+          size: 'normal'
+        });
+      } else {
+        // If Turnstile script hasn't loaded yet, try again in 100ms
+        setTimeout(initializeTurnstile, 100);
+      }
+    };
+
+    // Start initialization
+    initializeTurnstile();
+
     // Cleanup function
     return () => {
+      if (window.turnstile) {
+        try {
+          window.turnstile.remove('#turnstile-widget');
+        } catch (e) {
+          console.log('Turnstile cleanup:', e.message);
+        }
+      }
       delete window.onTurnstileSuccess;
       delete window.onTurnstileError;
       delete window.onTurnstileExpired;
@@ -223,14 +263,18 @@ function Login() {
             </Box>
 
             {/* Cloudflare Turnstile Widget */}
-            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-              <div 
-                className="cf-turnstile" 
-                data-sitekey="0x4AAAAAAB8GhuodRZZpmwu2"
-                data-callback="onTurnstileSuccess"
-                data-theme="light"
-                data-size="normal"
-              />
+            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center' }}>
+              <div id="turnstile-widget" />
+              {!turnstileToken && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                  Complete the security verification above
+                </Typography>
+              )}
+              {turnstileToken && (
+                <Typography variant="caption" color="success.main" sx={{ mt: 1 }}>
+                  ✓ Security verification complete
+                </Typography>
+              )}
             </Box>
 
             <Button
