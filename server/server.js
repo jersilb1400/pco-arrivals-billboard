@@ -330,26 +330,50 @@ app.delete('/api/admin/users/:id', (req, res) => {
 });
 
 // Simple login endpoint - no OAuth needed
-app.get('/api/auth/login', (req, res) => {
-  const { userId, email, userInput } = req.query;
+app.post('/api/auth/login', async (req, res) => {
+  const { userInput, turnstileToken } = req.body;
   
-  // Support multiple input methods: userId, email, or userInput (which could be either)
-  const inputValue = userInput || userId || email;
-  
-  if (!inputValue) {
+  if (!userInput) {
     return res.status(400).json({ error: 'User ID or email required' });
   }
-  
-  console.log(`[LOGIN] Attempting login with input: ${inputValue}`);
+
+  if (!turnstileToken) {
+    return res.status(400).json({ error: 'Security verification required' });
+  }
+
+  console.log(`[LOGIN] Attempting login with input: ${userInput}`);
+
+  // Verify Turnstile token
+  try {
+    const turnstileResponse = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      secret: process.env.TURNSTILE_SECRET_KEY || '0x4AAAAAAB8GhuFM-YmXw2t7ce1y3L_lt8A',
+      response: turnstileToken,
+      remoteip: req.ip
+    }, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+
+    if (!turnstileResponse.data.success) {
+      console.log(`[LOGIN] Turnstile verification failed:`, turnstileResponse.data);
+      return res.status(400).json({ error: 'Security verification failed. Please try again.' });
+    }
+
+    console.log(`[LOGIN] Turnstile verification successful`);
+  } catch (turnstileError) {
+    console.error(`[LOGIN] Turnstile verification error:`, turnstileError.message);
+    return res.status(500).json({ error: 'Security verification service unavailable' });
+  }
   
   // Check if user is authorized - search by both ID and email
   const user = authorizedUsers.find(u => 
-    u.id === inputValue || 
-    (u.email && u.email.toLowerCase() === inputValue.toLowerCase())
+    u.id === userInput || 
+    (u.email && u.email.toLowerCase() === userInput.toLowerCase())
   );
   
   if (!user) {
-    console.log(`[LOGIN] User not found: ${inputValue}`);
+    console.log(`[LOGIN] User not found: ${userInput}`);
     console.log(`[LOGIN] Available users:`, authorizedUsers.map(u => ({ id: u.id, email: u.email })));
     return res.status(403).json({ error: 'User not authorized. Please check your User ID or email address.' });
   }

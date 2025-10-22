@@ -24,6 +24,7 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loginMessage, setLoginMessage] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
   const navigate = useNavigate();
   const { session, checkSession } = useSession();
 
@@ -50,9 +51,41 @@ function Login() {
     }
   }, [session, navigate]);
 
+  // Turnstile callback function
+  useEffect(() => {
+    window.onTurnstileSuccess = (token) => {
+      console.log('🔒 Turnstile verification successful');
+      setTurnstileToken(token);
+      setError(''); // Clear any previous errors
+    };
+
+    window.onTurnstileError = (error) => {
+      console.error('🔒 Turnstile verification failed:', error);
+      setTurnstileToken('');
+      setError('Security verification failed. Please try again.');
+    };
+
+    window.onTurnstileExpired = () => {
+      console.log('🔒 Turnstile token expired');
+      setTurnstileToken('');
+    };
+
+    // Cleanup function
+    return () => {
+      delete window.onTurnstileSuccess;
+      delete window.onTurnstileError;
+      delete window.onTurnstileExpired;
+    };
+  }, []);
+
   const handleLogin = async () => {
     if (!userInput.trim()) {
       setError('Please enter your User ID or email address');
+      return;
+    }
+
+    if (!turnstileToken) {
+      setError('Please complete the security verification');
       return;
     }
 
@@ -68,9 +101,12 @@ function Login() {
         setLoginMessage('Server is starting up, this may take up to a minute...');
       }, 10000); // Show hibernation message after 10 seconds
       
-      // Call the simple login endpoint with userInput parameter
+      // Call the simple login endpoint with userInput parameter and Turnstile token
       // Use longer timeout to handle Render service hibernation (can take 30-60s to wake up)
-      const response = await api.get(`/auth/login?userInput=${encodeURIComponent(userInput)}`, {
+      const response = await api.post('/auth/login', {
+        userInput: userInput,
+        turnstileToken: turnstileToken
+      }, {
         timeout: 90000 // 90 seconds to handle hibernation wakeup
       });
       
@@ -186,13 +222,24 @@ function Login() {
               />
             </Box>
 
+            {/* Cloudflare Turnstile Widget */}
+            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+              <div 
+                className="cf-turnstile" 
+                data-sitekey="0x4AAAAAAB8GhuodRZZpmwu2"
+                data-callback="onTurnstileSuccess"
+                data-theme="light"
+                data-size="normal"
+              />
+            </Box>
+
             <Button
               variant="contained"
               fullWidth
               size="large"
               startIcon={<LoginIcon />}
               onClick={handleLogin}
-              disabled={loading || !userInput.trim()}
+              disabled={loading || !userInput.trim() || !turnstileToken}
               sx={{
                 py: 1.5,
                 mb: 3,
