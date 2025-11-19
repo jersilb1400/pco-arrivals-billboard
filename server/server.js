@@ -1514,8 +1514,13 @@ app.post('/api/security-code-entry', async (req, res) => {
 
     console.log(`[SECURITY CODE] Searching for security code ${securityCode} in event ${eventId} on date ${eventDate}`);
 
-    // Search for active check-ins with this security code, filtered by event and date
-    const url = `${PCO_API_BASE}/check_ins?where[security_code]=${securityCode}&where[event_id]=${eventId}&include=person,locations`;
+    // Normalize security code to lowercase for case-insensitive comparison
+    const normalizedSecurityCode = securityCode.toLowerCase();
+
+    // Fetch all check-ins for the event to avoid case-sensitivity issues with PCO API
+    // The PCO API's where[security_code] filter is case-sensitive, so we fetch all
+    // check-ins and filter in memory using case-insensitive comparison
+    const url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations`;
     console.log(`[SECURITY CODE] PCO API URL: ${url}`);
     
     const checkInResponse = await axios.get(url, {
@@ -1528,20 +1533,22 @@ app.post('/api/security-code-entry', async (req, res) => {
       }
     });
 
-    const checkIns = checkInResponse.data.data;
+    const allCheckIns = checkInResponse.data.data;
     const included = checkInResponse.data.included || [];
 
-    console.log(`[SECURITY CODE] Found ${checkIns.length} total check-ins with security code ${securityCode} in event ${eventId}`);
+    console.log(`[SECURITY CODE] Found ${allCheckIns.length} total check-ins in event ${eventId}`);
 
-    // Filter by date and active status
-    const activeCheckIns = checkIns.filter(checkIn => {
+    // Filter by security code (case-insensitive), date, and active status
+    const activeCheckIns = allCheckIns.filter(checkIn => {
+      const checkInSecurityCode = checkIn.attributes.security_code?.toLowerCase() || '';
+      const matchesSecurityCode = checkInSecurityCode === normalizedSecurityCode;
       const isActive = !checkIn.attributes.checked_out_at;
       const checkInDate = new Date(checkIn.attributes.created_at).toISOString().split('T')[0];
       const matchesDate = checkInDate === eventDate;
       
-      console.log(`[SECURITY CODE] Check-in ${checkIn.id}: active=${isActive}, date=${checkInDate}, matches=${matchesDate}`);
+      console.log(`[SECURITY CODE] Check-in ${checkIn.id}: code=${checkIn.attributes.security_code} (normalized: ${checkInSecurityCode}), matchesCode=${matchesSecurityCode}, active=${isActive}, date=${checkInDate}, matchesDate=${matchesDate}`);
       
-      return isActive && matchesDate;
+      return matchesSecurityCode && isActive && matchesDate;
     });
 
     console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins for date ${eventDate}`);
