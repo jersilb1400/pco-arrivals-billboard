@@ -1517,25 +1517,96 @@ app.post('/api/security-code-entry', async (req, res) => {
     // Normalize security code to lowercase for case-insensitive comparison
     const normalizedSecurityCode = securityCode.toLowerCase();
 
-    // Fetch all check-ins for the event to avoid case-sensitivity issues with PCO API
-    // The PCO API's where[security_code] filter is case-sensitive, so we fetch all
-    // check-ins and filter in memory using case-insensitive comparison
-    const url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations`;
-    console.log(`[SECURITY CODE] PCO API URL: ${url}`);
+    // Try the original query method first (more efficient) with both uppercase and lowercase
+    // If that doesn't work, fall back to fetching all check-ins for the event
+    let allCheckIns = [];
+    let allIncluded = [];
     
-    const checkInResponse = await axios.get(url, {
-      auth: {
-        username: process.env.PCO_ACCESS_TOKEN,
-        password: process.env.PCO_ACCESS_SECRET
-      },
-      headers: {
-        'Accept': 'application/json'
+    // First, try querying with the exact security code as provided (uppercase)
+    try {
+      const url1 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode)}&where[event_id]=${eventId}&include=person,locations`;
+      console.log(`[SECURITY CODE] Trying PCO API URL (uppercase): ${url1}`);
+      
+      const response1 = await axios.get(url1, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      allCheckIns = allCheckIns.concat(response1.data.data || []);
+      if (response1.data.included) allIncluded = allIncluded.concat(response1.data.included);
+      console.log(`[SECURITY CODE] Found ${response1.data.data?.length || 0} check-ins with uppercase code`);
+    } catch (error) {
+      console.log(`[SECURITY CODE] Uppercase query failed or returned no results:`, error.response?.status || error.message);
+    }
+    
+    // Also try with lowercase version
+    try {
+      const url2 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode.toLowerCase())}&where[event_id]=${eventId}&include=person,locations`;
+      console.log(`[SECURITY CODE] Trying PCO API URL (lowercase): ${url2}`);
+      
+      const response2 = await axios.get(url2, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      // Merge results, avoiding duplicates
+      const newCheckIns = (response2.data.data || []).filter(ci => !allCheckIns.find(existing => existing.id === ci.id));
+      allCheckIns = allCheckIns.concat(newCheckIns);
+      if (response2.data.included) {
+        const newIncluded = response2.data.included.filter(inc => !allIncluded.find(existing => existing.id === inc.id && existing.type === inc.type));
+        allIncluded = allIncluded.concat(newIncluded);
       }
-    });
+      console.log(`[SECURITY CODE] Found ${response2.data.data?.length || 0} check-ins with lowercase code`);
+    } catch (error) {
+      console.log(`[SECURITY CODE] Lowercase query failed or returned no results:`, error.response?.status || error.message);
+    }
+    
+    // If we still don't have results, fetch all check-ins for the event as fallback
+    if (allCheckIns.length === 0) {
+      console.log(`[SECURITY CODE] No results from direct queries, fetching all check-ins for event as fallback`);
+      let nextPage = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations&per_page=100`;
+      
+      while (nextPage) {
+        try {
+          const checkInResponse = await axios.get(nextPage, {
+            auth: {
+              username: process.env.PCO_ACCESS_TOKEN,
+              password: process.env.PCO_ACCESS_SECRET
+            },
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
 
-    const allCheckIns = checkInResponse.data.data;
-    const included = checkInResponse.data.included || [];
+          const { data, included, links } = checkInResponse.data;
+          allCheckIns = allCheckIns.concat(data || []);
+          if (included) allIncluded = allIncluded.concat(included);
+          nextPage = links?.next || null;
+          
+          console.log(`[SECURITY CODE] Fetched page with ${data?.length || 0} check-ins, total so far: ${allCheckIns.length}`);
+        } catch (error) {
+          console.error(`[SECURITY CODE] Error fetching check-ins:`, error.response?.data || error.message);
+          // If it's a 404, the event might not exist or have no check-ins
+          if (error.response?.status === 404) {
+            console.log(`[SECURITY CODE] Event ${eventId} not found or has no check-ins`);
+            break;
+          }
+          throw error;
+        }
+      }
+    }
 
+    const included = allIncluded;
     console.log(`[SECURITY CODE] Found ${allCheckIns.length} total check-ins in event ${eventId}`);
 
     // Filter by security code (case-insensitive), date, and active status
