@@ -14,6 +14,25 @@ const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 
+// Debug logging helper - writes to both file and console for visibility
+const DEBUG_LOG_PATH = path.join(__dirname, '..', '.cursor', 'debug.log');
+const debugLog = (data) => {
+  try {
+    const logEntry = JSON.stringify({...data, timestamp: Date.now()}) + '\n';
+    // Ensure directory exists
+    const logDir = path.dirname(DEBUG_LOG_PATH);
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    fs.appendFileSync(DEBUG_LOG_PATH, logEntry, 'utf8');
+    // Also log to console for visibility (especially on Render)
+    console.log(`[DEBUG] ${data.message}:`, JSON.stringify(data.data, null, 2));
+  } catch (e) {
+    // Fallback to console if file write fails
+    console.log(`[DEBUG] ${data.message}:`, JSON.stringify(data.data, null, 2));
+  }
+};
+
 // Import routes
 // Note: Admin routes are defined directly in this file, not imported
 // Note: Auth routes are defined directly in this file, not imported
@@ -1491,6 +1510,10 @@ app.post('/api/security-code-entry', async (req, res) => {
   try {
     const { securityCode, eventId, eventDate } = req.body;
     
+    // #region agent log
+    debugLog({location:'server.js:1492',message:'Security code entry request',data:{securityCode,eventId,eventDate},sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
+    // #endregion
+    
     if (!securityCode) {
       return res.status(400).json({ 
         success: false, 
@@ -1540,8 +1563,14 @@ app.post('/api/security-code-entry', async (req, res) => {
       allCheckIns = allCheckIns.concat(response1.data.data || []);
       if (response1.data.included) allIncluded = allIncluded.concat(response1.data.included);
       console.log(`[SECURITY CODE] Found ${response1.data.data?.length || 0} check-ins with uppercase code`);
+      // #region agent log
+      debugLog({location:'server.js:1542',message:'Uppercase query result',data:{found:response1.data.data?.length||0,checkIns:response1.data.data?.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))||[]},sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+      // #endregion
     } catch (error) {
       console.log(`[SECURITY CODE] Uppercase query failed or returned no results:`, error.response?.status || error.message);
+      // #region agent log
+      debugLog({location:'server.js:1544',message:'Uppercase query error',data:{status:error.response?.status,message:error.message},sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+      // #endregion
     }
     
     // Also try with lowercase version
@@ -1567,8 +1596,14 @@ app.post('/api/security-code-entry', async (req, res) => {
         allIncluded = allIncluded.concat(newIncluded);
       }
       console.log(`[SECURITY CODE] Found ${response2.data.data?.length || 0} check-ins with lowercase code`);
+      // #region agent log
+      debugLog({location:'server.js:1569',message:'Lowercase query result',data:{found:response2.data.data?.length||0,newCheckIns:newCheckIns.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))},sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+      // #endregion
     } catch (error) {
       console.log(`[SECURITY CODE] Lowercase query failed or returned no results:`, error.response?.status || error.message);
+      // #region agent log
+      debugLog({location:'server.js:1571',message:'Lowercase query error',data:{status:error.response?.status,message:error.message},sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
+      // #endregion
     }
     
     // If we still don't have results, fetch all check-ins for the event as fallback
@@ -1594,8 +1629,14 @@ app.post('/api/security-code-entry', async (req, res) => {
           nextPage = links?.next || null;
           
           console.log(`[SECURITY CODE] Fetched page with ${data?.length || 0} check-ins, total so far: ${allCheckIns.length}`);
+          // #region agent log
+          debugLog({location:'server.js:1596',message:'Fallback pagination - page fetched',data:{pageCheckIns:data?.length||0,totalSoFar:allCheckIns.length,hasNextPage:!!links?.next},sessionId:'debug-session',runId:'run1',hypothesisId:'F'});
+          // #endregion
         } catch (error) {
           console.error(`[SECURITY CODE] Error fetching check-ins:`, error.response?.data || error.message);
+          // #region agent log
+          debugLog({location:'server.js:1598',message:'Fallback pagination error',data:{status:error.response?.status,message:error.message},sessionId:'debug-session',runId:'run1',hypothesisId:'F'});
+          // #endregion
           // If it's a 404, the event might not exist or have no check-ins
           if (error.response?.status === 404) {
             console.log(`[SECURITY CODE] Event ${eventId} not found or has no check-ins`);
@@ -1604,27 +1645,71 @@ app.post('/api/security-code-entry', async (req, res) => {
           throw error;
         }
       }
+      // #region agent log
+      debugLog({location:'server.js:1607',message:'Fallback complete - all check-ins fetched',data:{totalCheckIns:allCheckIns.length,eventId},sessionId:'debug-session',runId:'run1',hypothesisId:'F'});
+      // #endregion
     }
 
     const included = allIncluded;
     console.log(`[SECURITY CODE] Found ${allCheckIns.length} total check-ins in event ${eventId}`);
 
-    // Filter by security code (case-insensitive), date, and active status
+    // #region agent log
+    debugLog({location:'server.js:1610',message:'Before filtering - all check-ins found',data:{totalCheckIns:allCheckIns.length,eventId,eventDate,normalizedSecurityCode,allSecurityCodes:allCheckIns.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))},sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'});
+    // #endregion
+
+    // Filter by security code (case-insensitive) and active status
+    // Note: We don't filter by date for security code entry because:
+    // 1. Check-ins might be created on a different date than the event date (pre-check-in, timezone issues)
+    // 2. The eventId already ensures we're looking at the correct event
+    // 3. The user confirmed codes exist and are active in PCO, so date filtering was too restrictive
     const activeCheckIns = allCheckIns.filter(checkIn => {
       const checkInSecurityCode = checkIn.attributes.security_code?.toLowerCase() || '';
       const matchesSecurityCode = checkInSecurityCode === normalizedSecurityCode;
       const isActive = !checkIn.attributes.checked_out_at;
-      const checkInDate = new Date(checkIn.attributes.created_at).toISOString().split('T')[0];
-      const matchesDate = checkInDate === eventDate;
       
-      console.log(`[SECURITY CODE] Check-in ${checkIn.id}: code=${checkIn.attributes.security_code} (normalized: ${checkInSecurityCode}), matchesCode=${matchesSecurityCode}, active=${isActive}, date=${checkInDate}, matchesDate=${matchesDate}`);
+      // Log date info for debugging but don't filter by it
+      let checkInDate;
+      try {
+        const createdAt = checkIn.attributes.created_at;
+        if (createdAt) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(createdAt)) {
+            checkInDate = createdAt;
+          } else {
+            const dateObj = new Date(createdAt);
+            const year = dateObj.getUTCFullYear();
+            const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getUTCDate()).padStart(2, '0');
+            checkInDate = `${year}-${month}-${day}`;
+          }
+        } else {
+          checkInDate = 'unknown';
+        }
+      } catch (e) {
+        checkInDate = 'error';
+      }
       
-      return matchesSecurityCode && isActive && matchesDate;
+      console.log(`[SECURITY CODE] Check-in ${checkIn.id}: code=${checkIn.attributes.security_code} (normalized: ${checkInSecurityCode}), matchesCode=${matchesSecurityCode}, active=${isActive}, checkInDate=${checkInDate}, eventDate=${eventDate}`);
+      
+      // #region agent log
+      if (checkInSecurityCode === normalizedSecurityCode || checkIn.attributes.security_code?.toUpperCase() === securityCode.toUpperCase()) {
+        debugLog({location:'server.js:1661',message:'Matching security code found - filtering details',data:{checkInId:checkIn.id,securityCode:checkIn.attributes.security_code,normalizedCode:checkInSecurityCode,matchesCode:matchesSecurityCode,isActive,checkInDate,eventDate,createdAt:checkIn.attributes.created_at,checkedOutAt:checkIn.attributes.checked_out_at},sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B'});
+      }
+      // #endregion
+      
+      // Only filter by security code match and active status (removed date filter)
+      return matchesSecurityCode && isActive;
     });
 
     console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins for date ${eventDate}`);
 
+    // #region agent log
+    debugLog({location:'server.js:1625',message:'After filtering - final results',data:{activeCheckInsCount:activeCheckIns.length,eventDate,securityCode,normalizedSecurityCode,activeCheckIns:activeCheckIns.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))},sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
+    // #endregion
+
     if (activeCheckIns.length === 0) {
+      // #region agent log
+      debugLog({location:'server.js:1627',message:'No active check-ins found - returning error',data:{securityCode,eventId,eventDate,normalizedSecurityCode,totalCheckInsFound:allCheckIns.length},sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
+      // #endregion
       return res.json({ 
         success: false, 
         message: 'No active check-in found with this security code for the current event and date. The child may have already been checked out or may not be checked in for this event.' 
