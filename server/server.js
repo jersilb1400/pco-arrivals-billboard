@@ -1657,17 +1657,14 @@ app.post('/api/security-code-entry', async (req, res) => {
     debugLog({location:'server.js:1610',message:'Before filtering - all check-ins found',data:{totalCheckIns:allCheckIns.length,eventId,eventDate,normalizedSecurityCode,allSecurityCodes:allCheckIns.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))},sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'});
     // #endregion
 
-    // Filter by security code (case-insensitive) and active status
-    // Note: We don't filter by date for security code entry because:
-    // 1. Check-ins might be created on a different date than the event date (pre-check-in, timezone issues)
-    // 2. The eventId already ensures we're looking at the correct event
-    // 3. The user confirmed codes exist and are active in PCO, so date filtering was too restrictive
+    // Filter by security code (case-insensitive), active status, and date (lenient ±1 day for timezone)
+    // We use lenient date matching to handle timezone issues while preventing check-ins from previous sessions
     const activeCheckIns = allCheckIns.filter(checkIn => {
       const checkInSecurityCode = checkIn.attributes.security_code?.toLowerCase() || '';
       const matchesSecurityCode = checkInSecurityCode === normalizedSecurityCode;
       const isActive = !checkIn.attributes.checked_out_at;
       
-      // Log date info for debugging but don't filter by it
+      // Extract check-in date (UTC)
       let checkInDate;
       try {
         const createdAt = checkIn.attributes.created_at;
@@ -1688,19 +1685,29 @@ app.post('/api/security-code-entry', async (req, res) => {
         checkInDate = 'error';
       }
       
-      console.log(`[SECURITY CODE] Check-in ${checkIn.id}: code=${checkIn.attributes.security_code} (normalized: ${checkInSecurityCode}), matchesCode=${matchesSecurityCode}, active=${isActive}, checkInDate=${checkInDate}, eventDate=${eventDate}`);
+      // Lenient date matching: allow ±1 day to handle timezone issues
+      // This prevents finding check-ins from previous sessions while handling timezone edge cases
+      let matchesDate = false;
+      if (checkInDate !== 'unknown' && checkInDate !== 'error' && eventDate) {
+        const eventDateObj = new Date(eventDate + 'T00:00:00Z');
+        const checkInDateObj = new Date(checkInDate + 'T00:00:00Z');
+        const daysDiff = Math.abs((checkInDateObj - eventDateObj) / (1000 * 60 * 60 * 24));
+        matchesDate = daysDiff <= 1; // Allow ±1 day
+      }
+      
+      console.log(`[SECURITY CODE] Check-in ${checkIn.id}: code=${checkIn.attributes.security_code} (normalized: ${checkInSecurityCode}), matchesCode=${matchesSecurityCode}, active=${isActive}, checkInDate=${checkInDate}, eventDate=${eventDate}, matchesDate=${matchesDate}`);
       
       // #region agent log
       if (checkInSecurityCode === normalizedSecurityCode || checkIn.attributes.security_code?.toUpperCase() === securityCode.toUpperCase()) {
-        debugLog({location:'server.js:1661',message:'Matching security code found - filtering details',data:{checkInId:checkIn.id,securityCode:checkIn.attributes.security_code,normalizedCode:checkInSecurityCode,matchesCode:matchesSecurityCode,isActive,checkInDate,eventDate,createdAt:checkIn.attributes.created_at,checkedOutAt:checkIn.attributes.checked_out_at},sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B'});
+        debugLog({location:'server.js:1661',message:'Matching security code found - filtering details',data:{checkInId:checkIn.id,securityCode:checkIn.attributes.security_code,normalizedCode:checkInSecurityCode,matchesCode:matchesSecurityCode,isActive,checkInDate,eventDate,matchesDate,createdAt:checkIn.attributes.created_at,checkedOutAt:checkIn.attributes.checked_out_at},sessionId:'debug-session',runId:'run1',hypothesisId:'1'});
       }
       // #endregion
       
-      // Only filter by security code match and active status (removed date filter)
-      return matchesSecurityCode && isActive;
+      // Filter by security code match, active status, and date (lenient ±1 day)
+      return matchesSecurityCode && isActive && matchesDate;
     });
 
-    console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins for date ${eventDate}`);
+    console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins (matching by code, active status, and date ±1 day for timezone)`);
 
     // #region agent log
     debugLog({location:'server.js:1625',message:'After filtering - final results',data:{activeCheckInsCount:activeCheckIns.length,eventDate,securityCode,normalizedSecurityCode,activeCheckIns:activeCheckIns.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))},sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
@@ -1810,27 +1817,25 @@ app.get('/api/active-notifications', async (req, res) => {
       console.log(`[DEBUG] Filtering by event: ${eventId}, date: ${eventDate}`);
     }
     
-    // Filter notifications by event if specified, but be more lenient
+    // Filter notifications by event and date - STRICT matching to prevent showing notifications from previous sessions
     let filteredNotifications = activeNotifications;
     if (eventId && eventDate) {
-      // First try exact match
+      // Only show notifications that match BOTH eventId AND eventDate
+      // This prevents showing notifications from previous sessions/dates
       filteredNotifications = activeNotifications.filter(n => 
-        n.eventId === eventId && n.eventDate === eventDate
+        String(n.eventId) === String(eventId) && String(n.eventDate) === String(eventDate)
       );
       
-      // If no exact matches, try just eventId (in case date format differs)
-      if (filteredNotifications.length === 0) {
-        filteredNotifications = activeNotifications.filter(n => n.eventId === eventId);
-        console.log(`[DEBUG] No exact matches, trying eventId only: ${filteredNotifications.length} notifications`);
-      }
+      console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for event ${eventId} on date ${eventDate} (strict matching)`);
       
-      // If still no matches, show all notifications (for debugging)
-      if (filteredNotifications.length === 0) {
-        console.log(`[DEBUG] No matches found, showing all notifications for debugging`);
-        filteredNotifications = activeNotifications;
+      // Log if there are notifications from other dates/events for debugging
+      const otherNotifications = activeNotifications.filter(n => 
+        String(n.eventId) === String(eventId) && String(n.eventDate) !== String(eventDate)
+      );
+      if (otherNotifications.length > 0) {
+        console.log(`[DEBUG] Found ${otherNotifications.length} notifications for event ${eventId} but different dates (ignored):`, 
+          otherNotifications.map(n => ({ date: n.eventDate, checkInId: n.checkInId })));
       }
-      
-      console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for event ${eventId}`);
     }
     
     // ALWAYS check PCO for checked-out children to ensure immediate cleanup
@@ -1870,8 +1875,20 @@ app.get('/api/active-notifications', async (req, res) => {
         
           // Check which ones are checked out
           batchResults.forEach(checkIn => {
-            if (checkIn && checkIn.attributes && checkIn.attributes.checked_out_at) {
-              checkedOutIds.push(checkIn.id);
+            if (checkIn && checkIn.attributes) {
+              const isCheckedOut = !!checkIn.attributes.checked_out_at;
+              const checkInId = String(checkIn.id);
+              
+              // #region agent log
+              debugLog({location:'server.js:1872',message:'Check-out status check',data:{checkInId,isCheckedOut,checkedOutAt:checkIn.attributes.checked_out_at,hasAttributes:!!checkIn.attributes},sessionId:'debug-session',runId:'run1',hypothesisId:'2'});
+              // #endregion
+              
+              if (isCheckedOut) {
+                checkedOutIds.push(checkInId);
+                console.log(`[DEBUG] Check-in ${checkInId} is checked out at ${checkIn.attributes.checked_out_at}`);
+              }
+            } else if (checkIn === null) {
+              console.log(`[DEBUG] Check-in returned null from API (may have been deleted)`);
             }
           });
         }
@@ -1880,16 +1897,18 @@ app.get('/api/active-notifications', async (req, res) => {
         
         if (checkedOutIds.length > 0) {
           // Remove from the global activeNotifications array immediately
+          // Convert checkInIds to strings for comparison
+          const checkedOutIdsStr = checkedOutIds.map(id => String(id));
           const beforeGlobalCount = activeNotifications.length;
           activeNotifications = activeNotifications.filter(n => 
-            !checkedOutIds.includes(n.checkInId)
+            !checkedOutIdsStr.includes(String(n.checkInId))
           );
           const afterGlobalCount = activeNotifications.length;
           
           // Also remove from filtered notifications
           const beforeFilteredCount = filteredNotifications.length;
           filteredNotifications = filteredNotifications.filter(n => 
-            !checkedOutIds.includes(n.checkInId)
+            !checkedOutIdsStr.includes(String(n.checkInId))
           );
           const afterFilteredCount = filteredNotifications.length;
           
