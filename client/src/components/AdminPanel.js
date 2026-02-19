@@ -359,6 +359,9 @@ function AdminPanel() {
 
   // Fetch stations, selection, and colors when event is selected
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/5fe2ea55-8c64-414c-a7d0-2c5133c3d9c3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3f960b'},body:JSON.stringify({sessionId:'3f960b',location:'AdminPanel.js:361',message:'Station useEffect triggered',data:{selectedEvent},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     if (!selectedEvent) {
       setStations([]);
       setSelectedStationIds([]);
@@ -369,12 +372,21 @@ function AdminPanel() {
       setLoadingStations(true);
       setLoadingStationColors(true);
       try {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/5fe2ea55-8c64-414c-a7d0-2c5133c3d9c3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3f960b'},body:JSON.stringify({sessionId:'3f960b',location:'AdminPanel.js:372',message:'Calling /events/:eventId/stations',data:{selectedEvent,url:`/events/${selectedEvent}/stations`},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         const response = await api.get(`/events/${selectedEvent}/stations`);
         const data = response.data;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/5fe2ea55-8c64-414c-a7d0-2c5133c3d9c3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3f960b'},body:JSON.stringify({sessionId:'3f960b',location:'AdminPanel.js:375',message:'Stations API response',data:{status:response.status,dataKeys:Object.keys(data||{}),stationsCount:data?.stations?.length,stationsIsArray:Array.isArray(data?.stations),rawDataType:typeof data,firstStation:data?.stations?.[0]},timestamp:Date.now(),runId:'run1',hypothesisId:'C,D'})}).catch(()=>{});
+        // #endregion
         setStations(Array.isArray(data?.stations) ? data.stations : []);
         setSelectedStationIds(Array.isArray(data?.selectedStationIds) ? data.selectedStationIds : []);
         setStationColorAssignments(data?.stationColors || {});
       } catch (err) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/5fe2ea55-8c64-414c-a7d0-2c5133c3d9c3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3f960b'},body:JSON.stringify({sessionId:'3f960b',location:'AdminPanel.js:382',message:'Stations fetch error',data:{errMessage:err?.message,errStatus:err?.response?.status,errData:err?.response?.data},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         console.error('Error fetching stations:', err);
         setStations([]);
         setSelectedStationIds([]);
