@@ -2472,7 +2472,7 @@ app.put('/api/station-colors', async (req, res) => {
   }
 });
 
-// GET /api/check-in-stations - List ALL check-in stations in the organization
+// GET /api/check-in-stations - List ALL check-in stations (PCO /stations endpoint)
 app.get('/api/check-in-stations', async (req, res) => {
   try {
     const auth = {
@@ -2480,30 +2480,28 @@ app.get('/api/check-in-stations', async (req, res) => {
       password: process.env.PCO_ACCESS_SECRET
     };
     const stations = [];
-    for (const path of ['check_in_stations', 'check-in-stations']) {
-      let nextPage = `${PCO_API_BASE}/${path}?per_page=100`;
-      while (nextPage) {
-        try {
-          const response = await axios.get(nextPage, { auth, headers: { 'Accept': 'application/json' } });
-          const { data, included, links } = response.data;
-          (data || []).forEach(st => {
-            const attrs = st.attributes || (included?.find(i => i.type === st.type && i.id === st.id)?.attributes);
-            if (!stations.find(s => s.id === st.id)) {
-              stations.push({ id: st.id, name: attrs?.name || st.attributes?.name || 'Station ' + st.id });
-            }
-          });
-          nextPage = links?.next || null;
-        } catch (e) {
-          console.log(`[STATIONS] ${path} failed:`, e.response?.status || e.message);
-          nextPage = null;
-        }
-      }
-      if (stations.length > 0) {
-        console.log(`[STATIONS] Found ${stations.length} stations at org level`);
-        return res.json(stations);
+    let nextPage = `${PCO_API_BASE}/stations?include=event,location&per_page=100`;
+    while (nextPage) {
+      try {
+        const response = await axios.get(nextPage, { auth, headers: { 'Accept': 'application/json' } });
+        const { data, included, links } = response.data;
+        (data || []).forEach(st => {
+          const attrs = st.attributes || (included?.find(i => i.type === st.type && i.id === st.id)?.attributes);
+          if (!stations.find(s => s.id === st.id)) {
+            const name = attrs?.name || st.attributes?.name || 'Station ' + st.id;
+            const eventId = st.relationships?.event?.data?.id;
+            const locationId = st.relationships?.location?.data?.id;
+            stations.push({ id: st.id, name, eventId, locationId });
+          }
+        });
+        nextPage = links?.next || null;
+      } catch (e) {
+        console.log('[STATIONS] /stations failed:', e.response?.status, e.response?.data?.errors?.[0]?.detail || e.message);
+        nextPage = null;
       }
     }
-    res.json([]);
+    console.log(`[STATIONS] Found ${stations.length} stations from PCO /stations`);
+    res.json(stations);
   } catch (error) {
     console.error('Error fetching check-in stations:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch stations' });
@@ -2524,28 +2522,38 @@ app.get('/api/events/:eventId/stations', async (req, res) => {
       password: process.env.PCO_ACCESS_SECRET
     };
 
-    // 1. Fetch all stations (org-level check_in_stations, or fallback to event locations)
+    // 1. Fetch all stations from PCO /stations?include=event,location
     let allStations = [];
-    for (const path of ['check_in_stations', 'check-in-stations']) {
-      let nextPage = `${PCO_API_BASE}/${path}?per_page=100`;
-      while (nextPage) {
-        try {
-          const stRes = await axios.get(nextPage, { auth, headers: { 'Accept': 'application/json' } });
-          const data = stRes.data?.data || [];
-          const included = stRes.data?.included || [];
-          data.forEach(st => {
-            if (!allStations.find(s => s.id === st.id)) {
-              const attrs = st.attributes || (included.find(i => i.type === st.type && i.id === st.id)?.attributes);
-              allStations.push({ id: st.id, name: attrs?.name || st.attributes?.name || 'Station ' + st.id });
-            }
-          });
-          nextPage = stRes.data?.links?.next || null;
-        } catch (e) {
-          console.log(`[STATIONS] Org ${path} failed:`, e.response?.status || e.message);
-          nextPage = null;
-        }
+    let nextPage = `${PCO_API_BASE}/stations?include=event,location&per_page=100`;
+    while (nextPage) {
+      try {
+        const stRes = await axios.get(nextPage, { auth, headers: { 'Accept': 'application/json' } });
+        const data = stRes.data?.data || [];
+        const included = stRes.data?.included || [];
+        data.forEach(st => {
+          if (!allStations.find(s => s.id === st.id)) {
+            const attrs = st.attributes || (included.find(i => i.type === st.type && i.id === st.id)?.attributes);
+            const name = attrs?.name || st.attributes?.name || 'Station ' + st.id;
+            const stEventId = st.relationships?.event?.data?.id;
+            const locationId = st.relationships?.location?.data?.id;
+            allStations.push({ id: st.id, name, eventId: stEventId, locationId });
+          }
+        });
+        nextPage = stRes.data?.links?.next || null;
+      } catch (e) {
+        console.log('[STATIONS] /stations failed:', e.response?.status || e.message);
+        nextPage = null;
       }
-      if (allStations.length > 0) break;
+    }
+    // Filter to stations for this event if we have event linkage (optional)
+    if (allStations.length > 0 && allStations.some(s => s.eventId)) {
+      const eventStations = allStations.filter(s => s.eventId === eventId);
+      if (eventStations.length > 0) {
+        allStations = eventStations;
+        console.log(`[STATIONS] Filtered to ${allStations.length} stations for event ${eventId}`);
+      }
+    } else if (allStations.length > 0) {
+      console.log(`[STATIONS] Using all ${allStations.length} stations for event ${eventId}`);
     }
     if (allStations.length === 0) {
       const locResponse = await axios.get(`${PCO_API_BASE}/events/${eventId}/locations?per_page=100`, {
