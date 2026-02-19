@@ -14,7 +14,7 @@ import {
 import { VolumeUp, VolumeOff } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import api from '../utils/api';
-import { getCardBorderColor } from '../utils/locationColors';
+import { getCardBorderColor, getStationColor } from '../utils/locationColors';
 
 function SimpleBillboard() {
   const theme = useTheme();
@@ -440,6 +440,10 @@ function SimpleBillboard() {
                     notification,
                     globalBillboard?.activeBillboard?.locationColors
                   );
+                  const stationColor = getStationColor(
+                    notification,
+                    globalBillboard?.activeBillboard?.stationColors
+                  );
                   return (
                     <Card
                       key={notification.id}
@@ -489,10 +493,31 @@ function SimpleBillboard() {
                         <Typography variant="body1" sx={{
                           color: 'black',
                           fontSize: '0.95rem',
-                          opacity: 0.9
+                          opacity: 0.9,
+                          mb: notification.stationName ? 1 : 0
                         }}>
                           {formatTime(notification.notifiedAt)} • {notification.locationName}
                         </Typography>
+                        
+                        {/* Check-in Station (with colored badge) */}
+                        {notification.stationName && (
+                          <Box
+                            component="span"
+                            sx={{
+                              display: 'inline-block',
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: 1,
+                              backgroundColor: stationColor,
+                              color: 'white',
+                              fontSize: '0.85rem',
+                              fontWeight: 600,
+                              textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                            }}
+                          >
+                            {notification.stationName}
+                          </Box>
+                        )}
                       </CardContent>
                     </Card>
                   );

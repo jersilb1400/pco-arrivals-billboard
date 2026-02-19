@@ -14,6 +14,7 @@ const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
+const StationColor = require('./models/StationColor');
 
 // Debug logging helper - writes to both file and console for visibility
 const DEBUG_LOG_PATH = path.join(__dirname, '..', '.cursor', 'debug.log');
@@ -74,14 +75,15 @@ let checkInCache = {
 let activeNotifications = [];
 
 // Function to update global billboard state
-function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName, locationColors) {
+function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName, locationColors, stationColors) {
   globalBillboardState = {
     activeBillboard: {
       eventId,
       eventName,
       securityCodes: securityCodes || [],
       eventDate,
-      locationColors: locationColors || {}
+      locationColors: locationColors || {},
+      stationColors: stationColors || {}
     },
     lastUpdated: new Date(),
     createdBy: {
@@ -1279,24 +1281,31 @@ app.get('/api/global-billboard', async (req, res) => {
       lastUpdated: globalBillboardState.lastUpdated
     });
     
-    // Enrich with location colors from MongoDB when we have an active billboard
+    // Enrich with location and station colors from MongoDB when we have an active billboard
     let responseData = { ...globalBillboardState };
     if (globalBillboardState.activeBillboard?.eventId) {
       try {
-        const locationColorDoc = await LocationColor.findOne({ eventId: globalBillboardState.activeBillboard.eventId });
-        const locationColors = locationColorDoc?.assignments
+        const [locationColorDoc, stationColorDoc] = await Promise.all([
+          LocationColor.findOne({ eventId: globalBillboardState.activeBillboard.eventId }),
+          StationColor.findOne({ eventId: globalBillboardState.activeBillboard.eventId })
+        ]);
+        const locationColors = locationColorDoc?.assignments && locationColorDoc.assignments.size > 0
           ? Object.fromEntries(locationColorDoc.assignments)
-          : {};
+          : globalBillboardState.activeBillboard.locationColors || {};
+        const stationColors = stationColorDoc?.assignments && stationColorDoc.assignments.size > 0
+          ? Object.fromEntries(stationColorDoc.assignments)
+          : globalBillboardState.activeBillboard.stationColors || {};
         responseData = {
           ...responseData,
           activeBillboard: {
             ...globalBillboardState.activeBillboard,
-            locationColors
+            locationColors,
+            stationColors
           }
         };
       } catch (dbErr) {
-        console.error('Error fetching location colors:', dbErr);
-        // Continue without location colors
+        console.error('Error fetching location/station colors:', dbErr);
+        // Continue with existing colors from state
       }
     }
     
@@ -1570,7 +1579,7 @@ app.post('/api/security-code-entry', async (req, res) => {
     
     // First, try querying with the exact security code as provided (uppercase)
     try {
-      const url1 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode)}&where[event_id]=${eventId}&include=person,locations`;
+      const url1 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode)}&where[event_id]=${eventId}&include=person,locations,station`;
       console.log(`[SECURITY CODE] Trying PCO API URL (uppercase): ${url1}`);
       
       const response1 = await axios.get(url1, {
@@ -1598,7 +1607,7 @@ app.post('/api/security-code-entry', async (req, res) => {
     
     // Also try with lowercase version
     try {
-      const url2 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode.toLowerCase())}&where[event_id]=${eventId}&include=person,locations`;
+      const url2 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode.toLowerCase())}&where[event_id]=${eventId}&include=person,locations,station`;
       console.log(`[SECURITY CODE] Trying PCO API URL (lowercase): ${url2}`);
       
       const response2 = await axios.get(url2, {
@@ -1632,7 +1641,7 @@ app.post('/api/security-code-entry', async (req, res) => {
     // If we still don't have results, fetch all check-ins for the event as fallback
     if (allCheckIns.length === 0) {
       console.log(`[SECURITY CODE] No results from direct queries, fetching all check-ins for event as fallback`);
-      let nextPage = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations&per_page=100`;
+      let nextPage = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations,station&per_page=100`;
       
       while (nextPage) {
         try {
@@ -1748,7 +1757,7 @@ app.post('/api/security-code-entry', async (req, res) => {
 
     const addedChildren = [];
     for (const activeCheckIn of activeCheckIns) {
-      // Get person and location information
+      // Get person, location, and station information
       const person = included.find(item => 
         item.type === 'Person' && 
         item.id === activeCheckIn.relationships.person?.data?.id
@@ -1757,10 +1766,17 @@ app.post('/api/security-code-entry', async (req, res) => {
         item.type === 'Location' &&
         item.id === activeCheckIn.relationships.locations?.data?.[0]?.id
       );
+      // Station: PCO may use 'station' or 'check_in_station' relationship
+      const stationData = activeCheckIn.relationships?.station?.data || activeCheckIn.relationships?.check_in_station?.data;
+      const station = stationData ? included.find(item =>
+        (item.type === 'Station' || item.type === 'CheckInStation') && item.id === stationData.id
+      ) : null;
       const childName = person ? 
         `${person.attributes.first_name} ${person.attributes.last_name}` : 
         'Unknown Child';
       const locationName = location?.attributes?.name || 'Unknown Location';
+      const stationId = station?.id || null;
+      const stationName = station?.attributes?.name || null;
       
       // Check if notification already exists
       const existingNotification = activeNotifications.find(n => 
@@ -1778,6 +1794,8 @@ app.post('/api/security-code-entry', async (req, res) => {
           checkInTime: activeCheckIn.attributes.created_at,
           personId: person?.id,
           locationId: location?.id,
+          stationId,
+          stationName,
           eventId: eventId,
           eventDate: eventDate
         };
@@ -2232,7 +2250,7 @@ app.get('/api/location-status', async (req, res) => {
     console.log(`[DEBUG] Location-status: No cache available, fetching from PCO API`);
     
     // Build the PCO API URL for the selected event and date
-    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations&per_page=100`;
+    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations,station&per_page=100`;
     if (date) {
       url += `&where[created_at]=${date}`;
     }
@@ -2404,11 +2422,109 @@ app.put('/api/location-colors', async (req, res) => {
   }
 });
 
+// GET /api/station-colors - Get station color assignments for an event
+app.get('/api/station-colors', async (req, res) => {
+  try {
+    const { eventId } = req.query;
+    if (!eventId) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+    const doc = await StationColor.findOne({ eventId });
+    const stationColors = doc?.assignments && doc.assignments.size > 0
+      ? Object.fromEntries(doc.assignments)
+      : {};
+    res.json({ eventId, stationColors });
+  } catch (error) {
+    console.error('Error fetching station colors:', error);
+    res.status(500).json({ error: 'Failed to fetch station colors' });
+  }
+});
+
+// PUT /api/station-colors - Save station color assignments (admin only)
+app.put('/api/station-colors', async (req, res) => {
+  try {
+    const { eventId, stationColors } = req.body;
+    if (!eventId) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+    if (!stationColors || typeof stationColors !== 'object') {
+      return res.status(400).json({ error: 'stationColors object is required' });
+    }
+    const hexPattern = /^#[0-9A-Fa-f]{6}$/;
+    const validated = {};
+    for (const [stationId, color] of Object.entries(stationColors)) {
+      if (color && hexPattern.test(color)) {
+        validated[stationId] = color;
+      }
+    }
+    await StationColor.findOneAndUpdate(
+      { eventId },
+      { eventId, assignments: new Map(Object.entries(validated)) },
+      { upsert: true, new: true }
+    );
+    if (globalBillboardState.activeBillboard?.eventId === eventId) {
+      globalBillboardState.activeBillboard.stationColors = validated;
+    }
+    res.json({ success: true, stationColors: validated });
+  } catch (error) {
+    console.error('Error saving station colors:', error);
+    res.status(500).json({ error: 'Failed to save station colors' });
+  }
+});
+
+// GET /api/events/:eventId/stations - Get unique check-in stations for an event (discovered from check-ins)
+app.get('/api/events/:eventId/stations', async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { date } = req.query;
+    if (!eventId) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=station&per_page=100`;
+    if (date) {
+      url += `&where[created_at]=${date}`;
+    }
+    let allCheckIns = [];
+    let allIncluded = [];
+    let nextPage = url;
+    while (nextPage) {
+      const response = await axios.get(nextPage, {
+        auth: {
+          username: process.env.PCO_ACCESS_TOKEN,
+          password: process.env.PCO_ACCESS_SECRET
+        },
+        headers: { 'Accept': 'application/json' }
+      });
+      const { data, included, links } = response.data;
+      allCheckIns = allCheckIns.concat(data || []);
+      if (included) allIncluded = allIncluded.concat(included);
+      nextPage = links?.next || null;
+    }
+    const stationMap = new Map();
+    const stationData = (c) => c.relationships?.station?.data || c.relationships?.check_in_station?.data;
+    allCheckIns.forEach(checkIn => {
+      const sd = stationData(checkIn);
+      if (sd) {
+        const station = allIncluded.find(item =>
+          (item.type === 'Station' || item.type === 'CheckInStation') && item.id === sd.id
+        );
+        if (station && !stationMap.has(station.id)) {
+          stationMap.set(station.id, { id: station.id, name: station.attributes?.name || 'Unknown Station' });
+        }
+      }
+    });
+    res.json(Array.from(stationMap.values()));
+  } catch (error) {
+    console.error('Error fetching stations:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch stations' });
+  }
+});
+
 // POST /api/set-global-billboard - Set the global billboard state directly
 app.post('/api/set-global-billboard', async (req, res) => {
   try {
-    const { eventId, eventName, securityCodes, eventDate, locationColors } = req.body;
-    console.log('Server: set-global-billboard called with:', { eventId, eventName, securityCodes, eventDate, locationColors: locationColors ? Object.keys(locationColors).length + ' colors' : 'none' });
+    const { eventId, eventName, securityCodes, eventDate, locationColors, stationColors } = req.body;
+    console.log('Server: set-global-billboard called with:', { eventId, eventName, securityCodes, eventDate, locationColors: locationColors ? Object.keys(locationColors).length + ' colors' : 'none', stationColors: (stationColors && typeof stationColors === 'object') ? Object.keys(stationColors).length + ' colors' : 'none' });
     
     if (!eventId || !eventName) {
       console.error('Server: Missing required fields:', { eventId, eventName });
@@ -2440,6 +2556,20 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
+    // Save station colors to MongoDB if provided
+    if (stationColors && typeof stationColors === 'object' && Object.keys(stationColors).length > 0) {
+      try {
+        await StationColor.findOneAndUpdate(
+          { eventId },
+          { eventId, assignments: new Map(Object.entries(stationColors)) },
+          { upsert: true, new: true }
+        );
+        console.log('Server: Saved station color assignments to MongoDB');
+      } catch (dbErr) {
+        console.error('Server: Error saving station colors:', dbErr);
+      }
+    }
+    
     // Load existing location colors from DB if not provided (to include in state)
     let colorsForState = locationColors || {};
     if (!locationColors || Object.keys(locationColors).length === 0) {
@@ -2453,6 +2583,19 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
+    // Load existing station colors from DB if not provided
+    let stationsForState = stationColors || {};
+    if (!stationColors || Object.keys(stationColors).length === 0) {
+      try {
+        const doc = await StationColor.findOne({ eventId });
+        if (doc?.assignments && doc.assignments.size > 0) {
+          stationsForState = Object.fromEntries(doc.assignments);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    
     // Clear notifications from past events when starting a new event
     const beforeCount = activeNotifications.length;
     if (beforeCount > 0) {
@@ -2460,7 +2603,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
     }
     
-    updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState);
+    updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState);
     
     console.log('Server: Global billboard state updated successfully');
     

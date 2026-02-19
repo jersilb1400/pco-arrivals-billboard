@@ -43,7 +43,7 @@ import api from '../utils/api';
 import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 import DateInput from './DateInput';
-import { DEFAULT_PALETTE } from '../utils/locationColors';
+import { DEFAULT_PALETTE, DEFAULT_STATION_PALETTE } from '../utils/locationColors';
 
 // Configure axios to send cookies with requests
 api.defaults.withCredentials = true;
@@ -79,6 +79,12 @@ function AdminPanel() {
   const [loadingLocationColors, setLoadingLocationColors] = useState(false);
   const [savingLocationColors, setSavingLocationColors] = useState(false);
   const [colorSectionExpanded, setColorSectionExpanded] = useState(false);
+  const [stations, setStations] = useState([]);
+  const [stationColorAssignments, setStationColorAssignments] = useState({});
+  const [loadingStationColors, setLoadingStationColors] = useState(false);
+  const [savingStationColors, setSavingStationColors] = useState(false);
+  const [loadingStations, setLoadingStations] = useState(false);
+  const [stationColorSectionExpanded, setStationColorSectionExpanded] = useState(false);
 
   // Helper function to get today's date in YYYY-MM-DD format
   function getTodayDate() {
@@ -349,6 +355,52 @@ function AdminPanel() {
     fetchLocationColors();
   }, [selectedEvent]);
 
+  // Fetch stations when event and date are selected (stations discovered from check-ins)
+  useEffect(() => {
+    if (!selectedEvent || !selectedDate) {
+      setStations([]);
+      return;
+    }
+    const fetchStations = async () => {
+      setLoadingStations(true);
+      try {
+        const response = await api.get(`/events/${selectedEvent}/stations?date=${selectedDate}`);
+        setStations(Array.isArray(response.data) ? response.data : []);
+      } catch (err) {
+        console.error('Error fetching stations:', err);
+        setStations([]);
+      } finally {
+        setLoadingStations(false);
+      }
+    };
+    fetchStations();
+  }, [selectedEvent, selectedDate]);
+
+  // Fetch station color assignments when selectedEvent changes
+  useEffect(() => {
+    if (!selectedEvent) {
+      setStationColorAssignments({});
+      return;
+    }
+    const fetchStationColors = async () => {
+      setLoadingStationColors(true);
+      try {
+        const response = await api.get(`/station-colors?eventId=${selectedEvent}`);
+        if (response.data?.stationColors) {
+          setStationColorAssignments(response.data.stationColors);
+        } else {
+          setStationColorAssignments({});
+        }
+      } catch (err) {
+        console.error('Error fetching station colors:', err);
+        setStationColorAssignments({});
+      } finally {
+        setLoadingStationColors(false);
+      }
+    };
+    fetchStationColors();
+  }, [selectedEvent]);
+
   // Function to set global billboard state
   const setGlobalState = async (eventId, eventName, securityCodes = [], eventDate) => {
     if (eventId && eventName) {
@@ -359,7 +411,8 @@ function AdminPanel() {
           eventName: eventName,
           securityCodes: securityCodes,
           eventDate: eventDate,
-          locationColors: Object.keys(locationColorAssignments).length > 0 ? locationColorAssignments : undefined
+          locationColors: Object.keys(locationColorAssignments).length > 0 ? locationColorAssignments : undefined,
+          stationColors: Object.keys(stationColorAssignments).length > 0 ? stationColorAssignments : undefined
         });
         
         console.log('AdminPanel: Global state response:', response.data);
@@ -462,6 +515,27 @@ function AdminPanel() {
       setSnackbarOpen(true);
     } finally {
       setSavingLocationColors(false);
+    }
+  };
+
+  const handleSaveStationColors = async () => {
+    if (!selectedEvent) return;
+    setSavingStationColors(true);
+    try {
+      await api.put('/station-colors', {
+        eventId: selectedEvent,
+        stationColors: stationColorAssignments
+      });
+      setSnackbarMsg('Station color assignments saved successfully');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error saving station colors:', error);
+      setSnackbarMsg('Failed to save station color assignments');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setSavingStationColors(false);
     }
   };
 
@@ -1103,6 +1177,115 @@ function AdminPanel() {
                     >
                       {savingLocationColors ? 'Saving...' : 'Save color assignments'}
                     </Button>
+                  </CardContent>
+                )}
+              </Card>
+            </Grid>
+          )}
+          {/* Assign colors to check-in stations - collapsible section */}
+          {selectedEvent && selectedDate && (
+            <Grid item xs={12}>
+              <Card elevation={2} sx={{ borderRadius: 2 }}>
+                <Box
+                  onClick={() => setStationColorSectionExpanded(!stationColorSectionExpanded)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 2,
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.hover' }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <PaletteIcon color="secondary" />
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Assign colors to check-in stations
+                    </Typography>
+                    {(loadingStations || loadingStationColors) && <CircularProgress size={20} />}
+                  </Box>
+                  {stationColorSectionExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </Box>
+                {stationColorSectionExpanded && (
+                  <CardContent sx={{ pt: 0, borderTop: 1, borderColor: 'divider' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Assign a distinct color to each check-in station. Billboard cards will show the station name in a colored badge.
+                      Stations are discovered from check-ins for the selected date.
+                    </Typography>
+                    {stations.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                        {loadingStations ? 'Loading stations...' : 'No stations found yet. Stations appear after children are checked in for the selected date.'}
+                      </Typography>
+                    ) : (
+                      <>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+                          {stations.map((station) => {
+                            const stationId = station.id;
+                            const stationName = station.name || 'Unknown';
+                            const currentColor = stationColorAssignments[stationId] || DEFAULT_STATION_PALETTE[0];
+                            return (
+                              <Box
+                                key={stationId}
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 2,
+                                  flexWrap: 'wrap',
+                                  p: 1.5,
+                                  borderRadius: 1,
+                                  bgcolor: 'grey.50'
+                                }}
+                              >
+                                <Typography variant="body1" sx={{ minWidth: 180 }}>
+                                  {stationName}
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                  {DEFAULT_STATION_PALETTE.map((color) => (
+                                    <Box
+                                      key={color}
+                                      onClick={() => setStationColorAssignments(prev => ({ ...prev, [stationId]: color }))}
+                                      sx={{
+                                        width: 28,
+                                        height: 28,
+                                        borderRadius: 1,
+                                        bgcolor: color,
+                                        border: currentColor === color ? '3px solid' : '1px solid',
+                                        borderColor: currentColor === color ? 'secondary.main' : 'grey.400',
+                                        cursor: 'pointer',
+                                        '&:hover': { opacity: 0.9 }
+                                      }}
+                                      title={color}
+                                    />
+                                  ))}
+                                  <input
+                                    type="color"
+                                    value={currentColor}
+                                    onChange={(e) => setStationColorAssignments(prev => ({ ...prev, [stationId]: e.target.value }))}
+                                    style={{
+                                      width: 36,
+                                      height: 28,
+                                      border: 'none',
+                                      borderRadius: 4,
+                                      cursor: 'pointer',
+                                      padding: 0
+                                    }}
+                                    title="Custom color"
+                                  />
+                                </Box>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                        <Button
+                          variant="contained"
+                          color="secondary"
+                          onClick={handleSaveStationColors}
+                          disabled={savingStationColors}
+                        >
+                          {savingStationColors ? 'Saving...' : 'Save station color assignments'}
+                        </Button>
+                      </>
+                    )}
                   </CardContent>
                 )}
               </Card>
