@@ -14,6 +14,7 @@ import {
 import { VolumeUp, VolumeOff } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import api from '../utils/api';
+import { getCardBorderColor } from '../utils/locationColors';
 
 function SimpleBillboard() {
   const theme = useTheme();
@@ -434,22 +435,18 @@ function SimpleBillboard() {
                   gap: 2
                 }}
               >
-                {activeNotifications.map((notification, index) => {
-                  // Cycle through gradient colors for visual variety
-                  const gradients = [
-                    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
-                  ];
-                  const gradient = gradients[index % 3];
-                  
+                {activeNotifications.map((notification) => {
+                  const borderColor = getCardBorderColor(
+                    notification,
+                    globalBillboard?.activeBillboard?.locationColors
+                  );
                   return (
                     <Card
                       key={notification.id}
                       sx={{
-                        background: gradient,
-                        color: 'white',
-                        border: '2px solid #4a5568',
+                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                        color: 'black',
+                        border: `4px solid ${borderColor}`,
                         borderRadius: 2,
                         boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
                         transition: 'all 0.3s ease',

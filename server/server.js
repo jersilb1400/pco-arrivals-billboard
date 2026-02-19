@@ -13,6 +13,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
+const LocationColor = require('./models/LocationColor');
 
 // Debug logging helper - writes to both file and console for visibility
 const DEBUG_LOG_PATH = path.join(__dirname, '..', '.cursor', 'debug.log');
@@ -73,13 +74,14 @@ let checkInCache = {
 let activeNotifications = [];
 
 // Function to update global billboard state
-function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName) {
+function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName, locationColors) {
   globalBillboardState = {
     activeBillboard: {
       eventId,
       eventName,
       securityCodes: securityCodes || [],
-      eventDate
+      eventDate,
+      locationColors: locationColors || {}
     },
     lastUpdated: new Date(),
     createdBy: {
@@ -1260,7 +1262,7 @@ app.get('/api/check-ins', async (req, res) => {
 });
 
 // Global billboard state endpoints
-app.get('/api/global-billboard', (req, res) => {
+app.get('/api/global-billboard', async (req, res) => {
   try {
     // Log access for debugging cross-user access
     const userInfo = req.session?.user ? {
@@ -1277,7 +1279,28 @@ app.get('/api/global-billboard', (req, res) => {
       lastUpdated: globalBillboardState.lastUpdated
     });
     
-    res.json(globalBillboardState);
+    // Enrich with location colors from MongoDB when we have an active billboard
+    let responseData = { ...globalBillboardState };
+    if (globalBillboardState.activeBillboard?.eventId) {
+      try {
+        const locationColorDoc = await LocationColor.findOne({ eventId: globalBillboardState.activeBillboard.eventId });
+        const locationColors = locationColorDoc?.assignments
+          ? Object.fromEntries(locationColorDoc.assignments)
+          : {};
+        responseData = {
+          ...responseData,
+          activeBillboard: {
+            ...globalBillboardState.activeBillboard,
+            locationColors
+          }
+        };
+      } catch (dbErr) {
+        console.error('Error fetching location colors:', dbErr);
+        // Continue without location colors
+      }
+    }
+    
+    res.json(responseData);
   } catch (error) {
     console.error('Error getting global billboard state:', error);
     res.status(500).json({ error: 'Failed to get global billboard state' });
@@ -2329,11 +2352,63 @@ app.get('/api/location-status', async (req, res) => {
   }
 });
 
+// GET /api/location-colors - Get location color assignments for an event
+app.get('/api/location-colors', async (req, res) => {
+  try {
+    const { eventId } = req.query;
+    if (!eventId) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+    const doc = await LocationColor.findOne({ eventId });
+    const locationColors = doc?.assignments && doc.assignments.size > 0
+      ? Object.fromEntries(doc.assignments)
+      : {};
+    res.json({ eventId, locationColors });
+  } catch (error) {
+    console.error('Error fetching location colors:', error);
+    res.status(500).json({ error: 'Failed to fetch location colors' });
+  }
+});
+
+// PUT /api/location-colors - Save location color assignments (admin only)
+app.put('/api/location-colors', async (req, res) => {
+  try {
+    const { eventId, locationColors } = req.body;
+    if (!eventId) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+    if (!locationColors || typeof locationColors !== 'object') {
+      return res.status(400).json({ error: 'locationColors object is required' });
+    }
+    // Validate hex colors
+    const hexPattern = /^#[0-9A-Fa-f]{6}$/;
+    const validated = {};
+    for (const [locationId, color] of Object.entries(locationColors)) {
+      if (color && hexPattern.test(color)) {
+        validated[locationId] = color;
+      }
+    }
+    await LocationColor.findOneAndUpdate(
+      { eventId },
+      { eventId, assignments: new Map(Object.entries(validated)) },
+      { upsert: true, new: true }
+    );
+    // Update in-memory state if this event is the active billboard
+    if (globalBillboardState.activeBillboard?.eventId === eventId) {
+      globalBillboardState.activeBillboard.locationColors = validated;
+    }
+    res.json({ success: true, locationColors: validated });
+  } catch (error) {
+    console.error('Error saving location colors:', error);
+    res.status(500).json({ error: 'Failed to save location colors' });
+  }
+});
+
 // POST /api/set-global-billboard - Set the global billboard state directly
 app.post('/api/set-global-billboard', async (req, res) => {
   try {
-    const { eventId, eventName, securityCodes, eventDate } = req.body;
-    console.log('Server: set-global-billboard called with:', { eventId, eventName, securityCodes, eventDate });
+    const { eventId, eventName, securityCodes, eventDate, locationColors } = req.body;
+    console.log('Server: set-global-billboard called with:', { eventId, eventName, securityCodes, eventDate, locationColors: locationColors ? Object.keys(locationColors).length + ' colors' : 'none' });
     
     if (!eventId || !eventName) {
       console.error('Server: Missing required fields:', { eventId, eventName });
@@ -2351,6 +2426,33 @@ app.post('/api/set-global-billboard', async (req, res) => {
     
     console.log('Server: Updating global billboard state with user:', { userId, userName });
     
+    // Save location colors to MongoDB if provided
+    if (locationColors && typeof locationColors === 'object' && Object.keys(locationColors).length > 0) {
+      try {
+        await LocationColor.findOneAndUpdate(
+          { eventId },
+          { eventId, assignments: new Map(Object.entries(locationColors)) },
+          { upsert: true, new: true }
+        );
+        console.log('Server: Saved location color assignments to MongoDB');
+      } catch (dbErr) {
+        console.error('Server: Error saving location colors:', dbErr);
+      }
+    }
+    
+    // Load existing location colors from DB if not provided (to include in state)
+    let colorsForState = locationColors || {};
+    if (!locationColors || Object.keys(locationColors).length === 0) {
+      try {
+        const doc = await LocationColor.findOne({ eventId });
+        if (doc?.assignments && doc.assignments.size > 0) {
+          colorsForState = Object.fromEntries(doc.assignments);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    
     // Clear notifications from past events when starting a new event
     const beforeCount = activeNotifications.length;
     if (beforeCount > 0) {
@@ -2358,7 +2460,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
     }
     
-    updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName);
+    updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState);
     
     console.log('Server: Global billboard state updated successfully');
     

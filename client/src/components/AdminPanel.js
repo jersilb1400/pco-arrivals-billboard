@@ -35,11 +35,15 @@ import {
   LocationOn as LocationIcon,
   Home as HomeIcon,
   List as ListIcon,
+  Palette as PaletteIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import api from '../utils/api';
 import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 import DateInput from './DateInput';
+import { DEFAULT_PALETTE } from '../utils/locationColors';
 
 // Configure axios to send cookies with requests
 api.defaults.withCredentials = true;
@@ -71,6 +75,10 @@ function AdminPanel() {
   const [activeNotifications, setActiveNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [isManualChange, setIsManualChange] = useState(false);
+  const [locationColorAssignments, setLocationColorAssignments] = useState({});
+  const [loadingLocationColors, setLoadingLocationColors] = useState(false);
+  const [savingLocationColors, setSavingLocationColors] = useState(false);
+  const [colorSectionExpanded, setColorSectionExpanded] = useState(false);
 
   // Helper function to get today's date in YYYY-MM-DD format
   function getTodayDate() {
@@ -316,6 +324,31 @@ function AdminPanel() {
     fetchLocations();
   }, [selectedEvent]);
 
+  // Fetch location color assignments when selectedEvent changes
+  useEffect(() => {
+    if (!selectedEvent) {
+      setLocationColorAssignments({});
+      return;
+    }
+    const fetchLocationColors = async () => {
+      setLoadingLocationColors(true);
+      try {
+        const response = await api.get(`/location-colors?eventId=${selectedEvent}`);
+        if (response.data?.locationColors) {
+          setLocationColorAssignments(response.data.locationColors);
+        } else {
+          setLocationColorAssignments({});
+        }
+      } catch (err) {
+        console.error('Error fetching location colors:', err);
+        setLocationColorAssignments({});
+      } finally {
+        setLoadingLocationColors(false);
+      }
+    };
+    fetchLocationColors();
+  }, [selectedEvent]);
+
   // Function to set global billboard state
   const setGlobalState = async (eventId, eventName, securityCodes = [], eventDate) => {
     if (eventId && eventName) {
@@ -325,7 +358,8 @@ function AdminPanel() {
           eventId: eventId,
           eventName: eventName,
           securityCodes: securityCodes,
-          eventDate: eventDate
+          eventDate: eventDate,
+          locationColors: Object.keys(locationColorAssignments).length > 0 ? locationColorAssignments : undefined
         });
         
         console.log('AdminPanel: Global state response:', response.data);
@@ -408,6 +442,27 @@ function AdminPanel() {
     // Global state should only be set when launching the billboard
     
     // Keep manual change flag active - user is actively making changes
+  };
+
+  const handleSaveLocationColors = async () => {
+    if (!selectedEvent) return;
+    setSavingLocationColors(true);
+    try {
+      await api.put('/location-colors', {
+        eventId: selectedEvent,
+        locationColors: locationColorAssignments
+      });
+      setSnackbarMsg('Color assignments saved successfully');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error saving location colors:', error);
+      setSnackbarMsg('Failed to save color assignments');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setSavingLocationColors(false);
+    }
   };
 
   const handleAddSecurityCode = async () => {
@@ -954,6 +1009,106 @@ function AdminPanel() {
               </CardContent>
             </Card>
           </Grid>
+          {/* Assign colors to rooms - collapsible section */}
+          {selectedEvent && locations.length > 0 && (
+            <Grid item xs={12}>
+              <Card elevation={2} sx={{ borderRadius: 2 }}>
+                <Box
+                  onClick={() => setColorSectionExpanded(!colorSectionExpanded)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 2,
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.hover' }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <PaletteIcon color="primary" />
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Assign colors to rooms
+                    </Typography>
+                    {loadingLocationColors && <CircularProgress size={20} />}
+                  </Box>
+                  {colorSectionExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </Box>
+                {colorSectionExpanded && (
+                  <CardContent sx={{ pt: 0, borderTop: 1, borderColor: 'divider' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Assign a distinct color to each room. Billboard cards will show a colored border based on the child&apos;s room.
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+                      {locations.map((loc) => {
+                        const locId = loc.id;
+                        const locName = loc.attributes?.name || 'Unknown';
+                        const currentColor = locationColorAssignments[locId] || DEFAULT_PALETTE[0];
+                        return (
+                          <Box
+                            key={locId}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 2,
+                              flexWrap: 'wrap',
+                              p: 1.5,
+                              borderRadius: 1,
+                              bgcolor: 'grey.50'
+                            }}
+                          >
+                            <Typography variant="body1" sx={{ minWidth: 180 }}>
+                              {locName}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                              {DEFAULT_PALETTE.map((color) => (
+                                <Box
+                                  key={color}
+                                  onClick={() => setLocationColorAssignments(prev => ({ ...prev, [locId]: color }))}
+                                  sx={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: 1,
+                                    bgcolor: color,
+                                    border: currentColor === color ? '3px solid' : '1px solid',
+                                    borderColor: currentColor === color ? 'primary.main' : 'grey.400',
+                                    cursor: 'pointer',
+                                    '&:hover': { opacity: 0.9 }
+                                  }}
+                                  title={color}
+                                />
+                              ))}
+                              <input
+                                type="color"
+                                value={currentColor}
+                                onChange={(e) => setLocationColorAssignments(prev => ({ ...prev, [locId]: e.target.value }))}
+                                style={{
+                                  width: 36,
+                                  height: 28,
+                                  border: 'none',
+                                  borderRadius: 4,
+                                  cursor: 'pointer',
+                                  padding: 0
+                                }}
+                                title="Custom color"
+                              />
+                            </Box>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                    <Button
+                      variant="contained"
+                      onClick={handleSaveLocationColors}
+                      disabled={savingLocationColors}
+                    >
+                      {savingLocationColors ? 'Saving...' : 'Save color assignments'}
+                    </Button>
+                  </CardContent>
+                )}
+              </Card>
+            </Grid>
+          )}
+
           {/* Step 2.5: Select Location (for check-ins) (move to second row, left) */}
           <Grid item xs={12} md={6}>
             <Card elevation={2} sx={{ borderRadius: 2, height: '100%' }}>
