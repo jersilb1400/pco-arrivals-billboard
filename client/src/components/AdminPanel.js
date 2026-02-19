@@ -1210,7 +1210,11 @@ function AdminPanel() {
                   <CardContent sx={{ pt: 0, borderTop: 1, borderColor: 'divider' }}>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       Assign a distinct color to each check-in station. Billboard cards will show the station name in a colored badge.
-                      Stations are discovered from check-ins for the selected date.
+                      {stations.some(s => s.isLocationFallback) ? (
+                        <> Using room locations as station proxy (PCO station data not available for this event).</>
+                      ) : (
+                        <> Stations are from event configuration or discovered from check-ins.</>
+                      )}
                     </Typography>
                     {stations.length === 0 ? (
                       <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>

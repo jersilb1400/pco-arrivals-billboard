@@ -499,8 +499,8 @@ function SimpleBillboard() {
                           {formatTime(notification.notifiedAt)} • {notification.locationName}
                         </Typography>
                         
-                        {/* Check-in Station (with colored badge) */}
-                        {notification.stationName && (
+                        {/* Check-in Station or Location badge (with colored badge) */}
+                        {(notification.stationName || (notification.locationName && globalBillboard?.activeBillboard?.stationColors?.[notification.locationId])) && (
                           <Box
                             component="span"
                             sx={{
@@ -515,7 +515,7 @@ function SimpleBillboard() {
                               textShadow: '0 1px 2px rgba(0,0,0,0.2)'
                             }}
                           >
-                            {notification.stationName}
+                            {notification.stationName || notification.locationName}
                           </Box>
                         )}
                       </CardContent>

@@ -61,13 +61,16 @@ export function getCardBorderColor(notification, locationColors) {
 
 /**
  * Get the color for a check-in station badge based on notification and admin-assigned station colors
+ * When stationId is missing, falls back to locationId (for location-as-station-fallback from API)
  */
 export function getStationColor(notification, stationColors) {
   const stationId = notification?.stationId;
+  const locationId = notification?.locationId;
   
-  if (stationColors && stationId && stationColors[stationId]) {
-    return stationColors[stationId];
+  if (stationColors) {
+    if (stationId && stationColors[stationId]) return stationColors[stationId];
+    if (locationId && stationColors[locationId]) return stationColors[locationId];
   }
   
-  return getDefaultColorForStation(stationId || notification?.stationName);
+  return getDefaultColorForStation(stationId || locationId || notification?.stationName);
 }

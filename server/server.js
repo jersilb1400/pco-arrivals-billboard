@@ -2472,7 +2472,8 @@ app.put('/api/station-colors', async (req, res) => {
   }
 });
 
-// GET /api/events/:eventId/stations - Get unique check-in stations for an event (discovered from check-ins)
+// GET /api/events/:eventId/stations - Get check-in stations for an event
+// Tries: 1) event_times -> check_in_stations, 2) event check_in_stations, 3) discover from check-ins
 app.get('/api/events/:eventId/stations', async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -2480,27 +2481,92 @@ app.get('/api/events/:eventId/stations', async (req, res) => {
     if (!eventId) {
       return res.status(400).json({ error: 'eventId is required' });
     }
-    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=station&per_page=100`;
-    if (date) {
-      url += `&where[created_at]=${date}`;
+    const auth = {
+      username: process.env.PCO_ACCESS_TOKEN,
+      password: process.env.PCO_ACCESS_SECRET
+    };
+    const stationMap = new Map();
+
+    // Strategy 1: Fetch event_times for the date, then get check_in_stations from each event_time
+    try {
+      const eventTimesUrl = `${PCO_API_BASE}/events/${eventId}/event_times?per_page=100`;
+      const etResponse = await axios.get(eventTimesUrl, { auth, headers: { 'Accept': 'application/json' } });
+      const eventTimes = etResponse.data.data || [];
+      // Filter event_times by date if provided (starts_at is ISO string e.g. 2025-12-11T18:00:00Z)
+      const relevantTimes = date
+        ? eventTimes.filter(et => {
+            const startsAt = et.attributes?.starts_at;
+            if (!startsAt) return true;
+            const etDate = typeof startsAt === 'string' && startsAt.length >= 10
+              ? startsAt.substring(0, 10)
+              : new Date(startsAt).toISOString().split('T')[0];
+            return etDate === date;
+          })
+        : eventTimes;
+
+      for (const et of relevantTimes) {
+        try {
+          const stationsUrl = `${PCO_API_BASE}/event_times/${et.id}/check_in_stations?per_page=100`;
+          const stResponse = await axios.get(stationsUrl, { auth, headers: { 'Accept': 'application/json' } });
+          const stations = stResponse.data.data || [];
+          const included = stResponse.data.included || [];
+          stations.forEach(st => {
+            const attrs = st.attributes || (included.find(i => i.type === st.type && i.id === st.id)?.attributes);
+            if (!stationMap.has(st.id)) {
+              stationMap.set(st.id, { id: st.id, name: attrs?.name || st.attributes?.name || 'Station ' + st.id });
+            }
+          });
+        } catch (e) {
+          // event_time may not have check_in_stations endpoint, continue
+        }
+      }
+      if (stationMap.size > 0) {
+        console.log(`[STATIONS] Found ${stationMap.size} stations from event_times for event ${eventId}`);
+        return res.json(Array.from(stationMap.values()));
+      }
+    } catch (etErr) {
+      console.log('[STATIONS] Event times approach failed:', etErr.response?.status || etErr.message);
     }
+
+    // Strategy 2: Try event-level check_in_stations
+    try {
+      const url = `${PCO_API_BASE}/events/${eventId}/check_in_stations?per_page=100`;
+      const response = await axios.get(url, { auth, headers: { 'Accept': 'application/json' } });
+      const stations = response.data.data || [];
+      const included = response.data.included || [];
+      stations.forEach(st => {
+        const attrs = st.attributes || (included.find(i => i.type === st.type && i.id === st.id)?.attributes);
+        if (!stationMap.has(st.id)) {
+          stationMap.set(st.id, { id: st.id, name: attrs?.name || st.attributes?.name || 'Station ' + st.id });
+        }
+      });
+      if (stationMap.size > 0) {
+        console.log(`[STATIONS] Found ${stationMap.size} stations from event check_in_stations for event ${eventId}`);
+        return res.json(Array.from(stationMap.values()));
+      }
+    } catch (e) {
+      console.log('[STATIONS] Event check_in_stations failed:', e.response?.status || e.message);
+    }
+
+    // Strategy 3: Discover from check-ins (use proper date range)
+    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations,station&per_page=100`;
+    if (date) {
+      const nextDay = new Date(date + 'T00:00:00Z');
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      const nextDayStr = nextDay.toISOString().split('T')[0];
+      url += `&where[created_at][gte]=${date}T00:00:00Z&where[created_at][lt]=${nextDayStr}T00:00:00Z`;
+    }
+    console.log('[STATIONS] Fetching check-ins to discover stations:', url);
     let allCheckIns = [];
     let allIncluded = [];
     let nextPage = url;
     while (nextPage) {
-      const response = await axios.get(nextPage, {
-        auth: {
-          username: process.env.PCO_ACCESS_TOKEN,
-          password: process.env.PCO_ACCESS_SECRET
-        },
-        headers: { 'Accept': 'application/json' }
-      });
+      const response = await axios.get(nextPage, { auth, headers: { 'Accept': 'application/json' } });
       const { data, included, links } = response.data;
       allCheckIns = allCheckIns.concat(data || []);
       if (included) allIncluded = allIncluded.concat(included);
       nextPage = links?.next || null;
     }
-    const stationMap = new Map();
     const stationData = (c) => c.relationships?.station?.data || c.relationships?.check_in_station?.data;
     allCheckIns.forEach(checkIn => {
       const sd = stationData(checkIn);
@@ -2513,6 +2579,27 @@ app.get('/api/events/:eventId/stations', async (req, res) => {
         }
       }
     });
+    if (stationMap.size > 0) {
+      console.log(`[STATIONS] Discovered ${stationMap.size} stations from ${allCheckIns.length} check-ins`);
+      return res.json(Array.from(stationMap.values()));
+    }
+
+    // Strategy 4: Fallback - use event locations as station proxies (so admin can assign colors)
+    // Station colors keyed by locationId will apply to cards when notification has locationId but no stationId
+    try {
+      const locUrl = `${PCO_API_BASE}/events/${eventId}/locations?per_page=100`;
+      const locResponse = await axios.get(locUrl, { auth, headers: { 'Accept': 'application/json' } });
+      const locs = locResponse.data.data || [];
+      locs.forEach(loc => {
+        const name = loc.attributes?.name || 'Unknown';
+        stationMap.set(loc.id, { id: loc.id, name, isLocationFallback: true });
+      });
+      if (stationMap.size > 0) {
+        console.log(`[STATIONS] Using ${stationMap.size} locations as station fallback (PCO station data not available)`);
+      }
+    } catch (e) {
+      console.log('[STATIONS] Location fallback failed:', e.response?.status || e.message);
+    }
     res.json(Array.from(stationMap.values()));
   } catch (error) {
     console.error('Error fetching stations:', error.response?.data || error.message);
