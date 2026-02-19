@@ -21,6 +21,7 @@ import {
   Step,
   StepLabel,
   Snackbar,
+  Checkbox,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -80,6 +81,7 @@ function AdminPanel() {
   const [savingLocationColors, setSavingLocationColors] = useState(false);
   const [colorSectionExpanded, setColorSectionExpanded] = useState(false);
   const [stations, setStations] = useState([]);
+  const [selectedStationIds, setSelectedStationIds] = useState([]);
   const [stationColorAssignments, setStationColorAssignments] = useState({});
   const [loadingStationColors, setLoadingStationColors] = useState(false);
   const [savingStationColors, setSavingStationColors] = useState(false);
@@ -355,50 +357,34 @@ function AdminPanel() {
     fetchLocationColors();
   }, [selectedEvent]);
 
-  // Fetch stations when event and date are selected (stations discovered from check-ins)
+  // Fetch stations, selection, and colors when event is selected
   useEffect(() => {
-    if (!selectedEvent || !selectedDate) {
+    if (!selectedEvent) {
       setStations([]);
+      setSelectedStationIds([]);
+      setStationColorAssignments({});
       return;
     }
     const fetchStations = async () => {
       setLoadingStations(true);
+      setLoadingStationColors(true);
       try {
-        const response = await api.get(`/events/${selectedEvent}/stations?date=${selectedDate}`);
-        setStations(Array.isArray(response.data) ? response.data : []);
+        const response = await api.get(`/events/${selectedEvent}/stations`);
+        const data = response.data;
+        setStations(Array.isArray(data?.stations) ? data.stations : []);
+        setSelectedStationIds(Array.isArray(data?.selectedStationIds) ? data.selectedStationIds : []);
+        setStationColorAssignments(data?.stationColors || {});
       } catch (err) {
         console.error('Error fetching stations:', err);
         setStations([]);
-      } finally {
-        setLoadingStations(false);
-      }
-    };
-    fetchStations();
-  }, [selectedEvent, selectedDate]);
-
-  // Fetch station color assignments when selectedEvent changes
-  useEffect(() => {
-    if (!selectedEvent) {
-      setStationColorAssignments({});
-      return;
-    }
-    const fetchStationColors = async () => {
-      setLoadingStationColors(true);
-      try {
-        const response = await api.get(`/station-colors?eventId=${selectedEvent}`);
-        if (response.data?.stationColors) {
-          setStationColorAssignments(response.data.stationColors);
-        } else {
-          setStationColorAssignments({});
-        }
-      } catch (err) {
-        console.error('Error fetching station colors:', err);
+        setSelectedStationIds([]);
         setStationColorAssignments({});
       } finally {
+        setLoadingStations(false);
         setLoadingStationColors(false);
       }
     };
-    fetchStationColors();
+    fetchStations();
   }, [selectedEvent]);
 
   // Function to set global billboard state
@@ -412,7 +398,8 @@ function AdminPanel() {
           securityCodes: securityCodes,
           eventDate: eventDate,
           locationColors: Object.keys(locationColorAssignments).length > 0 ? locationColorAssignments : undefined,
-          stationColors: Object.keys(stationColorAssignments).length > 0 ? stationColorAssignments : undefined
+          stationColors: Object.keys(stationColorAssignments).length > 0 ? stationColorAssignments : undefined,
+          selectedStationIds: selectedStationIds.length > 0 ? selectedStationIds : undefined
         });
         
         console.log('AdminPanel: Global state response:', response.data);
@@ -518,25 +505,33 @@ function AdminPanel() {
     }
   };
 
-  const handleSaveStationColors = async () => {
+  const handleSaveStations = async () => {
     if (!selectedEvent) return;
     setSavingStationColors(true);
     try {
-      await api.put('/station-colors', {
-        eventId: selectedEvent,
+      await api.put(`/events/${selectedEvent}/stations`, {
+        selectedStationIds,
         stationColors: stationColorAssignments
       });
-      setSnackbarMsg('Station color assignments saved successfully');
+      setSnackbarMsg('Station selection and colors saved successfully');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
     } catch (error) {
-      console.error('Error saving station colors:', error);
-      setSnackbarMsg('Failed to save station color assignments');
+      console.error('Error saving stations:', error);
+      setSnackbarMsg('Failed to save station selection');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
       setSavingStationColors(false);
     }
+  };
+
+  const handleToggleStationSelection = (stationId) => {
+    setSelectedStationIds(prev =>
+      prev.includes(stationId)
+        ? prev.filter(id => id !== stationId)
+        : [...prev, stationId]
+    );
   };
 
   const handleAddSecurityCode = async () => {
@@ -1183,7 +1178,7 @@ function AdminPanel() {
             </Grid>
           )}
           {/* Assign colors to check-in stations - collapsible section */}
-          {selectedEvent && selectedDate && (
+          {selectedEvent && (
             <Grid item xs={12}>
               <Card elevation={2} sx={{ borderRadius: 2 }}>
                 <Box
@@ -1209,16 +1204,14 @@ function AdminPanel() {
                 {stationColorSectionExpanded && (
                   <CardContent sx={{ pt: 0, borderTop: 1, borderColor: 'divider' }}>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Assign a distinct color to each check-in station. Billboard cards will show the station name in a colored badge.
+                      Select which check-in stations are used for this event, then assign a color to each. Billboard cards will show the station name in a colored badge.
                       {stations.some(s => s.isLocationFallback) ? (
-                        <> Using room locations as station proxy (PCO station data not available for this event).</>
-                      ) : (
-                        <> Stations are from event configuration or discovered from check-ins.</>
-                      )}
+                        <> Using room locations as station proxy (PCO station data not available).</>
+                      ) : null}
                     </Typography>
                     {stations.length === 0 ? (
                       <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                        {loadingStations ? 'Loading stations...' : 'No stations found yet. Stations appear after children are checked in for the selected date.'}
+                        {loadingStations ? 'Loading stations...' : 'No stations found. Using locations as fallback if available.'}
                       </Typography>
                     ) : (
                       <>
@@ -1226,6 +1219,7 @@ function AdminPanel() {
                           {stations.map((station) => {
                             const stationId = station.id;
                             const stationName = station.name || 'Unknown';
+                            const isSelected = selectedStationIds.includes(stationId);
                             const currentColor = stationColorAssignments[stationId] || DEFAULT_STATION_PALETTE[0];
                             return (
                               <Box
@@ -1237,45 +1231,52 @@ function AdminPanel() {
                                   flexWrap: 'wrap',
                                   p: 1.5,
                                   borderRadius: 1,
-                                  bgcolor: 'grey.50'
+                                  bgcolor: isSelected ? 'action.selected' : 'grey.50'
                                 }}
                               >
+                                <Checkbox
+                                  checked={isSelected}
+                                  onChange={() => handleToggleStationSelection(stationId)}
+                                  color="secondary"
+                                />
                                 <Typography variant="body1" sx={{ minWidth: 180 }}>
                                   {stationName}
                                 </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                  {DEFAULT_STATION_PALETTE.map((color) => (
-                                    <Box
-                                      key={color}
-                                      onClick={() => setStationColorAssignments(prev => ({ ...prev, [stationId]: color }))}
-                                      sx={{
-                                        width: 28,
+                                {isSelected && (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                    {DEFAULT_STATION_PALETTE.map((color) => (
+                                      <Box
+                                        key={color}
+                                        onClick={() => setStationColorAssignments(prev => ({ ...prev, [stationId]: color }))}
+                                        sx={{
+                                          width: 28,
+                                          height: 28,
+                                          borderRadius: 1,
+                                          bgcolor: color,
+                                          border: currentColor === color ? '3px solid' : '1px solid',
+                                          borderColor: currentColor === color ? 'secondary.main' : 'grey.400',
+                                          cursor: 'pointer',
+                                          '&:hover': { opacity: 0.9 }
+                                        }}
+                                        title={color}
+                                      />
+                                    ))}
+                                    <input
+                                      type="color"
+                                      value={currentColor}
+                                      onChange={(e) => setStationColorAssignments(prev => ({ ...prev, [stationId]: e.target.value }))}
+                                      style={{
+                                        width: 36,
                                         height: 28,
-                                        borderRadius: 1,
-                                        bgcolor: color,
-                                        border: currentColor === color ? '3px solid' : '1px solid',
-                                        borderColor: currentColor === color ? 'secondary.main' : 'grey.400',
+                                        border: 'none',
+                                        borderRadius: 4,
                                         cursor: 'pointer',
-                                        '&:hover': { opacity: 0.9 }
+                                        padding: 0
                                       }}
-                                      title={color}
+                                      title="Custom color"
                                     />
-                                  ))}
-                                  <input
-                                    type="color"
-                                    value={currentColor}
-                                    onChange={(e) => setStationColorAssignments(prev => ({ ...prev, [stationId]: e.target.value }))}
-                                    style={{
-                                      width: 36,
-                                      height: 28,
-                                      border: 'none',
-                                      borderRadius: 4,
-                                      cursor: 'pointer',
-                                      padding: 0
-                                    }}
-                                    title="Custom color"
-                                  />
-                                </Box>
+                                  </Box>
+                                )}
                               </Box>
                             );
                           })}
@@ -1283,10 +1284,10 @@ function AdminPanel() {
                         <Button
                           variant="contained"
                           color="secondary"
-                          onClick={handleSaveStationColors}
+                          onClick={handleSaveStations}
                           disabled={savingStationColors}
                         >
-                          {savingStationColors ? 'Saving...' : 'Save station color assignments'}
+                          {savingStationColors ? 'Saving...' : 'Save station selection & colors'}
                         </Button>
                       </>
                     )}

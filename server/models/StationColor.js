@@ -6,6 +6,10 @@ const stationColorSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  selectedStationIds: {
+    type: [String],
+    default: []
+  },
   assignments: {
     type: Map,
     of: String,

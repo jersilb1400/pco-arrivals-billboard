@@ -2472,12 +2472,50 @@ app.put('/api/station-colors', async (req, res) => {
   }
 });
 
-// GET /api/events/:eventId/stations - Get check-in stations for an event
-// Tries: 1) event_times -> check_in_stations, 2) event check_in_stations, 3) discover from check-ins
+// GET /api/check-in-stations - List ALL check-in stations in the organization
+app.get('/api/check-in-stations', async (req, res) => {
+  try {
+    const auth = {
+      username: process.env.PCO_ACCESS_TOKEN,
+      password: process.env.PCO_ACCESS_SECRET
+    };
+    const stations = [];
+    for (const path of ['check_in_stations', 'check-in-stations']) {
+      let nextPage = `${PCO_API_BASE}/${path}?per_page=100`;
+      while (nextPage) {
+        try {
+          const response = await axios.get(nextPage, { auth, headers: { 'Accept': 'application/json' } });
+          const { data, included, links } = response.data;
+          (data || []).forEach(st => {
+            const attrs = st.attributes || (included?.find(i => i.type === st.type && i.id === st.id)?.attributes);
+            if (!stations.find(s => s.id === st.id)) {
+              stations.push({ id: st.id, name: attrs?.name || st.attributes?.name || 'Station ' + st.id });
+            }
+          });
+          nextPage = links?.next || null;
+        } catch (e) {
+          console.log(`[STATIONS] ${path} failed:`, e.response?.status || e.message);
+          nextPage = null;
+        }
+      }
+      if (stations.length > 0) {
+        console.log(`[STATIONS] Found ${stations.length} stations at org level`);
+        return res.json(stations);
+      }
+    }
+    res.json([]);
+  } catch (error) {
+    console.error('Error fetching check-in stations:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch stations' });
+  }
+});
+
+// GET /api/events/:eventId/stations - Get all stations + selection + colors for an event
+// Returns: { stations, selectedStationIds, stationColors }
+// stations = all org stations (or event locations as fallback)
 app.get('/api/events/:eventId/stations', async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { date } = req.query;
     if (!eventId) {
       return res.status(400).json({ error: 'eventId is required' });
     }
@@ -2485,133 +2523,102 @@ app.get('/api/events/:eventId/stations', async (req, res) => {
       username: process.env.PCO_ACCESS_TOKEN,
       password: process.env.PCO_ACCESS_SECRET
     };
-    const stationMap = new Map();
 
-    // Strategy 1: Fetch event_times for the date, then get check_in_stations from each event_time
-    try {
-      const eventTimesUrl = `${PCO_API_BASE}/events/${eventId}/event_times?per_page=100`;
-      const etResponse = await axios.get(eventTimesUrl, { auth, headers: { 'Accept': 'application/json' } });
-      const eventTimes = etResponse.data.data || [];
-      // Filter event_times by date if provided (starts_at is ISO string e.g. 2025-12-11T18:00:00Z)
-      const relevantTimes = date
-        ? eventTimes.filter(et => {
-            const startsAt = et.attributes?.starts_at;
-            if (!startsAt) return true;
-            const etDate = typeof startsAt === 'string' && startsAt.length >= 10
-              ? startsAt.substring(0, 10)
-              : new Date(startsAt).toISOString().split('T')[0];
-            return etDate === date;
-          })
-        : eventTimes;
-
-      for (const et of relevantTimes) {
+    // 1. Fetch all stations (org-level check_in_stations, or fallback to event locations)
+    let allStations = [];
+    for (const path of ['check_in_stations', 'check-in-stations']) {
+      let nextPage = `${PCO_API_BASE}/${path}?per_page=100`;
+      while (nextPage) {
         try {
-          const stationsUrl = `${PCO_API_BASE}/event_times/${et.id}/check_in_stations?per_page=100`;
-          const stResponse = await axios.get(stationsUrl, { auth, headers: { 'Accept': 'application/json' } });
-          const stations = stResponse.data.data || [];
-          const included = stResponse.data.included || [];
-          stations.forEach(st => {
-            const attrs = st.attributes || (included.find(i => i.type === st.type && i.id === st.id)?.attributes);
-            if (!stationMap.has(st.id)) {
-              stationMap.set(st.id, { id: st.id, name: attrs?.name || st.attributes?.name || 'Station ' + st.id });
+          const stRes = await axios.get(nextPage, { auth, headers: { 'Accept': 'application/json' } });
+          const data = stRes.data?.data || [];
+          const included = stRes.data?.included || [];
+          data.forEach(st => {
+            if (!allStations.find(s => s.id === st.id)) {
+              const attrs = st.attributes || (included.find(i => i.type === st.type && i.id === st.id)?.attributes);
+              allStations.push({ id: st.id, name: attrs?.name || st.attributes?.name || 'Station ' + st.id });
             }
           });
+          nextPage = stRes.data?.links?.next || null;
         } catch (e) {
-          // event_time may not have check_in_stations endpoint, continue
+          console.log(`[STATIONS] Org ${path} failed:`, e.response?.status || e.message);
+          nextPage = null;
         }
       }
-      if (stationMap.size > 0) {
-        console.log(`[STATIONS] Found ${stationMap.size} stations from event_times for event ${eventId}`);
-        return res.json(Array.from(stationMap.values()));
-      }
-    } catch (etErr) {
-      console.log('[STATIONS] Event times approach failed:', etErr.response?.status || etErr.message);
+      if (allStations.length > 0) break;
     }
-
-    // Strategy 2: Try event-level check_in_stations
-    try {
-      const url = `${PCO_API_BASE}/events/${eventId}/check_in_stations?per_page=100`;
-      const response = await axios.get(url, { auth, headers: { 'Accept': 'application/json' } });
-      const stations = response.data.data || [];
-      const included = response.data.included || [];
-      stations.forEach(st => {
-        const attrs = st.attributes || (included.find(i => i.type === st.type && i.id === st.id)?.attributes);
-        if (!stationMap.has(st.id)) {
-          stationMap.set(st.id, { id: st.id, name: attrs?.name || st.attributes?.name || 'Station ' + st.id });
-        }
+    if (allStations.length === 0) {
+      const locResponse = await axios.get(`${PCO_API_BASE}/events/${eventId}/locations?per_page=100`, {
+        auth,
+        headers: { 'Accept': 'application/json' }
       });
-      if (stationMap.size > 0) {
-        console.log(`[STATIONS] Found ${stationMap.size} stations from event check_in_stations for event ${eventId}`);
-        return res.json(Array.from(stationMap.values()));
-      }
-    } catch (e) {
-      console.log('[STATIONS] Event check_in_stations failed:', e.response?.status || e.message);
-    }
-
-    // Strategy 3: Discover from check-ins (use proper date range)
-    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations,station&per_page=100`;
-    if (date) {
-      const nextDay = new Date(date + 'T00:00:00Z');
-      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-      const nextDayStr = nextDay.toISOString().split('T')[0];
-      url += `&where[created_at][gte]=${date}T00:00:00Z&where[created_at][lt]=${nextDayStr}T00:00:00Z`;
-    }
-    console.log('[STATIONS] Fetching check-ins to discover stations:', url);
-    let allCheckIns = [];
-    let allIncluded = [];
-    let nextPage = url;
-    while (nextPage) {
-      const response = await axios.get(nextPage, { auth, headers: { 'Accept': 'application/json' } });
-      const { data, included, links } = response.data;
-      allCheckIns = allCheckIns.concat(data || []);
-      if (included) allIncluded = allIncluded.concat(included);
-      nextPage = links?.next || null;
-    }
-    const stationData = (c) => c.relationships?.station?.data || c.relationships?.check_in_station?.data;
-    allCheckIns.forEach(checkIn => {
-      const sd = stationData(checkIn);
-      if (sd) {
-        const station = allIncluded.find(item =>
-          (item.type === 'Station' || item.type === 'CheckInStation') && item.id === sd.id
-        );
-        if (station && !stationMap.has(station.id)) {
-          stationMap.set(station.id, { id: station.id, name: station.attributes?.name || 'Unknown Station' });
-        }
-      }
-    });
-    if (stationMap.size > 0) {
-      console.log(`[STATIONS] Discovered ${stationMap.size} stations from ${allCheckIns.length} check-ins`);
-      return res.json(Array.from(stationMap.values()));
-    }
-
-    // Strategy 4: Fallback - use event locations as station proxies (so admin can assign colors)
-    // Station colors keyed by locationId will apply to cards when notification has locationId but no stationId
-    try {
-      const locUrl = `${PCO_API_BASE}/events/${eventId}/locations?per_page=100`;
-      const locResponse = await axios.get(locUrl, { auth, headers: { 'Accept': 'application/json' } });
       const locs = locResponse.data.data || [];
       locs.forEach(loc => {
-        const name = loc.attributes?.name || 'Unknown';
-        stationMap.set(loc.id, { id: loc.id, name, isLocationFallback: true });
+        allStations.push({ id: loc.id, name: loc.attributes?.name || 'Unknown', isLocationFallback: true });
       });
-      if (stationMap.size > 0) {
-        console.log(`[STATIONS] Using ${stationMap.size} locations as station fallback (PCO station data not available)`);
-      }
-    } catch (e) {
-      console.log('[STATIONS] Location fallback failed:', e.response?.status || e.message);
+      console.log(`[STATIONS] Using ${allStations.length} locations as fallback for event ${eventId}`);
     }
-    res.json(Array.from(stationMap.values()));
+
+    // 2. Fetch event's selected stations and color assignments from DB
+    const doc = await StationColor.findOne({ eventId });
+    const selectedStationIds = doc?.selectedStationIds || [];
+    const stationColors = doc?.assignments && doc.assignments.size > 0
+      ? Object.fromEntries(doc.assignments)
+      : {};
+
+    res.json({
+      stations: allStations,
+      selectedStationIds,
+      stationColors
+    });
   } catch (error) {
     console.error('Error fetching stations:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch stations' });
   }
 });
 
+// PUT /api/events/:eventId/stations - Save selected stations and/or station colors for an event
+app.put('/api/events/:eventId/stations', async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { selectedStationIds, stationColors } = req.body;
+    if (!eventId) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+    const doc = await StationColor.findOne({ eventId }) || new StationColor({ eventId });
+    if (Array.isArray(selectedStationIds)) {
+      doc.selectedStationIds = selectedStationIds;
+    }
+    if (stationColors && typeof stationColors === 'object') {
+      const hexPattern = /^#[0-9A-Fa-f]{6}$/;
+      const validated = {};
+      for (const [id, color] of Object.entries(stationColors)) {
+        if (color && hexPattern.test(color)) validated[id] = color;
+      }
+      doc.assignments = new Map(Object.entries(validated));
+    }
+    await doc.save();
+    if (globalBillboardState.activeBillboard?.eventId === eventId) {
+      globalBillboardState.activeBillboard.stationColors = doc.assignments?.size > 0
+        ? Object.fromEntries(doc.assignments)
+        : {};
+    }
+    res.json({
+      success: true,
+      selectedStationIds: doc.selectedStationIds,
+      stationColors: doc.assignments?.size > 0 ? Object.fromEntries(doc.assignments) : {}
+    });
+  } catch (error) {
+    console.error('Error saving station selection:', error);
+    res.status(500).json({ error: 'Failed to save' });
+  }
+});
+
 // POST /api/set-global-billboard - Set the global billboard state directly
 app.post('/api/set-global-billboard', async (req, res) => {
   try {
-    const { eventId, eventName, securityCodes, eventDate, locationColors, stationColors } = req.body;
-    console.log('Server: set-global-billboard called with:', { eventId, eventName, securityCodes, eventDate, locationColors: locationColors ? Object.keys(locationColors).length + ' colors' : 'none', stationColors: (stationColors && typeof stationColors === 'object') ? Object.keys(stationColors).length + ' colors' : 'none' });
+    const { eventId, eventName, securityCodes, eventDate, locationColors, stationColors, selectedStationIds } = req.body;
+    console.log('Server: set-global-billboard called with:', { eventId, eventName, securityCodes, eventDate, locationColors: locationColors ? Object.keys(locationColors).length + ' colors' : 'none', stationColors: (stationColors && typeof stationColors === 'object') ? Object.keys(stationColors).length + ' colors' : 'none', selectedStationIds: Array.isArray(selectedStationIds) ? selectedStationIds.length : 0 });
     
     if (!eventId || !eventName) {
       console.error('Server: Missing required fields:', { eventId, eventName });
@@ -2643,17 +2650,22 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
-    // Save station colors to MongoDB if provided
-    if (stationColors && typeof stationColors === 'object' && Object.keys(stationColors).length > 0) {
+    // Save station colors and/or selectedStationIds to MongoDB
+    if ((stationColors && typeof stationColors === 'object' && Object.keys(stationColors).length > 0) ||
+        (Array.isArray(selectedStationIds) && selectedStationIds.length > 0)) {
       try {
-        await StationColor.findOneAndUpdate(
-          { eventId },
-          { eventId, assignments: new Map(Object.entries(stationColors)) },
-          { upsert: true, new: true }
-        );
-        console.log('Server: Saved station color assignments to MongoDB');
+        const doc = await StationColor.findOne({ eventId }) || new StationColor({ eventId });
+        doc.eventId = eventId;
+        if (stationColors && typeof stationColors === 'object' && Object.keys(stationColors).length > 0) {
+          doc.assignments = new Map(Object.entries(stationColors));
+        }
+        if (Array.isArray(selectedStationIds)) {
+          doc.selectedStationIds = selectedStationIds;
+        }
+        await doc.save();
+        console.log('Server: Saved station selection/colors to MongoDB');
       } catch (dbErr) {
-        console.error('Server: Error saving station colors:', dbErr);
+        console.error('Server: Error saving station data:', dbErr);
       }
     }
     
