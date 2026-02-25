@@ -2,89 +2,80 @@ import { createTheme } from '@mui/material/styles';
 
 const theme = createTheme({
   palette: {
+    mode: 'light',
     primary: {
-      main: '#2e77bb', // PCO Blue
-      dark: '#1a5fa0',
-      light: '#e9f1f9',
+      main: '#3d8a99', // Grace teal (from website header)
+      dark: '#2d6e7c',
+      light: '#b8dce5',
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#6db56d', // PCO Green
-      dark: '#5a9a5a',
-      light: '#e8f5e8',
+      main: '#c98b73', // Grace terracotta (from website footer)
+      dark: '#a86b54',
+      light: '#e8c4b0',
       contrastText: '#ffffff',
     },
     error: {
-      main: '#e15241', // PCO Red
-      light: '#fde8e6',
+      main: '#ef4444',
+      light: '#fca5a5',
     },
     warning: {
-      main: '#f9a825', // PCO Yellow
-      light: '#fef7e0',
+      main: '#c98b73',
+      light: '#e8c4b0',
     },
     grey: {
-      50: '#f8f9fa', // PCO Gray Lightest
-      100: '#eaecf0', // PCO Gray Light
-      200: '#d0d5dd', // PCO Border
-      500: '#667085', // PCO Gray
-      700: '#344054', // PCO Gray Dark
-      900: '#101828', // PCO Black
+      50: '#f4fafb',
+      100: '#e8f4f7',
+      200: '#d0e8ed',
+      500: '#7aaab8',
+      700: '#4a7080',
+      900: '#1a3040',
     },
     background: {
-      default: '#f8f9fa',
+      default: '#f4fafb',
       paper: '#ffffff',
     },
     text: {
-      primary: '#101828',
-      secondary: '#667085',
+      primary: '#1a3040',
+      secondary: '#4a7080',
     },
+    divider: '#d0e8ed',
   },
   typography: {
     fontFamily: [
+      'Outfit',
       '-apple-system',
       'BlinkMacSystemFont',
       '"Segoe UI"',
-      'Roboto',
-      'Helvetica',
-      'Arial',
       'sans-serif',
-      '"Apple Color Emoji"',
-      '"Segoe UI Emoji"',
-      '"Segoe UI Symbol"',
     ].join(','),
     h1: {
       fontSize: '2rem',
-      fontWeight: 600,
+      fontWeight: 700,
       lineHeight: 1.2,
-      color: '#101828',
     },
     h2: {
       fontSize: '1.5rem',
       fontWeight: 600,
       lineHeight: 1.3,
-      color: '#101828',
     },
     h3: {
       fontSize: '1.25rem',
       fontWeight: 600,
       lineHeight: 1.4,
-      color: '#101828',
     },
     h4: {
       fontSize: '1.125rem',
       fontWeight: 600,
       lineHeight: 1.4,
-      color: '#101828',
     },
     body1: {
       fontSize: '0.875rem',
       lineHeight: 1.5,
-      color: '#667085',
     },
     body2: {
       fontSize: '0.875rem',
       lineHeight: 1.5,
-      color: '#667085',
     },
     button: {
       fontSize: '0.875rem',
@@ -107,19 +98,19 @@ const theme = createTheme({
           textTransform: 'none',
           boxShadow: 'none',
           '&:hover': {
-            boxShadow: '0px 2px 4px rgba(16, 24, 40, 0.1)',
+            boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.15)',
           },
         },
         contained: {
           '&:hover': {
-            boxShadow: '0px 2px 4px rgba(16, 24, 40, 0.1)',
+            boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.15)',
           },
         },
         outlined: {
-          borderColor: '#d0d5dd',
+          borderColor: '#d0e8ed',
           '&:hover': {
-            borderColor: '#2e77bb',
-            backgroundColor: 'rgba(46, 119, 187, 0.04)',
+            borderColor: '#3d8a99',
+            backgroundColor: 'rgba(61, 138, 153, 0.08)',
           },
         },
       },
@@ -128,8 +119,8 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 8,
-          boxShadow: '0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)',
-          border: '1px solid #d0d5dd',
+          boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08), 0px 1px 2px rgba(0, 0, 0, 0.06)',
+          border: '1px solid #d0e8ed',
         },
       },
     },
@@ -139,13 +130,13 @@ const theme = createTheme({
           '& .MuiOutlinedInput-root': {
             borderRadius: 8,
             '& fieldset': {
-              borderColor: '#d0d5dd',
+              borderColor: '#d0e8ed',
             },
             '&:hover fieldset': {
-              borderColor: '#2e77bb',
+              borderColor: '#3d8a99',
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#2e77bb',
+              borderColor: '#3d8a99',
             },
           },
         },
@@ -155,8 +146,8 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           backgroundColor: '#ffffff',
-          color: '#101828',
-          boxShadow: '0 2px 8px rgba(16, 24, 40, 0.08)',
+          color: '#1a3040',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
         },
       },
     },
@@ -170,4 +161,4 @@ const theme = createTheme({
   },
 });
 
-export default theme; 
+export default theme;

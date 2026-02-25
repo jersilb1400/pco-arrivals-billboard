@@ -371,7 +371,7 @@ function AdminUsers() {
                   {filteredUsers.map(user => (
                     <TableRow 
                       key={user.id} 
-                      sx={user.id === currentUser?.id ? { backgroundColor: 'primary.light' } : {}}
+                      sx={user.id === currentUser?.id ? { backgroundColor: 'rgba(61,138,153,0.15)' } : {}}
                     >
                       <TableCell>
                         <Chip 

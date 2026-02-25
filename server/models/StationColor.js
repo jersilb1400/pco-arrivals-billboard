@@ -14,6 +14,11 @@ const stationColorSchema = new mongoose.Schema({
     type: Map,
     of: String,
     default: {}
+  },
+  icons: {
+    type: Map,
+    of: String,
+    default: {}
   }
 }, {
   timestamps: true

@@ -1,3 +1,19 @@
+// Icons available for station assignment in the admin panel
+export const STATION_ICONS = [
+  { name: 'Star',                 label: 'Star'     },
+  { name: 'Favorite',             label: 'Heart'    },
+  { name: 'Home',                 label: 'Home'     },
+  { name: 'Flag',                 label: 'Flag'     },
+  { name: 'Bolt',                 label: 'Bolt'     },
+  { name: 'Diamond',              label: 'Diamond'  },
+  { name: 'EmojiEvents',          label: 'Trophy'   },
+  { name: 'LocalFireDepartment',  label: 'Fire'     },
+  { name: 'WbSunny',              label: 'Sun'      },
+  { name: 'Park',                 label: 'Tree'     },
+  { name: 'AutoAwesome',          label: 'Sparkles' },
+  { name: 'RocketLaunch',         label: 'Rocket'   },
+];
+
 // Default color palette for location-based card borders and station badges
 export const DEFAULT_PALETTE = [
   '#2563eb', // blue

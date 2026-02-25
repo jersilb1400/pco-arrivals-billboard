@@ -119,8 +119,8 @@ function SecurityCodeEntry() {
               color="inherit"
               startIcon={<DashboardIcon />}
               sx={{ 
-                bgcolor: 'rgba(255,255,255,0.1)',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+                bgcolor: 'rgba(61,138,153,0.08)',
+                '&:hover': { bgcolor: 'rgba(61,138,153,0.16)' }
               }}
             >
               Pickup Billboard
@@ -131,8 +131,8 @@ function SecurityCodeEntry() {
               color="inherit"
               startIcon={<LocationIcon />}
               sx={{ 
-                bgcolor: 'rgba(255,255,255,0.1)',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+                bgcolor: 'rgba(61,138,153,0.08)',
+                '&:hover': { bgcolor: 'rgba(61,138,153,0.16)' }
               }}
             >
               Location Status
@@ -143,8 +143,8 @@ function SecurityCodeEntry() {
               color="inherit"
               startIcon={<DashboardIcon />}
               sx={{ 
-                bgcolor: 'rgba(255,255,255,0.1)',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+                bgcolor: 'rgba(61,138,153,0.08)',
+                '&:hover': { bgcolor: 'rgba(61,138,153,0.16)' }
               }}
             >
               Admin Panel
@@ -269,7 +269,7 @@ function SecurityCodeEntry() {
                 </Box>
 
                 {/* Instructions */}
-                <Paper elevation={1} sx={{ p: 3, mt: 4, bgcolor: 'grey.50' }}>
+                <Paper elevation={1} sx={{ p: 3, mt: 4, bgcolor: 'background.paper' }}>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
                     Instructions for Volunteers:
                   </Typography>

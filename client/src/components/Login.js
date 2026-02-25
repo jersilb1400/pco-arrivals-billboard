@@ -76,7 +76,7 @@ function Login() {
       if (window.turnstile) {
         console.log('🔒 Initializing Turnstile widget');
         window.turnstile.render('#turnstile-widget', {
-          sitekey: '0x4AAAAAAB8GhuodRZZpmwu2',
+          sitekey: process.env.REACT_APP_TURNSTILE_SITEKEY || '0x4AAAAAAB8GhuodRZZpmwu2',
           callback: (token) => {
             console.log('🔒 Turnstile verification successful');
             setTurnstileToken(token);
@@ -249,10 +249,12 @@ function Login() {
                 style={{
                   width: '100%',
                   padding: '12px 16px',
-                  border: '1px solid #ccc',
+                  border: '1px solid #d0e8ed',
                   borderRadius: '4px',
                   fontSize: '16px',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  backgroundColor: '#ffffff',
+                  color: '#1a3040'
                 }}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {

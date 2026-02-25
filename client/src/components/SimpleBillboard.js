@@ -11,10 +11,40 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
-import { VolumeUp, VolumeOff } from '@mui/icons-material';
+import {
+  VolumeUp,
+  VolumeOff,
+  Star as StarIcon,
+  Favorite as FavoriteIcon,
+  Home as HomeIcon,
+  Flag as FlagIcon,
+  Bolt as BoltIcon,
+  Diamond as DiamondIcon,
+  EmojiEvents as EmojiEventsIcon,
+  LocalFireDepartment as LocalFireDepartmentIcon,
+  WbSunny as WbSunnyIcon,
+  Park as ParkIcon,
+  AutoAwesome as AutoAwesomeIcon,
+  RocketLaunch as RocketLaunchIcon,
+} from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import api from '../utils/api';
 import { getCardBorderColor, getStationColor } from '../utils/locationColors';
+
+const ICON_MAP = {
+  Star: StarIcon,
+  Favorite: FavoriteIcon,
+  Home: HomeIcon,
+  Flag: FlagIcon,
+  Bolt: BoltIcon,
+  Diamond: DiamondIcon,
+  EmojiEvents: EmojiEventsIcon,
+  LocalFireDepartment: LocalFireDepartmentIcon,
+  WbSunny: WbSunnyIcon,
+  Park: ParkIcon,
+  AutoAwesome: AutoAwesomeIcon,
+  RocketLaunch: RocketLaunchIcon,
+};
 
 function SimpleBillboard() {
   const theme = useTheme();
@@ -276,10 +306,10 @@ function SimpleBillboard() {
 
         {/* No Active Billboard Message */}
         {!isLoading && !globalBillboard?.activeBillboard && (
-          <Box sx={{ 
-            textAlign: 'center', 
+          <Box sx={{
+            textAlign: 'center',
             py: 8,
-            backgroundColor: 'grey.100',
+            backgroundColor: 'background.paper',
             borderRadius: 2
           }}>
             <Typography variant="h4" color="text.secondary">
@@ -411,10 +441,10 @@ function SimpleBillboard() {
 
             {/* Notifications Display */}
             {activeNotifications.length === 0 ? (
-              <Box sx={{ 
-                textAlign: 'center', 
+              <Box sx={{
+                textAlign: 'center',
                 py: 6,
-                backgroundColor: 'grey.50',
+                backgroundColor: 'background.paper',
                 borderRadius: 2
               }}>
                 <Typography variant="h5" color="text.secondary">
@@ -448,15 +478,15 @@ function SimpleBillboard() {
                     <Card
                       key={notification.id}
                       sx={{
-                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                        color: 'black',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f4fafb 100%)',
+                        color: 'text.primary',
                         border: `4px solid ${borderColor}`,
                         borderRadius: 2,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                         transition: 'all 0.3s ease',
                         '&:hover': {
                           transform: 'translateY(-2px)',
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
                         }
                       }}
                     >
@@ -468,8 +498,8 @@ function SimpleBillboard() {
                         {/* Child Name */}
                         <Typography variant="h4" sx={{
                           fontWeight: 900,
-                          color: 'black',
-                          textShadow: '2px 2px 4px rgba(0,0,0,0.15)',
+                          color: 'text.primary',
+                          textShadow: '2px 2px 8px rgba(0,0,0,0.5)',
                           letterSpacing: '1px',
                           fontSize: '2rem',
                           lineHeight: 1.2,
@@ -481,8 +511,8 @@ function SimpleBillboard() {
                         {/* Security Code */}
                         <Typography variant="h5" sx={{
                           fontWeight: 700,
-                          color: 'black',
-                          textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
+                          color: 'primary.main',
+                          textShadow: '0 0 12px rgba(61,138,153,0.4)',
                           fontSize: '1.5rem',
                           mb: 1
                         }}>
@@ -491,33 +521,38 @@ function SimpleBillboard() {
                         
                         {/* Time and Location */}
                         <Typography variant="body1" sx={{
-                          color: 'black',
+                          color: 'text.secondary',
                           fontSize: '0.95rem',
-                          opacity: 0.9,
                           mb: notification.stationName ? 1 : 0
                         }}>
                           {formatTime(notification.notifiedAt)} • {notification.locationName}
                         </Typography>
                         
-                        {/* Check-in Station or Location badge (with colored badge) */}
-                        {(notification.stationName || (notification.locationName && globalBillboard?.activeBillboard?.stationColors?.[notification.locationId])) && (
-                          <Box
-                            component="span"
-                            sx={{
-                              display: 'inline-block',
-                              px: 1.5,
-                              py: 0.5,
-                              borderRadius: 1,
-                              backgroundColor: stationColor,
-                              color: 'white',
-                              fontSize: '0.85rem',
-                              fontWeight: 600,
-                              textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                            }}
-                          >
-                            {notification.stationName || notification.locationName}
-                          </Box>
-                        )}
+                        {/* Check-in Station badge: colored with optional icon + name */}
+                        {(notification.stationName || notification.locationName) && (() => {
+                          const StationIcon = notification.stationIcon ? ICON_MAP[notification.stationIcon] : null;
+                          return (
+                            <Box
+                              component="span"
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                px: 1.5,
+                                py: 0.5,
+                                borderRadius: 1,
+                                backgroundColor: stationColor,
+                                color: 'white',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                              }}
+                            >
+                              {StationIcon && <StationIcon sx={{ fontSize: '1rem' }} />}
+                              {notification.stationName || notification.locationName}
+                            </Box>
+                          );
+                        })()}
                       </CardContent>
                     </Card>
                   );

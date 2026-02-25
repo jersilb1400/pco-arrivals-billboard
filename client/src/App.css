@@ -6,26 +6,26 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #e8f4f7;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #b0d0d8;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: #7aaab8;
 }
 
 /* Print styles for billboard */
 @media print {
-  .billboard-controls, 
+  .billboard-controls,
   .navbar,
   .no-print {
     display: none !important;
   }
-  
+
 .billboard-container {
     box-shadow: none !important;
 }
@@ -33,7 +33,7 @@
 .billboard-content {
     padding: 0 !important;
   }
-  
+
 .arrivals-table {
     border: 1px solid #000 !important;
 }
@@ -58,7 +58,7 @@
   width: 100vw;
   height: 100vh;
   z-index: 9999;
-  background: white;
+  background: #f4fafb;
   overflow: auto;
 }
 
@@ -66,7 +66,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: white;
+  background: #f4fafb;
 }
 
 .fullscreen .billboard-title h1 {
@@ -94,7 +94,7 @@
 /* Animation for highlighting new arrivals */
 @keyframes highlight {
   0% {
-    background-color: rgba(46, 119, 187, 0.1);
+    background-color: rgba(61, 138, 153, 0.2);
   }
   100% {
     background-color: transparent;

@@ -39,12 +39,38 @@ import {
   Palette as PaletteIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  Star as StarIcon,
+  Favorite as FavoriteIcon,
+  Flag as FlagIcon,
+  Bolt as BoltIcon,
+  Diamond as DiamondIcon,
+  EmojiEvents as EmojiEventsIcon,
+  LocalFireDepartment as LocalFireDepartmentIcon,
+  WbSunny as WbSunnyIcon,
+  Park as ParkIcon,
+  AutoAwesome as AutoAwesomeIcon,
+  RocketLaunch as RocketLaunchIcon,
 } from '@mui/icons-material';
 import api from '../utils/api';
 import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 import DateInput from './DateInput';
-import { DEFAULT_PALETTE, DEFAULT_STATION_PALETTE } from '../utils/locationColors';
+import { DEFAULT_PALETTE, DEFAULT_STATION_PALETTE, STATION_ICONS } from '../utils/locationColors';
+
+const ICON_MAP = {
+  Star: StarIcon,
+  Favorite: FavoriteIcon,
+  Home: HomeIcon,
+  Flag: FlagIcon,
+  Bolt: BoltIcon,
+  Diamond: DiamondIcon,
+  EmojiEvents: EmojiEventsIcon,
+  LocalFireDepartment: LocalFireDepartmentIcon,
+  WbSunny: WbSunnyIcon,
+  Park: ParkIcon,
+  AutoAwesome: AutoAwesomeIcon,
+  RocketLaunch: RocketLaunchIcon,
+};
 
 // Configure axios to send cookies with requests
 api.defaults.withCredentials = true;
@@ -83,6 +109,7 @@ function AdminPanel() {
   const [stations, setStations] = useState([]);
   const [selectedStationIds, setSelectedStationIds] = useState([]);
   const [stationColorAssignments, setStationColorAssignments] = useState({});
+  const [stationIconAssignments, setStationIconAssignments] = useState({});
   const [loadingStationColors, setLoadingStationColors] = useState(false);
   const [savingStationColors, setSavingStationColors] = useState(false);
   const [loadingStations, setLoadingStations] = useState(false);
@@ -359,9 +386,6 @@ function AdminPanel() {
 
   // Fetch stations, selection, and colors when event is selected
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5fe2ea55-8c64-414c-a7d0-2c5133c3d9c3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3f960b'},body:JSON.stringify({sessionId:'3f960b',location:'AdminPanel.js:361',message:'Station useEffect triggered',data:{selectedEvent},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     if (!selectedEvent) {
       setStations([]);
       setSelectedStationIds([]);
@@ -372,25 +396,18 @@ function AdminPanel() {
       setLoadingStations(true);
       setLoadingStationColors(true);
       try {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/5fe2ea55-8c64-414c-a7d0-2c5133c3d9c3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3f960b'},body:JSON.stringify({sessionId:'3f960b',location:'AdminPanel.js:372',message:'Calling /events/:eventId/stations',data:{selectedEvent,url:`/events/${selectedEvent}/stations`},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         const response = await api.get(`/events/${selectedEvent}/stations`);
         const data = response.data;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/5fe2ea55-8c64-414c-a7d0-2c5133c3d9c3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3f960b'},body:JSON.stringify({sessionId:'3f960b',location:'AdminPanel.js:375',message:'Stations API response',data:{status:response.status,dataKeys:Object.keys(data||{}),stationsCount:data?.stations?.length,stationsIsArray:Array.isArray(data?.stations),rawDataType:typeof data,firstStation:data?.stations?.[0]},timestamp:Date.now(),runId:'run1',hypothesisId:'C,D'})}).catch(()=>{});
-        // #endregion
         setStations(Array.isArray(data?.stations) ? data.stations : []);
         setSelectedStationIds(Array.isArray(data?.selectedStationIds) ? data.selectedStationIds : []);
         setStationColorAssignments(data?.stationColors || {});
+        setStationIconAssignments(data?.stationIcons || {});
       } catch (err) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/5fe2ea55-8c64-414c-a7d0-2c5133c3d9c3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3f960b'},body:JSON.stringify({sessionId:'3f960b',location:'AdminPanel.js:382',message:'Stations fetch error',data:{errMessage:err?.message,errStatus:err?.response?.status,errData:err?.response?.data},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         console.error('Error fetching stations:', err);
         setStations([]);
         setSelectedStationIds([]);
         setStationColorAssignments({});
+        setStationIconAssignments({});
       } finally {
         setLoadingStations(false);
         setLoadingStationColors(false);
@@ -411,6 +428,7 @@ function AdminPanel() {
           eventDate: eventDate,
           locationColors: Object.keys(locationColorAssignments).length > 0 ? locationColorAssignments : undefined,
           stationColors: Object.keys(stationColorAssignments).length > 0 ? stationColorAssignments : undefined,
+          stationIcons: Object.keys(stationIconAssignments).length > 0 ? stationIconAssignments : undefined,
           selectedStationIds: selectedStationIds.length > 0 ? selectedStationIds : undefined
         });
         
@@ -523,9 +541,10 @@ function AdminPanel() {
     try {
       await api.put(`/events/${selectedEvent}/stations`, {
         selectedStationIds,
-        stationColors: stationColorAssignments
+        stationColors: stationColorAssignments,
+        stationIcons: stationIconAssignments
       });
-      setSnackbarMsg('Station selection and colors saved successfully');
+      setSnackbarMsg('Station selection, colors, and icons saved successfully');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
     } catch (error) {
@@ -816,7 +835,7 @@ function AdminPanel() {
       
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Quick Navigation Menu */}
-        <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: 'primary.light' }}>
+        <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: 'background.paper', borderLeft: '4px solid', borderColor: 'primary.main' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Typography variant="h6" color="text.primary" sx={{ fontWeight: 600 }}>
               Quick Navigation
@@ -827,11 +846,11 @@ function AdminPanel() {
                 size="small"
                 startIcon={<HomeIcon />}
                 onClick={() => navigate('/')}
-                sx={{ 
-                  bgcolor: 'white', 
+                sx={{
+                  bgcolor: 'background.paper',
                   color: 'primary.main',
                   '&:hover': {
-                    bgcolor: 'grey.100'
+                    bgcolor: 'grey.700'
                   }
                 }}
               >
@@ -842,11 +861,11 @@ function AdminPanel() {
                 size="small"
                 startIcon={<ListIcon />}
                 onClick={() => navigate('/location-status')}
-                sx={{ 
-                  bgcolor: 'white', 
+                sx={{
+                  bgcolor: 'background.paper',
                   color: 'primary.main',
                   '&:hover': {
-                    bgcolor: 'grey.100'
+                    bgcolor: 'grey.700'
                   }
                 }}
               >
@@ -857,11 +876,11 @@ function AdminPanel() {
                 size="small"
                 startIcon={<DashboardIcon />}
                 onClick={() => navigate('/billboard')}
-                sx={{ 
-                  bgcolor: 'white', 
+                sx={{
+                  bgcolor: 'background.paper',
                   color: 'primary.main',
                   '&:hover': {
-                    bgcolor: 'grey.100'
+                    bgcolor: 'grey.700'
                   }
                 }}
               >
@@ -1134,7 +1153,7 @@ function AdminPanel() {
                               flexWrap: 'wrap',
                               p: 1.5,
                               borderRadius: 1,
-                              bgcolor: 'grey.50'
+                              bgcolor: 'action.hover'
                             }}
                           >
                             <Typography variant="body1" sx={{ minWidth: 180 }}>
@@ -1216,7 +1235,7 @@ function AdminPanel() {
                 {stationColorSectionExpanded && (
                   <CardContent sx={{ pt: 0, borderTop: 1, borderColor: 'divider' }}>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Select which check-in stations are used for this event, then assign a color to each. Billboard cards will show the station name in a colored badge.
+                      Select which check-in stations are used for this event, then assign a color and icon to each. Billboard cards will show the station icon and name in a colored badge.
                       {stations.some(s => s.isLocationFallback) ? (
                         <> Using room locations as station proxy (PCO station data not available).</>
                       ) : null}
@@ -1243,7 +1262,7 @@ function AdminPanel() {
                                   flexWrap: 'wrap',
                                   p: 1.5,
                                   borderRadius: 1,
-                                  bgcolor: isSelected ? 'action.selected' : 'grey.50'
+                                  bgcolor: isSelected ? 'action.selected' : 'action.hover'
                                 }}
                               >
                                 <Checkbox
@@ -1255,38 +1274,71 @@ function AdminPanel() {
                                   {stationName}
                                 </Typography>
                                 {isSelected && (
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                    {DEFAULT_STATION_PALETTE.map((color) => (
-                                      <Box
-                                        key={color}
-                                        onClick={() => setStationColorAssignments(prev => ({ ...prev, [stationId]: color }))}
-                                        sx={{
-                                          width: 28,
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                    {/* Color picker */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                      {DEFAULT_STATION_PALETTE.map((color) => (
+                                        <Box
+                                          key={color}
+                                          onClick={() => setStationColorAssignments(prev => ({ ...prev, [stationId]: color }))}
+                                          sx={{
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: 1,
+                                            bgcolor: color,
+                                            border: currentColor === color ? '3px solid' : '1px solid',
+                                            borderColor: currentColor === color ? 'secondary.main' : 'grey.400',
+                                            cursor: 'pointer',
+                                            '&:hover': { opacity: 0.9 }
+                                          }}
+                                          title={color}
+                                        />
+                                      ))}
+                                      <input
+                                        type="color"
+                                        value={currentColor}
+                                        onChange={(e) => setStationColorAssignments(prev => ({ ...prev, [stationId]: e.target.value }))}
+                                        style={{
+                                          width: 36,
                                           height: 28,
-                                          borderRadius: 1,
-                                          bgcolor: color,
-                                          border: currentColor === color ? '3px solid' : '1px solid',
-                                          borderColor: currentColor === color ? 'secondary.main' : 'grey.400',
+                                          border: 'none',
+                                          borderRadius: 4,
                                           cursor: 'pointer',
-                                          '&:hover': { opacity: 0.9 }
+                                          padding: 0
                                         }}
-                                        title={color}
+                                        title="Custom color"
                                       />
-                                    ))}
-                                    <input
-                                      type="color"
-                                      value={currentColor}
-                                      onChange={(e) => setStationColorAssignments(prev => ({ ...prev, [stationId]: e.target.value }))}
-                                      style={{
-                                        width: 36,
-                                        height: 28,
-                                        border: 'none',
-                                        borderRadius: 4,
-                                        cursor: 'pointer',
-                                        padding: 0
-                                      }}
-                                      title="Custom color"
-                                    />
+                                    </Box>
+                                    {/* Icon picker */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                      {STATION_ICONS.map(({ name, label }) => {
+                                        const IconComponent = ICON_MAP[name];
+                                        const isActive = stationIconAssignments[stationId] === name;
+                                        return (
+                                          <Box
+                                            key={name}
+                                            onClick={() => setStationIconAssignments(prev => ({ ...prev, [stationId]: name }))}
+                                            title={label}
+                                            sx={{
+                                              width: 36,
+                                              height: 36,
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              borderRadius: 1,
+                                              border: isActive ? '3px solid' : '1px solid',
+                                              borderColor: isActive ? 'secondary.main' : 'grey.400',
+                                              bgcolor: isActive ? currentColor : 'transparent',
+                                              color: isActive ? 'white' : 'text.primary',
+                                              cursor: 'pointer',
+                                              '&:hover': { bgcolor: isActive ? currentColor : 'action.hover' }
+                                            }}
+                                          >
+                                            <IconComponent fontSize="small" />
+                                          </Box>
+                                        );
+                                      })}
+                                    </Box>
                                   </Box>
                                 )}
                               </Box>
@@ -1299,7 +1351,7 @@ function AdminPanel() {
                           onClick={handleSaveStations}
                           disabled={savingStationColors}
                         >
-                          {savingStationColors ? 'Saving...' : 'Save station selection & colors'}
+                          {savingStationColors ? 'Saving...' : 'Save station selection, colors & icons'}
                         </Button>
                       </>
                     )}

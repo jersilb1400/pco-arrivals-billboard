@@ -75,7 +75,7 @@ let checkInCache = {
 let activeNotifications = [];
 
 // Function to update global billboard state
-function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName, locationColors, stationColors) {
+function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName, locationColors, stationColors, stationIcons) {
   globalBillboardState = {
     activeBillboard: {
       eventId,
@@ -83,7 +83,8 @@ function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate
       securityCodes: securityCodes || [],
       eventDate,
       locationColors: locationColors || {},
-      stationColors: stationColors || {}
+      stationColors: stationColors || {},
+      stationIcons: stationIcons || {}
     },
     lastUpdated: new Date(),
     createdBy: {
@@ -135,6 +136,7 @@ app.use(cors({
     const allowedOrigins = [
       'https://arrivals.gracefm.org',
       'https://pco-arrivals-billboard-client.onrender.com',
+      'https://pco-arrivals-billboard.pages.dev',
       'http://localhost:3000',
       'http://localhost:3001'
     ];
@@ -1542,9 +1544,6 @@ app.post('/api/security-code-entry', async (req, res) => {
   try {
     const { securityCode, eventId, eventDate } = req.body;
     
-    // #region agent log
-    debugLog({location:'server.js:1492',message:'Security code entry request',data:{securityCode,eventId,eventDate},sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
-    // #endregion
     
     if (!securityCode) {
       return res.status(400).json({ 
@@ -1579,7 +1578,7 @@ app.post('/api/security-code-entry', async (req, res) => {
     
     // First, try querying with the exact security code as provided (uppercase)
     try {
-      const url1 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode)}&where[event_id]=${eventId}&include=person,locations,station`;
+      const url1 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode)}&where[event_id]=${eventId}&include=person,locations,checked_in_at`;
       console.log(`[SECURITY CODE] Trying PCO API URL (uppercase): ${url1}`);
       
       const response1 = await axios.get(url1, {
@@ -1595,19 +1594,13 @@ app.post('/api/security-code-entry', async (req, res) => {
       allCheckIns = allCheckIns.concat(response1.data.data || []);
       if (response1.data.included) allIncluded = allIncluded.concat(response1.data.included);
       console.log(`[SECURITY CODE] Found ${response1.data.data?.length || 0} check-ins with uppercase code`);
-      // #region agent log
-      debugLog({location:'server.js:1542',message:'Uppercase query result',data:{found:response1.data.data?.length||0,checkIns:response1.data.data?.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))||[]},sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
-      // #endregion
     } catch (error) {
       console.log(`[SECURITY CODE] Uppercase query failed or returned no results:`, error.response?.status || error.message);
-      // #region agent log
-      debugLog({location:'server.js:1544',message:'Uppercase query error',data:{status:error.response?.status,message:error.message},sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
-      // #endregion
     }
     
     // Also try with lowercase version
     try {
-      const url2 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode.toLowerCase())}&where[event_id]=${eventId}&include=person,locations,station`;
+      const url2 = `${PCO_API_BASE}/check_ins?where[security_code]=${encodeURIComponent(securityCode.toLowerCase())}&where[event_id]=${eventId}&include=person,locations,checked_in_at`;
       console.log(`[SECURITY CODE] Trying PCO API URL (lowercase): ${url2}`);
       
       const response2 = await axios.get(url2, {
@@ -1628,20 +1621,14 @@ app.post('/api/security-code-entry', async (req, res) => {
         allIncluded = allIncluded.concat(newIncluded);
       }
       console.log(`[SECURITY CODE] Found ${response2.data.data?.length || 0} check-ins with lowercase code`);
-      // #region agent log
-      debugLog({location:'server.js:1569',message:'Lowercase query result',data:{found:response2.data.data?.length||0,newCheckIns:newCheckIns.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))},sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
-      // #endregion
     } catch (error) {
       console.log(`[SECURITY CODE] Lowercase query failed or returned no results:`, error.response?.status || error.message);
-      // #region agent log
-      debugLog({location:'server.js:1571',message:'Lowercase query error',data:{status:error.response?.status,message:error.message},sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
-      // #endregion
     }
     
     // If we still don't have results, fetch all check-ins for the event as fallback
     if (allCheckIns.length === 0) {
       console.log(`[SECURITY CODE] No results from direct queries, fetching all check-ins for event as fallback`);
-      let nextPage = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations,station&per_page=100`;
+      let nextPage = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations,checked_in_at&per_page=100`;
       
       while (nextPage) {
         try {
@@ -1661,14 +1648,8 @@ app.post('/api/security-code-entry', async (req, res) => {
           nextPage = links?.next || null;
           
           console.log(`[SECURITY CODE] Fetched page with ${data?.length || 0} check-ins, total so far: ${allCheckIns.length}`);
-          // #region agent log
-          debugLog({location:'server.js:1596',message:'Fallback pagination - page fetched',data:{pageCheckIns:data?.length||0,totalSoFar:allCheckIns.length,hasNextPage:!!links?.next},sessionId:'debug-session',runId:'run1',hypothesisId:'F'});
-          // #endregion
         } catch (error) {
           console.error(`[SECURITY CODE] Error fetching check-ins:`, error.response?.data || error.message);
-          // #region agent log
-          debugLog({location:'server.js:1598',message:'Fallback pagination error',data:{status:error.response?.status,message:error.message},sessionId:'debug-session',runId:'run1',hypothesisId:'F'});
-          // #endregion
           // If it's a 404, the event might not exist or have no check-ins
           if (error.response?.status === 404) {
             console.log(`[SECURITY CODE] Event ${eventId} not found or has no check-ins`);
@@ -1677,17 +1658,11 @@ app.post('/api/security-code-entry', async (req, res) => {
           throw error;
         }
       }
-      // #region agent log
-      debugLog({location:'server.js:1607',message:'Fallback complete - all check-ins fetched',data:{totalCheckIns:allCheckIns.length,eventId},sessionId:'debug-session',runId:'run1',hypothesisId:'F'});
-      // #endregion
     }
 
     const included = allIncluded;
     console.log(`[SECURITY CODE] Found ${allCheckIns.length} total check-ins in event ${eventId}`);
 
-    // #region agent log
-    debugLog({location:'server.js:1610',message:'Before filtering - all check-ins found',data:{totalCheckIns:allCheckIns.length,eventId,eventDate,normalizedSecurityCode,allSecurityCodes:allCheckIns.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))},sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'});
-    // #endregion
 
     // Filter by security code (case-insensitive), active status, and date (lenient ±1 day for timezone)
     // We use lenient date matching to handle timezone issues while preventing check-ins from previous sessions
@@ -1729,11 +1704,6 @@ app.post('/api/security-code-entry', async (req, res) => {
       
       console.log(`[SECURITY CODE] Check-in ${checkIn.id}: code=${checkIn.attributes.security_code} (normalized: ${checkInSecurityCode}), matchesCode=${matchesSecurityCode}, active=${isActive}, checkInDate=${checkInDate}, eventDate=${eventDate}, matchesDate=${matchesDate}`);
       
-      // #region agent log
-      if (checkInSecurityCode === normalizedSecurityCode || checkIn.attributes.security_code?.toUpperCase() === securityCode.toUpperCase()) {
-        debugLog({location:'server.js:1661',message:'Matching security code found - filtering details',data:{checkInId:checkIn.id,securityCode:checkIn.attributes.security_code,normalizedCode:checkInSecurityCode,matchesCode:matchesSecurityCode,isActive,checkInDate,eventDate,matchesDate,createdAt:checkIn.attributes.created_at,checkedOutAt:checkIn.attributes.checked_out_at},sessionId:'debug-session',runId:'run1',hypothesisId:'1'});
-      }
-      // #endregion
       
       // Filter by security code match, active status, and date (lenient ±1 day)
       return matchesSecurityCode && isActive && matchesDate;
@@ -1741,14 +1711,8 @@ app.post('/api/security-code-entry', async (req, res) => {
 
     console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins (matching by code, active status, and date ±1 day for timezone)`);
 
-    // #region agent log
-    debugLog({location:'server.js:1625',message:'After filtering - final results',data:{activeCheckInsCount:activeCheckIns.length,eventDate,securityCode,normalizedSecurityCode,activeCheckIns:activeCheckIns.map(ci=>({id:ci.id,code:ci.attributes.security_code,createdAt:ci.attributes.created_at,checkedOut:ci.attributes.checked_out_at}))},sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
-    // #endregion
 
     if (activeCheckIns.length === 0) {
-      // #region agent log
-      debugLog({location:'server.js:1627',message:'No active check-ins found - returning error',data:{securityCode,eventId,eventDate,normalizedSecurityCode,totalCheckInsFound:allCheckIns.length},sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'});
-      // #endregion
       return res.json({ 
         success: false, 
         message: 'No active check-in found with this security code for the current event and date. The child may have already been checked out or may not be checked in for this event.' 
@@ -1766,10 +1730,10 @@ app.post('/api/security-code-entry', async (req, res) => {
         item.type === 'Location' &&
         item.id === activeCheckIn.relationships.locations?.data?.[0]?.id
       );
-      // Station: PCO may use 'station' or 'check_in_station' relationship
-      const stationData = activeCheckIn.relationships?.station?.data || activeCheckIn.relationships?.check_in_station?.data;
+      // Station: PCO uses 'checked_in_at' relationship key pointing to a Station resource
+      const stationData = activeCheckIn.relationships?.checked_in_at?.data;
       const station = stationData ? included.find(item =>
-        (item.type === 'Station' || item.type === 'CheckInStation') && item.id === stationData.id
+        item.type === 'Station' && item.id === stationData.id
       ) : null;
       const childName = person ? 
         `${person.attributes.first_name} ${person.attributes.last_name}` : 
@@ -1796,6 +1760,9 @@ app.post('/api/security-code-entry', async (req, res) => {
           locationId: location?.id,
           stationId,
           stationName,
+          stationIcon: (stationId && globalBillboardState.activeBillboard?.stationIcons?.[stationId]) ||
+                       (location?.id && globalBillboardState.activeBillboard?.stationIcons?.[location?.id]) ||
+                       null,
           eventId: eventId,
           eventDate: eventDate
         };
@@ -1920,9 +1887,6 @@ app.get('/api/active-notifications', async (req, res) => {
               const isCheckedOut = !!checkIn.attributes.checked_out_at;
               const checkInId = String(checkIn.id);
               
-              // #region agent log
-              debugLog({location:'server.js:1872',message:'Check-out status check',data:{checkInId,isCheckedOut,checkedOutAt:checkIn.attributes.checked_out_at,hasAttributes:!!checkIn.attributes},sessionId:'debug-session',runId:'run1',hypothesisId:'2'});
-              // #endregion
               
               if (isCheckedOut) {
                 checkedOutIds.push(checkInId);
@@ -2250,7 +2214,7 @@ app.get('/api/location-status', async (req, res) => {
     console.log(`[DEBUG] Location-status: No cache available, fetching from PCO API`);
     
     // Build the PCO API URL for the selected event and date
-    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations,station&per_page=100`;
+    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations,checked_in_at&per_page=100`;
     if (date) {
       url += `&where[created_at]=${date}`;
     }
@@ -2623,17 +2587,21 @@ app.get('/api/events/:eventId/stations', async (req, res) => {
       console.log(`[STATIONS] Using ${allStations.length} locations as fallback for event ${eventId}`);
     }
 
-    // 2. Fetch event's selected stations and color assignments from DB
+    // 2. Fetch event's selected stations and color/icon assignments from DB
     const doc = await StationColor.findOne({ eventId });
     const selectedStationIds = doc?.selectedStationIds || [];
     const stationColors = doc?.assignments && doc.assignments.size > 0
       ? Object.fromEntries(doc.assignments)
       : {};
+    const stationIcons = doc?.icons && doc.icons.size > 0
+      ? Object.fromEntries(doc.icons)
+      : {};
 
     res.json({
       stations: allStations,
       selectedStationIds,
-      stationColors
+      stationColors,
+      stationIcons
     });
   } catch (error) {
     console.error('Error fetching stations:', error.response?.data || error.message);
@@ -2645,7 +2613,7 @@ app.get('/api/events/:eventId/stations', async (req, res) => {
 app.put('/api/events/:eventId/stations', async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { selectedStationIds, stationColors } = req.body;
+    const { selectedStationIds, stationColors, stationIcons } = req.body;
     if (!eventId) {
       return res.status(400).json({ error: 'eventId is required' });
     }
@@ -2661,16 +2629,28 @@ app.put('/api/events/:eventId/stations', async (req, res) => {
       }
       doc.assignments = new Map(Object.entries(validated));
     }
+    if (stationIcons && typeof stationIcons === 'object') {
+      const validIconNames = ['Star','Favorite','Home','Flag','Bolt','Diamond','EmojiEvents','LocalFireDepartment','WbSunny','Park','AutoAwesome','RocketLaunch'];
+      const validIcons = {};
+      for (const [id, icon] of Object.entries(stationIcons)) {
+        if (icon && validIconNames.includes(icon)) validIcons[id] = icon;
+      }
+      doc.icons = new Map(Object.entries(validIcons));
+    }
     await doc.save();
     if (globalBillboardState.activeBillboard?.eventId === eventId) {
       globalBillboardState.activeBillboard.stationColors = doc.assignments?.size > 0
         ? Object.fromEntries(doc.assignments)
         : {};
+      globalBillboardState.activeBillboard.stationIcons = doc.icons?.size > 0
+        ? Object.fromEntries(doc.icons)
+        : {};
     }
     res.json({
       success: true,
       selectedStationIds: doc.selectedStationIds,
-      stationColors: doc.assignments?.size > 0 ? Object.fromEntries(doc.assignments) : {}
+      stationColors: doc.assignments?.size > 0 ? Object.fromEntries(doc.assignments) : {},
+      stationIcons: doc.icons?.size > 0 ? Object.fromEntries(doc.icons) : {}
     });
   } catch (error) {
     console.error('Error saving station selection:', error);
@@ -2681,7 +2661,7 @@ app.put('/api/events/:eventId/stations', async (req, res) => {
 // POST /api/set-global-billboard - Set the global billboard state directly
 app.post('/api/set-global-billboard', async (req, res) => {
   try {
-    const { eventId, eventName, securityCodes, eventDate, locationColors, stationColors, selectedStationIds } = req.body;
+    const { eventId, eventName, securityCodes, eventDate, locationColors, stationColors, stationIcons, selectedStationIds } = req.body;
     console.log('Server: set-global-billboard called with:', { eventId, eventName, securityCodes, eventDate, locationColors: locationColors ? Object.keys(locationColors).length + ' colors' : 'none', stationColors: (stationColors && typeof stationColors === 'object') ? Object.keys(stationColors).length + ' colors' : 'none', selectedStationIds: Array.isArray(selectedStationIds) ? selectedStationIds.length : 0 });
     
     if (!eventId || !eventName) {
@@ -2723,11 +2703,19 @@ app.post('/api/set-global-billboard', async (req, res) => {
         if (stationColors && typeof stationColors === 'object' && Object.keys(stationColors).length > 0) {
           doc.assignments = new Map(Object.entries(stationColors));
         }
+        if (stationIcons && typeof stationIcons === 'object' && Object.keys(stationIcons).length > 0) {
+          const validIconNames = ['Star','Favorite','Home','Flag','Bolt','Diamond','EmojiEvents','LocalFireDepartment','WbSunny','Park','AutoAwesome','RocketLaunch'];
+          const validIcons = {};
+          for (const [id, icon] of Object.entries(stationIcons)) {
+            if (icon && validIconNames.includes(icon)) validIcons[id] = icon;
+          }
+          doc.icons = new Map(Object.entries(validIcons));
+        }
         if (Array.isArray(selectedStationIds)) {
           doc.selectedStationIds = selectedStationIds;
         }
         await doc.save();
-        console.log('Server: Saved station selection/colors to MongoDB');
+        console.log('Server: Saved station selection/colors/icons to MongoDB');
       } catch (dbErr) {
         console.error('Server: Error saving station data:', dbErr);
       }
@@ -2758,6 +2746,19 @@ app.post('/api/set-global-billboard', async (req, res) => {
         // ignore
       }
     }
+
+    // Load existing station icons from DB if not provided
+    let iconsForState = stationIcons || {};
+    if (!stationIcons || Object.keys(stationIcons).length === 0) {
+      try {
+        const doc = await StationColor.findOne({ eventId });
+        if (doc?.icons && doc.icons.size > 0) {
+          iconsForState = Object.fromEntries(doc.icons);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
     
     // Clear notifications from past events when starting a new event
     const beforeCount = activeNotifications.length;
@@ -2766,7 +2767,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
     }
     
-    updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState);
+    updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState, iconsForState);
     
     console.log('Server: Global billboard state updated successfully');
     

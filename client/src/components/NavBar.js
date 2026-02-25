@@ -114,7 +114,7 @@ function NavBar({
                 sx={{
                   color: currentPage === 'admin' ? 'primary.main' : 'text.secondary',
                   '&:hover': {
-                    backgroundColor: 'primary.light',
+                    backgroundColor: 'rgba(61,138,153,0.12)',
                     color: 'primary.main',
                   }
                 }}
@@ -138,7 +138,7 @@ function NavBar({
                 sx={{
                   color: currentPage === 'users' ? 'primary.main' : 'text.secondary',
                   '&:hover': {
-                    backgroundColor: 'primary.light',
+                    backgroundColor: 'rgba(61,138,153,0.12)',
                     color: 'primary.main',
                   }
                 }}
