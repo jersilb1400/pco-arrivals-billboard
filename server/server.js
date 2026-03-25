@@ -15,6 +15,7 @@ const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
+const { shouldClearNotificationsForSessionChange } = require('./utils/notificationSession');
 
 // Debug logging helper - writes to both file and console for visibility
 const DEBUG_LOG_PATH = path.join(__dirname, '..', '.cursor', 'debug.log');
@@ -2760,11 +2761,17 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
-    // Clear notifications from past events when starting a new event
+    // Only clear notifications when the event/date session changes.
+    const previousActiveBillboard = globalBillboardState.activeBillboard;
+    const shouldClearNotifications = shouldClearNotificationsForSessionChange(previousActiveBillboard, eventId, eventDate);
     const beforeCount = activeNotifications.length;
-    if (beforeCount > 0) {
+    let notificationsCleared = 0;
+    if (shouldClearNotifications && beforeCount > 0) {
       activeNotifications.length = 0;
-      console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
+      notificationsCleared = beforeCount;
+      console.log(`Server: Cleared ${beforeCount} notifications from previous event/date session`);
+    } else if (!shouldClearNotifications) {
+      console.log('Server: Preserving active notifications for same event/date session');
     }
     
     updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState, iconsForState);
@@ -2775,7 +2782,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       success: true, 
       message: 'Global billboard state updated successfully',
       globalBillboardState,
-      notificationsCleared: beforeCount
+      notificationsCleared
     });
   } catch (error) {
     console.error('Server: Error setting global billboard state:', error);
