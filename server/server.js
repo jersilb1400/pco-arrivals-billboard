@@ -357,22 +357,24 @@ app.delete('/api/admin/users/:id', (req, res) => {
 // Simple login endpoint - no OAuth needed
 app.post('/api/auth/login', async (req, res) => {
   const { userInput, turnstileToken } = req.body;
+  const normalizedUserInput = typeof userInput === 'string' ? userInput.trim() : '';
+  const normalizedTurnstileToken = typeof turnstileToken === 'string' ? turnstileToken.trim() : '';
   
-  if (!userInput) {
+  if (!normalizedUserInput) {
     return res.status(400).json({ error: 'User ID or email required' });
   }
 
-  if (!turnstileToken) {
+  if (!normalizedTurnstileToken) {
     return res.status(400).json({ error: 'Security verification required' });
   }
 
-  console.log(`[LOGIN] Attempting login with input: ${userInput}`);
+  console.log(`[LOGIN] Attempting login with input: ${normalizedUserInput}`);
 
   // Verify Turnstile token
   try {
     const turnstileResponse = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
       secret: process.env.TURNSTILE_SECRET_KEY || '0x4AAAAAAB8GhuFM-YmXw2t7ce1y3L_lt8A',
-      response: turnstileToken,
+      response: normalizedTurnstileToken,
       remoteip: req.ip
     }, {
       headers: {
@@ -392,13 +394,14 @@ app.post('/api/auth/login', async (req, res) => {
   }
   
   // Check if user is authorized - search by both ID and email
+  const normalizedUserInputLower = normalizedUserInput.toLowerCase();
   const user = authorizedUsers.find(u => 
-    u.id === userInput || 
-    (u.email && u.email.toLowerCase() === userInput.toLowerCase())
+    String(u.id) === normalizedUserInput || 
+    (typeof u.email === 'string' && u.email.toLowerCase() === normalizedUserInputLower)
   );
   
   if (!user) {
-    console.log(`[LOGIN] User not found: ${userInput}`);
+    console.log(`[LOGIN] User not found: ${normalizedUserInput}`);
     console.log(`[LOGIN] Available users:`, authorizedUsers.map(u => ({ id: u.id, email: u.email })));
     return res.status(403).json({ error: 'User not authorized. Please check your User ID or email address.' });
   }
