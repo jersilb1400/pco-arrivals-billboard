@@ -2760,11 +2760,19 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
-    // Clear notifications from past events when starting a new event
+    // Clear notifications only when switching to a different event/date session.
+    // Re-saving the same active session (e.g. updating colors/icons) must not drop pickup requests.
     const beforeCount = activeNotifications.length;
-    if (beforeCount > 0) {
+    const previousActive = globalBillboardState.activeBillboard;
+    const isDifferentSession = !!previousActive && (
+      String(previousActive.eventId) !== String(eventId) ||
+      String(previousActive.eventDate || '') !== String(eventDate || '')
+    );
+    let clearedCount = 0;
+    if (beforeCount > 0 && isDifferentSession) {
       activeNotifications.length = 0;
-      console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
+      clearedCount = beforeCount;
+      console.log(`Server: Cleared ${beforeCount} notifications from previous event session`);
     }
     
     updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState, iconsForState);
@@ -2775,7 +2783,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       success: true, 
       message: 'Global billboard state updated successfully',
       globalBillboardState,
-      notificationsCleared: beforeCount
+      notificationsCleared: clearedCount
     });
   } catch (error) {
     console.error('Server: Error setting global billboard state:', error);
