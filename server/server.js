@@ -12,6 +12,7 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
+const { shouldClearNotifications } = require('./utils/billboardSession');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
@@ -2760,11 +2761,21 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
-    // Clear notifications from past events when starting a new event
+    // Only clear notifications when switching to a different session.
+    // Re-saving the same active event/date should preserve in-flight pickups.
     const beforeCount = activeNotifications.length;
-    if (beforeCount > 0) {
+    const clearForSessionSwitch = shouldClearNotifications(
+      globalBillboardState.activeBillboard,
+      eventId,
+      eventDate
+    );
+    let notificationsCleared = 0;
+    if (beforeCount > 0 && clearForSessionSwitch) {
       activeNotifications.length = 0;
+      notificationsCleared = beforeCount;
       console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
+    } else if (beforeCount > 0) {
+      console.log(`Server: Preserved ${beforeCount} notifications for same event session`);
     }
     
     updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState, iconsForState);
@@ -2775,7 +2786,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       success: true, 
       message: 'Global billboard state updated successfully',
       globalBillboardState,
-      notificationsCleared: beforeCount
+      notificationsCleared
     });
   } catch (error) {
     console.error('Server: Error setting global billboard state:', error);
