@@ -12,6 +12,7 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
+const { shouldClearNotifications } = require('./utils/billboardSession');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
@@ -2760,9 +2761,10 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
-    // Clear notifications from past events when starting a new event
+    // Only clear notifications when billboard session identity changes.
+    const shouldClear = shouldClearNotifications(globalBillboardState.activeBillboard, eventId, eventDate);
     const beforeCount = activeNotifications.length;
-    if (beforeCount > 0) {
+    if (shouldClear && beforeCount > 0) {
       activeNotifications.length = 0;
       console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
     }
