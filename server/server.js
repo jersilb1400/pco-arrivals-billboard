@@ -15,6 +15,7 @@ const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
+const { shouldClearNotifications } = require('./utils/billboardSession');
 
 // Debug logging helper - writes to both file and console for visibility
 const DEBUG_LOG_PATH = path.join(__dirname, '..', '.cursor', 'debug.log');
@@ -2760,11 +2761,19 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
-    // Clear notifications from past events when starting a new event
+    // Only clear in-flight pickups when the billboard session changes (event/date).
+    const shouldClear = shouldClearNotifications(
+      globalBillboardState.activeBillboard,
+      eventId,
+      eventDate
+    );
     const beforeCount = activeNotifications.length;
-    if (beforeCount > 0) {
+    const clearedCount = shouldClear ? beforeCount : 0;
+    if (shouldClear && beforeCount > 0) {
       activeNotifications.length = 0;
-      console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
+      console.log(`Server: Cleared ${beforeCount} notifications due to event/date change`);
+    } else if (!shouldClear) {
+      console.log(`Server: Preserving ${beforeCount} active notifications (same event/date session)`);
     }
     
     updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState, iconsForState);
@@ -2775,7 +2784,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       success: true, 
       message: 'Global billboard state updated successfully',
       globalBillboardState,
-      notificationsCleared: beforeCount
+      notificationsCleared: clearedCount
     });
   } catch (error) {
     console.error('Server: Error setting global billboard state:', error);
