@@ -153,6 +153,8 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Apply rate limiting before API routes so it actually executes
+app.use('/api', apiLimiter);
 
 // Simple authentication middleware - no sessions needed
 app.use('/api', (req, res, next) => {
@@ -2808,10 +2810,6 @@ app.get('/api/debug/status', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-// Apply rate limiting
-app.use('/api', apiLimiter);
-// Note: Auth routes are defined directly in this file, so we don't apply authLimiter to /api/auth
 
 // Serve Swagger documentation
 app.use('/api-docs', swaggerUi.serve);
