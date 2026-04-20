@@ -2760,11 +2760,28 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
-    // Clear notifications from past events when starting a new event
+    // Only clear notifications when the active session (event/date) changes.
+    // Re-saving the same event/date should not wipe active pickup requests.
+    const activeSession = globalBillboardState.activeBillboard
+      ? {
+          eventId: String(globalBillboardState.activeBillboard.eventId || ''),
+          eventDate: String(globalBillboardState.activeBillboard.eventDate || '')
+        }
+      : null;
+    const incomingSession = {
+      eventId: String(eventId || ''),
+      eventDate: String(eventDate || '')
+    };
+    const sessionChanged = !activeSession ||
+      activeSession.eventId !== incomingSession.eventId ||
+      activeSession.eventDate !== incomingSession.eventDate;
+
     const beforeCount = activeNotifications.length;
-    if (beforeCount > 0) {
+    if (sessionChanged && beforeCount > 0) {
       activeNotifications.length = 0;
-      console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
+      console.log(`Server: Cleared ${beforeCount} notifications from previous event/date session`);
+    } else if (!sessionChanged && beforeCount > 0) {
+      console.log(`Server: Preserving ${beforeCount} active notifications for unchanged event/date session`);
     }
     
     updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState, iconsForState);
