@@ -35,11 +35,6 @@ function getCheckInDateCandidates(createdAt, timeZone = DEFAULT_EVENT_TIME_ZONE)
     return Array.from(candidates);
   }
 
-  const offsetTimestamp = createdAt.match(/^(\d{4}-\d{2}-\d{2})T.*[+-]\d{2}:?\d{2}$/);
-  if (offsetTimestamp) {
-    candidates.add(offsetTimestamp[1]);
-  }
-
   const parsedDate = new Date(createdAt);
   if (!Number.isNaN(parsedDate.getTime())) {
     candidates.add(formatDateInTimeZone(parsedDate, timeZone));
