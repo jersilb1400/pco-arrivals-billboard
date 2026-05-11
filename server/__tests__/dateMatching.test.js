@@ -28,9 +28,30 @@ test('matches a date-only check-in value exactly', () => {
   assert.equal(checkInMatchesEventDate('2026-05-11', '2026-05-11'), true);
 });
 
-test('matches the source timestamp date even when its UTC date rolls over', () => {
+test('matches the event timezone date when a UTC timestamp rolls over', () => {
+  assert.equal(
+    checkInMatchesEventDate('2026-05-12T04:30:00Z', '2026-05-11'),
+    true
+  );
+});
+
+test('rejects the UTC date when the event timezone date is previous day', () => {
+  assert.equal(
+    checkInMatchesEventDate('2026-05-12T04:30:00Z', '2026-05-12'),
+    false
+  );
+});
+
+test('matches an offset timestamp by its source event date', () => {
   assert.equal(
     checkInMatchesEventDate('2026-05-11T23:30:00-05:00', '2026-05-11'),
     true
+  );
+});
+
+test('rejects adjacent UTC date for an offset timestamp', () => {
+  assert.equal(
+    checkInMatchesEventDate('2026-05-11T23:30:00-05:00', '2026-05-12'),
+    false
   );
 });
