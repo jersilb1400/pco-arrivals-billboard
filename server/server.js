@@ -12,7 +12,7 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
-const { shouldClearNotifications } = require('./utils/billboardSession');
+const { resolveNextEventDate, shouldClearNotifications } = require('./utils/billboardSession');
 const {
   DEFAULT_EVENT_TIME_ZONE,
   formatDateInTimeZone,
@@ -2657,6 +2657,10 @@ app.post('/api/set-global-billboard', async (req, res) => {
     
     const userId = req.user?.id;
     const userName = authorizedUsers.find(u => u.id === userId)?.name || 'Unknown User';
+    const effectiveEventDate = resolveNextEventDate(
+      globalBillboardState.activeBillboard,
+      { eventId, eventDate }
+    );
     
     console.log('Server: Updating global billboard state with user:', { userId, userName });
     
@@ -2744,7 +2748,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
     const beforeCount = activeNotifications.length;
     const notificationsShouldClear = shouldClearNotifications(
       globalBillboardState.activeBillboard,
-      { eventId, eventDate }
+      { eventId, eventDate: effectiveEventDate }
     );
     let notificationsCleared = 0;
     if (notificationsShouldClear && beforeCount > 0) {
@@ -2755,7 +2759,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       console.log(`Server: Preserved ${beforeCount} active notifications for current event session`);
     }
     
-    updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState, iconsForState);
+    updateGlobalBillboardState(eventId, eventName, securityCodes || [], effectiveEventDate, userId, userName, colorsForState, stationsForState, iconsForState);
     
     console.log('Server: Global billboard state updated successfully');
     

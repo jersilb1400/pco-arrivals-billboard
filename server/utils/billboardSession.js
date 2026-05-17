@@ -8,6 +8,26 @@ function hasEventDatePayload(billboard) {
     billboard.eventDate !== '';
 }
 
+function hasSameEventId(currentBillboard, nextBillboard) {
+  return normalizeSessionValue(currentBillboard?.eventId) === normalizeSessionValue(nextBillboard?.eventId);
+}
+
+function resolveNextEventDate(currentBillboard, nextBillboard) {
+  if (!nextBillboard) {
+    return undefined;
+  }
+
+  if (hasEventDatePayload(nextBillboard)) {
+    return nextBillboard.eventDate;
+  }
+
+  if (currentBillboard && hasSameEventId(currentBillboard, nextBillboard)) {
+    return currentBillboard.eventDate;
+  }
+
+  return nextBillboard.eventDate;
+}
+
 function shouldClearNotifications(currentBillboard, nextBillboard) {
   if (!nextBillboard?.eventId) {
     return false;
@@ -29,5 +49,6 @@ function shouldClearNotifications(currentBillboard, nextBillboard) {
 }
 
 module.exports = {
+  resolveNextEventDate,
   shouldClearNotifications
 };
