@@ -2,12 +2,25 @@ const DEFAULT_EVENT_TIME_ZONE = 'America/Chicago';
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const formatters = new Map();
 
+function normalizeTimeZone(timeZone) {
+  const candidate = timeZone || DEFAULT_EVENT_TIME_ZONE;
+
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: candidate }).format(new Date(0));
+    return candidate;
+  } catch (error) {
+    return DEFAULT_EVENT_TIME_ZONE;
+  }
+}
+
 function getFormatter(timeZone) {
-  if (!formatters.has(timeZone)) {
+  const normalizedTimeZone = normalizeTimeZone(timeZone);
+
+  if (!formatters.has(normalizedTimeZone)) {
     formatters.set(
-      timeZone,
+      normalizedTimeZone,
       new Intl.DateTimeFormat('en-US', {
-        timeZone,
+        timeZone: normalizedTimeZone,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit'
@@ -15,7 +28,7 @@ function getFormatter(timeZone) {
     );
   }
 
-  return formatters.get(timeZone);
+  return formatters.get(normalizedTimeZone);
 }
 
 function formatDateInTimeZone(value, timeZone = DEFAULT_EVENT_TIME_ZONE) {
@@ -55,5 +68,6 @@ function isSameEventDate(checkInCreatedAt, eventDate, timeZone = DEFAULT_EVENT_T
 module.exports = {
   DEFAULT_EVENT_TIME_ZONE,
   formatDateInTimeZone,
-  isSameEventDate
+  isSameEventDate,
+  normalizeTimeZone
 };

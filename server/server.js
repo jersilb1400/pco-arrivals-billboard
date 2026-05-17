@@ -16,7 +16,8 @@ const { shouldClearNotifications } = require('./utils/billboardSession');
 const {
   DEFAULT_EVENT_TIME_ZONE,
   formatDateInTimeZone,
-  isSameEventDate
+  isSameEventDate,
+  normalizeTimeZone
 } = require('./utils/dateMatching');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
@@ -54,7 +55,7 @@ const PORT = process.env.PORT || 3001;
 const PCO_API_BASE = 'https://api.planningcenteronline.com/check-ins/v2';
 const PCO_ACCESS_TOKEN = process.env.PCO_ACCESS_TOKEN;
 const PCO_ACCESS_SECRET = process.env.PCO_ACCESS_SECRET;
-const EVENT_TIME_ZONE = process.env.EVENT_TIME_ZONE || DEFAULT_EVENT_TIME_ZONE;
+const EVENT_TIME_ZONE = normalizeTimeZone(process.env.EVENT_TIME_ZONE || DEFAULT_EVENT_TIME_ZONE);
 
 // Simple authentication - no sessions needed
 const API_SECRET = process.env.API_SECRET || 'pco-arrivals-api-secret';
