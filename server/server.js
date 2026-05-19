@@ -2730,11 +2730,14 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
-    // Clear notifications from past events when starting a new event
+    // Preserve in-flight pickup requests when admins re-save the same billboard session.
     const beforeCount = activeNotifications.length;
-    if (beforeCount > 0) {
+    const notificationsCleared = shouldClearNotifications(globalBillboardState.activeBillboard, eventId, eventDate)
+      ? beforeCount
+      : 0;
+    if (notificationsCleared > 0) {
       activeNotifications.length = 0;
-      console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
+      console.log(`Server: Cleared ${notificationsCleared} notifications from previous events`);
     }
     
     updateGlobalBillboardState(eventId, eventName, securityCodes || [], eventDate, userId, userName, colorsForState, stationsForState, iconsForState);
@@ -2745,7 +2748,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       success: true, 
       message: 'Global billboard state updated successfully',
       globalBillboardState,
-      notificationsCleared: beforeCount
+      notificationsCleared
     });
   } catch (error) {
     console.error('Server: Error setting global billboard state:', error);
