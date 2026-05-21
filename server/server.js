@@ -12,6 +12,11 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
+const {
+  createCheckInCache,
+  getLocationStatusCacheKey,
+  getSecurityCodesCacheKey
+} = require('./utils/checkInCache');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
@@ -64,12 +69,7 @@ let globalBillboardState = {
 };
 
 // Simple cache for check-in data to reduce API calls
-let checkInCache = {
-  data: null,
-  eventId: null,
-  lastUpdated: null,
-  cacheTimeout: 30000 // 30 seconds cache
-};
+const checkInCache = createCheckInCache({ cacheTimeout: 30000 });
 
 // Simple notification system for child pickup
 let activeNotifications = [];
@@ -106,24 +106,13 @@ function clearGlobalBillboardState() {
 }
 
 // Function to get cached check-in data
-function getCachedCheckInData(eventId) {
-  if (checkInCache.eventId === eventId && 
-      checkInCache.data && 
-      checkInCache.lastUpdated && 
-      (Date.now() - checkInCache.lastUpdated.getTime()) < checkInCache.cacheTimeout) {
-    return checkInCache.data;
-  }
-  return null;
+function getCachedCheckInData(cacheKey) {
+  return checkInCache.get(cacheKey);
 }
 
 // Function to update check-in cache
-function updateCheckInCache(eventId, data) {
-  checkInCache = {
-    data,
-    eventId,
-    lastUpdated: new Date(),
-    cacheTimeout: 30000
-  };
+function updateCheckInCache(cacheKey, data) {
+  checkInCache.set(cacheKey, data);
 }
 
 // Middleware
@@ -661,7 +650,8 @@ app.post('/api/security-codes', async (req, res) => {
       try {
         // Check cache first
         let allCheckIns, included;
-        const cachedData = getCachedCheckInData(eventId);
+        const securityCodesCacheKey = getSecurityCodesCacheKey(eventId);
+        const cachedData = getCachedCheckInData(securityCodesCacheKey);
         
         if (cachedData) {
           console.log('Using cached check-in data for event:', eventId);
@@ -685,7 +675,7 @@ app.post('/api/security-codes', async (req, res) => {
           included = checkInResponse.data.included || [];
           
           // Cache the data
-          updateCheckInCache(eventId, { data: allCheckIns, included });
+          updateCheckInCache(securityCodesCacheKey, { data: allCheckIns, included });
         }
         
         // Filter check-ins by the requested security codes
@@ -769,7 +759,7 @@ app.post('/api/security-codes', async (req, res) => {
         // If we hit rate limiting, return cached data if available
         if (apiError.response?.status === 429) {
           console.log('Rate limited by PCO API, returning cached data if available');
-          const cachedData = getCachedCheckInData(eventId);
+          const cachedData = getCachedCheckInData(getSecurityCodesCacheKey(eventId));
           if (cachedData) {
             // Process cached data
             const filteredCheckIns = cachedData.data.filter(checkIn => 
@@ -2151,8 +2141,8 @@ app.get('/api/location-status', async (req, res) => {
     }
 
     // Check cache first
-    const cacheKey = `location-status-${eventId}-${date}`;
-    const cachedData = getCachedCheckInData(eventId);
+    const cacheKey = getLocationStatusCacheKey(eventId, date);
+    const cachedData = getCachedCheckInData(cacheKey);
     
     if (cachedData && cachedData.data && cachedData.included) {
       console.log(`[DEBUG] Location-status: Using cached data for event ${eventId}`);
@@ -2266,7 +2256,7 @@ app.get('/api/location-status', async (req, res) => {
     
     // Cache the data for future use
     if (allCheckIns.length > 0) {
-      updateCheckInCache(eventId, { data: allCheckIns, included: allIncluded });
+      updateCheckInCache(cacheKey, { data: allCheckIns, included: allIncluded });
     }
     
     const checkIns = allCheckIns.filter(ci => !ci.attributes.checked_out_at);
