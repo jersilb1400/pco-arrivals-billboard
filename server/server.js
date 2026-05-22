@@ -2733,7 +2733,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
     }
     
     const currentBillboard = globalBillboardState.activeBillboard;
-    const nextEventDate = resolveNextEventDate(currentBillboard, eventDate);
+    const nextEventDate = resolveNextEventDate(currentBillboard, eventId, eventDate);
 
     // Clear notifications only when moving to a different event/date.
     const beforeCount = activeNotifications.length;

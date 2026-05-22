@@ -2,9 +2,13 @@ function normalize(value) {
   return value == null ? '' : String(value);
 }
 
-function resolveNextEventDate(currentBillboard, nextEventDate) {
+function resolveNextEventDate(currentBillboard, nextEventId, nextEventDate) {
   if (nextEventDate) {
     return nextEventDate;
+  }
+
+  if (normalize(currentBillboard?.eventId) !== normalize(nextEventId)) {
+    return null;
   }
 
   return currentBillboard?.eventDate || null;
