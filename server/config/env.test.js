@@ -1,22 +1,33 @@
 const assert = require('assert');
-const { requireEnv } = require('./env');
+const { loadServerConfig, requireEnv } = require('./env');
 
-const ENV_NAME = 'REQUIRED_ENV_TEST_VALUE';
-const originalValue = process.env[ENV_NAME];
+assert.throws(
+  () => requireEnv('REQUIRED_ENV_TEST_VALUE', {}),
+  /REQUIRED_ENV_TEST_VALUE environment variable is required/
+);
 
-try {
-  delete process.env[ENV_NAME];
-  assert.throws(
-    () => requireEnv(ENV_NAME),
-    /REQUIRED_ENV_TEST_VALUE environment variable is required/
-  );
+assert.strictEqual(
+  requireEnv('REQUIRED_ENV_TEST_VALUE', { REQUIRED_ENV_TEST_VALUE: 'configured-value' }),
+  'configured-value'
+);
 
-  process.env[ENV_NAME] = 'configured-value';
-  assert.strictEqual(requireEnv(ENV_NAME), 'configured-value');
-} finally {
-  if (originalValue === undefined) {
-    delete process.env[ENV_NAME];
-  } else {
-    process.env[ENV_NAME] = originalValue;
+assert.throws(
+  () => loadServerConfig({ TURNSTILE_SECRET_KEY: 'turnstile-secret' }),
+  /API_SECRET environment variable is required/
+);
+
+assert.throws(
+  () => loadServerConfig({ API_SECRET: 'api-secret' }),
+  /TURNSTILE_SECRET_KEY environment variable is required/
+);
+
+assert.deepStrictEqual(
+  loadServerConfig({
+    API_SECRET: 'api-secret',
+    TURNSTILE_SECRET_KEY: 'turnstile-secret'
+  }),
+  {
+    apiSecret: 'api-secret',
+    turnstileSecretKey: 'turnstile-secret'
   }
-}
+);

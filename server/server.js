@@ -11,7 +11,7 @@ const { errorHandler } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
-const { requireEnv } = require('./config/env');
+const { loadServerConfig } = require('./config/env');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
@@ -51,8 +51,7 @@ const PCO_ACCESS_TOKEN = process.env.PCO_ACCESS_TOKEN;
 const PCO_ACCESS_SECRET = process.env.PCO_ACCESS_SECRET;
 
 // Simple authentication - no sessions needed
-const API_SECRET = requireEnv('API_SECRET');
-const TURNSTILE_SECRET_KEY = requireEnv('TURNSTILE_SECRET_KEY');
+const { apiSecret: API_SECRET, turnstileSecretKey: TURNSTILE_SECRET_KEY } = loadServerConfig();
 
 // IDs of PCO users who are allowed to access the application
 // Either hardcode them here or load from environment variables
