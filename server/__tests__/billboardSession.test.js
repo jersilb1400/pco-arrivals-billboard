@@ -42,6 +42,25 @@ describe('resolveBillboardMetadata', () => {
     });
   });
 
+  it('preserves existing station metadata when same-event updates provide empty objects', () => {
+    const currentBillboard = {
+      eventId: '123',
+      locationColors: { room1: '#ff0000' },
+      stationColors: { station1: '#00ff00' },
+      stationIcons: { station1: 'Star' }
+    };
+
+    assert.deepEqual(resolveBillboardMetadata(currentBillboard, '123', {
+      locationColors: {},
+      stationColors: {},
+      stationIcons: {}
+    }), {
+      locationColors: { room1: '#ff0000' },
+      stationColors: { station1: '#00ff00' },
+      stationIcons: { station1: 'Star' }
+    });
+  });
+
   it('does not carry station metadata into a different event', () => {
     const currentBillboard = {
       eventId: '123',

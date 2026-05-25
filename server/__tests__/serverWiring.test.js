@@ -19,4 +19,12 @@ describe('critical route wiring', () => {
     assert.match(serverSource, /buildCheckInCacheKey\('location-status',\s*eventId,\s*date/);
     assert.doesNotMatch(serverSource, /const cachedData = getCachedCheckInData\(eventId\)/);
   });
+
+  it('guards the legacy station-colors route against empty persisted assignments', () => {
+    const stationColorsRoute = serverSource.match(/app\.put\('\/api\/station-colors'[\s\S]*?\n}\);/);
+
+    assert.ok(stationColorsRoute, 'station-colors route should exist');
+    assert.match(stationColorsRoute[0], /sanitizeStationColors\(stationColors\)/);
+    assert.match(stationColorsRoute[0], /hasNonEmptyObject\(validated\)/);
+  });
 });
