@@ -2403,12 +2403,12 @@ app.put('/api/station-colors', async (req, res) => {
     if (!stationColors || typeof stationColors !== 'object') {
       return res.status(400).json({ error: 'stationColors object is required' });
     }
-    const hexPattern = /^#[0-9A-Fa-f]{6}$/;
-    const validated = {};
-    for (const [stationId, color] of Object.entries(stationColors)) {
-      if (color && hexPattern.test(color)) {
-        validated[stationId] = color;
-      }
+    if (!hasNonEmptyObject(stationColors)) {
+      return res.status(400).json({ error: 'At least one station color is required' });
+    }
+    const validated = sanitizeStationColors(stationColors);
+    if (!hasNonEmptyObject(validated)) {
+      return res.status(400).json({ error: 'At least one valid station color is required' });
     }
     await StationColor.findOneAndUpdate(
       { eventId },

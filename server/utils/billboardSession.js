@@ -19,14 +19,26 @@ function shouldClearNotifications(currentBillboard, nextEventId, nextEventDate) 
   return !isSameBillboardSession(currentBillboard, nextEventId, nextEventDate);
 }
 
+function hasNonEmptyObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
+}
+
+function pickMetadata(provided, existing, shouldPreserveExisting) {
+  if (hasNonEmptyObject(provided)) {
+    return provided;
+  }
+
+  return shouldPreserveExisting ? existing || {} : {};
+}
+
 function resolveBillboardMetadata(currentBillboard, nextEventId, metadata = {}) {
   const shouldPreserveExisting = currentBillboard &&
     normalizeIdentityPart(currentBillboard.eventId) === normalizeIdentityPart(nextEventId);
 
   return {
-    locationColors: metadata.locationColors || (shouldPreserveExisting ? currentBillboard.locationColors : {}) || {},
-    stationColors: metadata.stationColors || (shouldPreserveExisting ? currentBillboard.stationColors : {}) || {},
-    stationIcons: metadata.stationIcons || (shouldPreserveExisting ? currentBillboard.stationIcons : {}) || {}
+    locationColors: pickMetadata(metadata.locationColors, currentBillboard?.locationColors, shouldPreserveExisting),
+    stationColors: pickMetadata(metadata.stationColors, currentBillboard?.stationColors, shouldPreserveExisting),
+    stationIcons: pickMetadata(metadata.stationIcons, currentBillboard?.stationIcons, shouldPreserveExisting)
   };
 }
 
