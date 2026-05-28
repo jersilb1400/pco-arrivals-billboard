@@ -12,6 +12,7 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
+const { isPublicApiRequest } = require('./authConfig');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
@@ -157,7 +158,7 @@ app.use(express.urlencoded({ extended: true }));
 // Simple authentication middleware - no sessions needed
 app.use('/api', (req, res, next) => {
   // Skip authentication for public endpoints
-  if (req.path === '/auth-status' || req.path === '/debug/env' || req.path === '/auth/login') {
+  if (isPublicApiRequest(req.method, req.path)) {
     return next();
   }
   
