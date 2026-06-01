@@ -18,6 +18,7 @@ const StationColor = require('./models/StationColor');
 const { shouldClearNotifications } = require('./utils/billboardSession');
 const { buildCheckInCacheKey, createCheckInCache } = require('./utils/checkInCache');
 const { DEFAULT_EVENT_TIME_ZONE, dateInTimeZone, matchesEventDate } = require('./utils/dateMatching');
+const { resolvePublicEventContext } = require('./utils/publicEventContext');
 const { isPublicApiRoute } = require('./utils/publicApiRoutes');
 
 // Debug logging helper - writes to both file and console for visibility
@@ -103,6 +104,14 @@ function clearGlobalBillboardState() {
     createdBy: null
   };
   console.log('Global billboard state cleared');
+}
+
+function sendPublicEventContextError(res, context) {
+  return res.status(context.status).json({
+    success: false,
+    error: context.error,
+    message: context.error
+  });
 }
 
 function getCachedCheckInData(cacheKey) {
@@ -1535,7 +1544,7 @@ app.get('/test', (req, res) => {
 // POST /api/security-code-entry - Volunteers enter security codes from parents
 app.post('/api/security-code-entry', async (req, res) => {
   try {
-    const { securityCode, eventId, eventDate } = req.body;
+    let { securityCode, eventId, eventDate } = req.body;
     
     
     if (!securityCode) {
@@ -1545,19 +1554,12 @@ app.post('/api/security-code-entry', async (req, res) => {
       });
     }
 
-    if (!eventId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Event ID is required' 
-      });
+    const publicContext = resolvePublicEventContext(globalBillboardState.activeBillboard, { eventId, eventDate });
+    if (!publicContext.ok) {
+      return sendPublicEventContextError(res, publicContext);
     }
-
-    if (!eventDate) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Event date is required' 
-      });
-    }
+    eventId = publicContext.eventId;
+    eventDate = publicContext.eventDate;
 
     console.log(`[SECURITY CODE] Searching for security code ${securityCode} in event ${eventId} on date ${eventDate}`);
 
@@ -1781,31 +1783,31 @@ app.post('/api/security-code-entry', async (req, res) => {
 // GET /api/active-notifications - Get all active notifications
 app.get('/api/active-notifications', async (req, res) => {
   try {
-    const { eventId, eventDate } = req.query;
-    console.log(`[DEBUG] /api/active-notifications called with ${activeNotifications.length} notifications`);
-    if (eventId && eventDate) {
-      console.log(`[DEBUG] Filtering by event: ${eventId}, date: ${eventDate}`);
+    let { eventId, eventDate } = req.query;
+    const publicContext = resolvePublicEventContext(globalBillboardState.activeBillboard, { eventId, eventDate });
+    if (!publicContext.ok) {
+      return sendPublicEventContextError(res, publicContext);
     }
+    eventId = publicContext.eventId;
+    eventDate = publicContext.eventDate;
+    console.log(`[DEBUG] /api/active-notifications called with ${activeNotifications.length} notifications`);
+    console.log(`[DEBUG] Filtering by event: ${eventId}, date: ${eventDate}`);
     
     // Filter notifications by event and date - STRICT matching to prevent showing notifications from previous sessions
-    let filteredNotifications = activeNotifications;
-    if (eventId && eventDate) {
-      // Only show notifications that match BOTH eventId AND eventDate
-      // This prevents showing notifications from previous sessions/dates
-      filteredNotifications = activeNotifications.filter(n => 
-        String(n.eventId) === String(eventId) && String(n.eventDate) === String(eventDate)
-      );
-      
-      console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for event ${eventId} on date ${eventDate} (strict matching)`);
-      
-      // Log if there are notifications from other dates/events for debugging
-      const otherNotifications = activeNotifications.filter(n => 
-        String(n.eventId) === String(eventId) && String(n.eventDate) !== String(eventDate)
-      );
-      if (otherNotifications.length > 0) {
-        console.log(`[DEBUG] Found ${otherNotifications.length} notifications for event ${eventId} but different dates (ignored):`, 
-          otherNotifications.map(n => ({ date: n.eventDate, checkInId: n.checkInId })));
-      }
+    // Only show notifications that match BOTH eventId AND eventDate.
+    let filteredNotifications = activeNotifications.filter(n => 
+      String(n.eventId) === String(eventId) && String(n.eventDate) === String(eventDate)
+    );
+    
+    console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for event ${eventId} on date ${eventDate} (strict matching)`);
+    
+    // Log if there are notifications from other dates/events for debugging
+    const otherNotifications = activeNotifications.filter(n => 
+      String(n.eventId) === String(eventId) && String(n.eventDate) !== String(eventDate)
+    );
+    if (otherNotifications.length > 0) {
+      console.log(`[DEBUG] Found ${otherNotifications.length} notifications for event ${eventId} but different dates (ignored):`, 
+        otherNotifications.map(n => ({ date: n.eventDate, checkInId: n.checkInId })));
     }
     
     // ALWAYS check PCO for checked-out children to ensure immediate cleanup
@@ -2093,10 +2095,13 @@ setInterval(async () => {
 app.get('/api/location-status', async (req, res) => {
   try {
     console.log(`[DEBUG] /api/location-status called`);
-    const { eventId, date } = req.query;
-    if (!eventId) {
-      return res.status(400).json({ error: 'eventId is required' });
+    let { eventId, date } = req.query;
+    const publicContext = resolvePublicEventContext(globalBillboardState.activeBillboard, { eventId, date });
+    if (!publicContext.ok) {
+      return sendPublicEventContextError(res, publicContext);
     }
+    eventId = publicContext.eventId;
+    date = publicContext.eventDate;
 
     // Check cache first
     const cacheKey = buildCheckInCacheKey('location-status', eventId, date || 'all');
