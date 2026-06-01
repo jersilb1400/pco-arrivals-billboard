@@ -1792,24 +1792,24 @@ app.get('/api/active-notifications', async (req, res) => {
     eventDate = publicContext.eventDate;
     console.log(`[DEBUG] /api/active-notifications called with ${activeNotifications.length} notifications`);
     console.log(`[DEBUG] Filtering by event: ${eventId}, date: ${eventDate}`);
-    
+
     // Filter notifications by event and date - STRICT matching to prevent showing notifications from previous sessions
     // Only show notifications that match BOTH eventId AND eventDate.
-    let filteredNotifications = activeNotifications.filter(n => 
+    let filteredNotifications = activeNotifications.filter(n =>
       String(n.eventId) === String(eventId) && String(n.eventDate) === String(eventDate)
     );
-    
+
     console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for event ${eventId} on date ${eventDate} (strict matching)`);
-    
+
     // Log if there are notifications from other dates/events for debugging
-    const otherNotifications = activeNotifications.filter(n => 
+    const otherNotifications = activeNotifications.filter(n =>
       String(n.eventId) === String(eventId) && String(n.eventDate) !== String(eventDate)
     );
     if (otherNotifications.length > 0) {
-      console.log(`[DEBUG] Found ${otherNotifications.length} notifications for event ${eventId} but different dates (ignored):`, 
+      console.log(`[DEBUG] Found ${otherNotifications.length} notifications for event ${eventId} but different dates (ignored):`,
         otherNotifications.map(n => ({ date: n.eventDate, checkInId: n.checkInId })));
     }
-    
+
     // ALWAYS check PCO for checked-out children to ensure immediate cleanup
     if (filteredNotifications.length > 0) {
       const checkInIds = filteredNotifications.map(n => n.checkInId);
