@@ -154,10 +154,25 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const PUBLIC_API_ROUTES = new Set([
+  'GET /auth-status',
+  'POST /auth/login',
+  'GET /debug/env',
+  'GET /global-billboard',
+  'GET /billboard-updates',
+  'GET /active-notifications',
+  'GET /location-status',
+  'POST /security-code-entry',
+]);
+
+function isPublicApiRequest(req) {
+  return PUBLIC_API_ROUTES.has(`${req.method} ${req.path}`);
+}
+
 // Simple authentication middleware - no sessions needed
 app.use('/api', (req, res, next) => {
   // Skip authentication for public endpoints
-  if (req.path === '/auth-status' || req.path === '/debug/env' || req.path === '/auth/login') {
+  if (isPublicApiRequest(req)) {
     return next();
   }
   
