@@ -3,9 +3,48 @@ function normalizeValue(value) {
 }
 
 function resolveNotificationScope(query = {}, activeBillboard = null) {
+  const requestedEventId = query.eventId || null;
+  const requestedEventDate = query.eventDate || query.date || null;
+
+  if (requestedEventId && requestedEventDate) {
+    return {
+      eventId: requestedEventId,
+      eventDate: requestedEventDate
+    };
+  }
+
+  if (!requestedEventId && !requestedEventDate) {
+    return {
+      eventId: activeBillboard?.eventId || null,
+      eventDate: activeBillboard?.eventDate || null
+    };
+  }
+
+  if (
+    requestedEventId &&
+    activeBillboard?.eventDate &&
+    normalizeValue(requestedEventId) === normalizeValue(activeBillboard.eventId)
+  ) {
+    return {
+      eventId: requestedEventId,
+      eventDate: activeBillboard.eventDate
+    };
+  }
+
+  if (
+    requestedEventDate &&
+    activeBillboard?.eventId &&
+    normalizeValue(requestedEventDate) === normalizeValue(activeBillboard.eventDate)
+  ) {
+    return {
+      eventId: activeBillboard.eventId,
+      eventDate: requestedEventDate
+    };
+  }
+
   return {
-    eventId: query.eventId || activeBillboard?.eventId || null,
-    eventDate: query.eventDate || query.date || activeBillboard?.eventDate || null
+    eventId: null,
+    eventDate: null
   };
 }
 

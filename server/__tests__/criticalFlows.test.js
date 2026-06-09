@@ -106,14 +106,28 @@ test('active notification requests without session context do not leak all sessi
   assert.deepEqual(filterNotificationsForScope(notifications, scope), []);
 });
 
-test('active-checkins URL bounds created_at to the requested day', () => {
+test('partial active notification query cannot mix another event with active date', () => {
+  const activeBillboard = {
+    eventId: 'event-1',
+    eventDate: '2026-06-09'
+  };
+  const notifications = [
+    { id: 'other-event-same-date', eventId: 'event-2', eventDate: '2026-06-09' }
+  ];
+  const scope = resolveNotificationScope({ eventId: 'event-2' }, activeBillboard);
+
+  assert.deepEqual(filterNotificationsForScope(notifications, scope), []);
+});
+
+test('active-checkins URL bounds created_at to the requested event-local day', () => {
   const url = buildActiveCheckInsUrl(
     'https://api.planningcenteronline.com/check-ins/v2',
     'event-1',
     'location-1',
-    '2026-06-09'
+    '2026-06-09',
+    'America/Chicago'
   );
 
-  assert.match(url, /where%5Bcreated_at%5D%5Bgte%5D=2026-06-09T00%3A00%3A00\.000Z/);
-  assert.match(url, /where%5Bcreated_at%5D%5Blt%5D=2026-06-10T00%3A00%3A00\.000Z/);
+  assert.match(url, /where%5Bcreated_at%5D%5Bgte%5D=2026-06-09T05%3A00%3A00\.000Z/);
+  assert.match(url, /where%5Bcreated_at%5D%5Blt%5D=2026-06-10T05%3A00%3A00\.000Z/);
 });
