@@ -41,12 +41,18 @@ function LocationStatus() {
   // Fetch active notifications
   const fetchActiveNotifications = useCallback(async () => {
     try {
-      const response = await api.get('/active-notifications');
+      if (!globalBillboard) return;
+      const params = new URLSearchParams();
+      params.append('eventId', globalBillboard.eventId);
+      if (globalBillboard.eventDate) {
+        params.append('eventDate', globalBillboard.eventDate);
+      }
+      const response = await api.get(`/active-notifications?${params.toString()}`);
       setActiveNotifications(response.data);
     } catch (error) {
       console.error('Error fetching active notifications:', error);
     }
-  }, []);
+  }, [globalBillboard]);
 
   // Fetch both location status and active notifications
   const fetchAllData = useCallback(async () => {
