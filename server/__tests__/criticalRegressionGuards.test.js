@@ -2,11 +2,14 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  getRequestAccess,
   getActiveBillboardScope,
   isPublicApiRoute,
   publicRequestMatchesActiveBillboard,
   sanitizeGlobalBillboardForPublic
 } = require('../utils/publicRoutes');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
   resolveNextEventDate,
   shouldClearNotifications
@@ -28,6 +31,40 @@ test('public routes allow only volunteer/display methods needed without auth', (
   assert.equal(isPublicApiRoute('POST', '/set-global-billboard'), false);
   assert.equal(isPublicApiRoute('PUT', '/events/123/stations'), false);
   assert.equal(isPublicApiRoute('POST', '/security-codes'), false);
+});
+
+test('valid admin credentials keep authenticated behavior on shared public endpoints', () => {
+  assert.equal(typeof getRequestAccess, 'function');
+
+  const access = getRequestAccess({
+    method: 'GET',
+    requestPath: '/global-billboard',
+    apiKey: 'secret',
+    userId: 'admin-1',
+    apiSecret: 'secret',
+    isAuthorizedUser: true
+  });
+
+  assert.deepEqual(access, {
+    type: 'authenticated',
+    user: {
+      id: 'admin-1',
+      isAdmin: true
+    }
+  });
+});
+
+test('public allowlist still admits unauthenticated display requests', () => {
+  const access = getRequestAccess({
+    method: 'GET',
+    requestPath: '/global-billboard',
+    apiKey: undefined,
+    userId: undefined,
+    apiSecret: 'secret',
+    isAuthorizedUser: false
+  });
+
+  assert.deepEqual(access, { type: 'public' });
 });
 
 test('public billboard response does not expose configured security codes', () => {
@@ -105,4 +142,11 @@ test('check-in cache keys isolate endpoint, date, and include shape', () => {
   assert.deepEqual(cache.get('security-codes:event-1:all:person-household'), cachedValue);
   assert.equal(cache.get('location-status:event-1:2026-06-11:person-locations-stations'), null);
   assert.equal(cache.get('security-codes:event-1:2026-06-12:person-household'), null);
+});
+
+test('cleanup interval does not delete active notifications only because they are old', () => {
+  const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+
+  assert.equal(serverSource.includes('thirtyMinutesAgo'), false);
+  assert.equal(serverSource.includes('older than 30 minutes'), false);
 });
