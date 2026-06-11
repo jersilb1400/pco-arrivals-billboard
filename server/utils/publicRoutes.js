@@ -18,6 +18,44 @@ function isPublicApiRoute(method, requestPath) {
   );
 }
 
+function getRequestAccess({ method, requestPath, apiKey, userId, apiSecret, isAuthorizedUser }) {
+  if (apiKey && apiKey === apiSecret && userId && isAuthorizedUser) {
+    return {
+      type: 'authenticated',
+      user: {
+        id: userId,
+        isAdmin: true
+      }
+    };
+  }
+
+  if (isPublicApiRoute(method, requestPath)) {
+    return { type: 'public' };
+  }
+
+  if (!apiKey || apiKey !== apiSecret) {
+    return {
+      type: 'rejected',
+      status: 401,
+      error: 'Invalid API key'
+    };
+  }
+
+  if (!userId) {
+    return {
+      type: 'rejected',
+      status: 401,
+      error: 'User ID required'
+    };
+  }
+
+  return {
+    type: 'rejected',
+    status: 403,
+    error: 'User not authorized'
+  };
+}
+
 function getActiveBillboardScope(globalBillboardState) {
   const activeBillboard = globalBillboardState?.activeBillboard;
   if (!activeBillboard?.eventId || !activeBillboard?.eventDate) {
@@ -61,6 +99,7 @@ function sanitizeGlobalBillboardForPublic(globalBillboardState) {
 }
 
 module.exports = {
+  getRequestAccess,
   getActiveBillboardScope,
   isPublicApiRoute,
   publicRequestMatchesActiveBillboard,

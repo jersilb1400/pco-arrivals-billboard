@@ -19,8 +19,8 @@ const { resolveNextEventDate, shouldClearNotifications } = require('./utils/bill
 const { createCheckInCache } = require('./utils/checkInCache');
 const { isSameEventDate } = require('./utils/dateMatching');
 const {
+  getRequestAccess,
   getActiveBillboardScope,
-  isPublicApiRoute,
   publicRequestMatchesActiveBillboard,
   sanitizeGlobalBillboardForPublic
 } = require('./utils/publicRoutes');
@@ -149,31 +149,30 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api', (req, res, next) => {
   req.isPublicRequest = false;
 
-  if (isPublicApiRoute(req.method, req.path)) {
-    req.isPublicRequest = true;
-    return next();
-  }
-  
   // Check for API key in headers
   const apiKey = req.headers['x-api-key'];
   const userId = req.headers['x-user-id'];
-  
-  if (!apiKey || apiKey !== API_SECRET) {
-    return res.status(401).json({ error: 'Invalid API key' });
+
+  const access = getRequestAccess({
+    method: req.method,
+    requestPath: req.path,
+    apiKey,
+    userId,
+    apiSecret: API_SECRET,
+    isAuthorizedUser: authorizedUsers.some(user => user.id === userId)
+  });
+
+  if (access.type === 'public') {
+    req.isPublicRequest = true;
+    return next();
   }
-  
-  if (!userId) {
-    return res.status(401).json({ error: 'User ID required' });
-  }
-  
-  // Check if user is authorized
-  const isAuthorized = authorizedUsers.some(user => user.id === userId);
-  if (!isAuthorized) {
-    return res.status(403).json({ error: 'User not authorized' });
+
+  if (access.type === 'rejected') {
+    return res.status(access.status).json({ error: access.error });
   }
   
   // Add user info to request for use in routes
-  req.user = { id: userId, isAdmin: true };
+  req.user = access.user;
   next();
 });
 
@@ -2063,21 +2062,6 @@ app.post('/api/cleanup-checked-out', async (req, res) => {
 // Cleanup old notifications and check for checked-out children (run every 1 minute for faster cleanup)
 setInterval(async () => {
   try {
-    const currentTime = new Date();
-    const thirtyMinutesAgo = new Date(currentTime.getTime() - 30 * 60 * 1000); // Increased to 30 minutes
-    
-    // Remove notifications older than 30 minutes
-    const initialLength = activeNotifications.length;
-    activeNotifications = activeNotifications.filter(notification => {
-      const notificationTime = new Date(notification.notifiedAt);
-      return notificationTime > thirtyMinutesAgo;
-    });
-    
-    const removedByTime = initialLength - activeNotifications.length;
-    if (removedByTime > 0) {
-      console.log(`Cleaned up ${removedByTime} old notifications (older than 30 minutes)`);
-    }
-
     // Check if any children have been checked out in PCO (less frequently)
     if (activeNotifications.length > 0) {
       const checkInIds = activeNotifications.map(n => n.checkInId);
