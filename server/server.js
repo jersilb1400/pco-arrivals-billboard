@@ -1839,7 +1839,7 @@ app.get('/api/active-notifications', async (req, res) => {
         String(n.eventId) === String(scopedEventId) && String(n.eventDate) !== String(scopedEventDate)
       );
       if (otherNotifications.length > 0) {
-        console.log(`[DEBUG] Found ${otherNotifications.length} notifications for event ${scopedEventId} but different dates (ignored):`, 
+        console.log(`[DEBUG] Found ${otherNotifications.length} notifications for event ${scopedEventId} but different dates (ignored):`,
           otherNotifications.map(n => ({ date: n.eventDate, checkInId: n.checkInId })));
       }
     }
