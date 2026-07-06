@@ -102,6 +102,7 @@ function AdminPanel() {
   const [activeNotifications, setActiveNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [isManualChange, setIsManualChange] = useState(false);
+  const [hasLocalSelectionChange, setHasLocalSelectionChange] = useState(false);
   const [locationColorAssignments, setLocationColorAssignments] = useState({});
   const [loadingLocationColors, setLoadingLocationColors] = useState(false);
   const [savingLocationColors, setSavingLocationColors] = useState(false);
@@ -159,6 +160,7 @@ function AdminPanel() {
       setSelectedEvent(global.activeBillboard.eventId);
       setSelectedDate(global.activeBillboard.eventDate || getTodayDate());
       setExistingSecurityCodes(global.activeBillboard.securityCodes || []);
+      setHasLocalSelectionChange(false);
     } else {
       console.log('AdminPanel: No active billboard - preserving user selections');
       setActiveBillboard(null);
@@ -193,7 +195,7 @@ function AdminPanel() {
         // Only sync if not adding a security code and not in manual change mode.
         // Also do not overwrite deliberate local event/date selections while configuring another session.
         const hasUserSelections = selectedEvent && !activeGlobalBillboard;
-        const hasDifferentLocalSelection = activeGlobalBillboard && selectedEvent && (
+        const hasDifferentLocalSelection = hasLocalSelectionChange && activeGlobalBillboard && selectedEvent && (
           String(selectedEvent) !== String(activeGlobalBillboard.eventId) ||
           String(selectedDate || '') !== String(globalDate || '')
         );
@@ -216,7 +218,7 @@ function AdminPanel() {
       const interval = setInterval(fetchGlobalBillboard, 10000); // Poll every 10 seconds
       return () => clearInterval(interval);
     }
-  }, [session, isAddingSecurityCode, isManualChange, selectedEvent, selectedDate, syncWithGlobalBillboard]);
+  }, [session, isAddingSecurityCode, isManualChange, hasLocalSelectionChange, selectedEvent, selectedDate, syncWithGlobalBillboard]);
 
   // Update display date whenever selectedDate changes
   useEffect(() => {
@@ -439,8 +441,10 @@ function AdminPanel() {
         setActiveBillboard({
           eventId,
           eventName,
-          securityCodes: securityCodes
+          securityCodes: securityCodes,
+          eventDate
         });
+        setHasLocalSelectionChange(false);
         
         console.log('AdminPanel: Global state set successfully');
         
@@ -481,6 +485,7 @@ function AdminPanel() {
     
     console.log('AdminPanel: Setting manual change flag to true for date change');
     setIsManualChange(true);
+    setHasLocalSelectionChange(true);
     setSelectedDate(newDate);
     setSelectedEvent('');
     setSecurityCodes([]);
@@ -502,6 +507,7 @@ function AdminPanel() {
     console.log('AdminPanel: Current selectedDate before event change:', selectedDate);
     console.log('AdminPanel: Setting manual change flag to true for event change');
     setIsManualChange(true);
+    setHasLocalSelectionChange(true);
     setSelectedEvent(eventId);
     setSecurityCodes([]);
     setExistingSecurityCodes([]);
@@ -662,6 +668,7 @@ function AdminPanel() {
       setExistingSecurityCodes([]);
       setActiveNotifications([]); // Clear pickup notifications
       setIsManualChange(false); // Reset manual change flag to allow normal sync
+      setHasLocalSelectionChange(false);
       setSnackbarMsg('Active billboard cleared for all users.');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);

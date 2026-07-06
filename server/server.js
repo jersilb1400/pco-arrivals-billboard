@@ -2211,6 +2211,7 @@ app.get('/api/location-status', async (req, res) => {
     let allIncluded = [];
     let nextPage = url;
     let pageCount = 0;
+    let paginationRateLimited = false;
     while (nextPage) {
       try {
       const checkInResponse = await axios.get(nextPage, {
@@ -2238,7 +2239,8 @@ app.get('/api/location-status', async (req, res) => {
       } catch (apiError) {
         console.error(`[DEBUG] Location-status: API error on page ${pageCount}:`, apiError.response?.data || apiError.message);
         if (apiError.response?.status === 429) {
-          console.log(`[DEBUG] Location-status: Rate limited, returning partial data`);
+          console.log(`[DEBUG] Location-status: Rate limited before pagination completed`);
+          paginationRateLimited = true;
           break;
         }
         throw apiError;
@@ -2246,6 +2248,12 @@ app.get('/api/location-status', async (req, res) => {
     }
     
     console.log(`[DEBUG] Location-status: Finished fetching ${pageCount} pages. Total check-ins: ${allCheckIns.length}`);
+
+    if (paginationRateLimited) {
+      return res.status(429).json({
+        error: 'Rate limited before all location status data could be fetched. Please try again later.'
+      });
+    }
     
     // Cache the data for future use
     if (allCheckIns.length > 0) {
