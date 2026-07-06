@@ -187,23 +187,25 @@ function AdminPanel() {
           });
         }
         
-        // Only sync if not adding a security code and not in manual change mode
-        // Also don't sync if user has selected an event but no billboard is active
-        const hasUserSelections = selectedEvent && !globalBillboardState?.activeBillboard;
-        if (!isAddingSecurityCode && !isManualChange && !hasUserSelections) {
+        const activeGlobalBillboard = response.data?.activeBillboard;
+        const globalDate = activeGlobalBillboard?.eventDate || getTodayDate();
+
+        // Only sync if not adding a security code and not in manual change mode.
+        // Also do not overwrite deliberate local event/date selections while configuring another session.
+        const hasUserSelections = selectedEvent && !activeGlobalBillboard;
+        const hasDifferentLocalSelection = activeGlobalBillboard && selectedEvent && (
+          String(selectedEvent) !== String(activeGlobalBillboard.eventId) ||
+          String(selectedDate || '') !== String(globalDate || '')
+        );
+        if (!isAddingSecurityCode && !isManualChange && !hasUserSelections && !hasDifferentLocalSelection) {
           console.log('AdminPanel: Syncing with global billboard state:', response.data);
           syncWithGlobalBillboard(response.data);
         } else {
-          console.log('AdminPanel: Skipping global sync - isAddingSecurityCode:', isAddingSecurityCode, 'isManualChange:', isManualChange, 'hasUserSelections:', hasUserSelections);
+          console.log('AdminPanel: Skipping global sync - isAddingSecurityCode:', isAddingSecurityCode, 'isManualChange:', isManualChange, 'hasUserSelections:', hasUserSelections, 'hasDifferentLocalSelection:', hasDifferentLocalSelection);
         }
       } catch (error) {
-        setGlobalBillboardState(null);
-        if (!isManualChange) {
-          console.log('AdminPanel: Clearing local state due to global billboard error');
-          syncWithGlobalBillboard({}); // Ensure local state is cleared
-        } else {
-          console.log('AdminPanel: Skipping local state clear - manual change in progress');
-        }
+        console.error('AdminPanel: Error fetching global billboard state:', error);
+        console.log('AdminPanel: Keeping last-known local state after global billboard fetch error');
       }
     };
     
@@ -214,7 +216,7 @@ function AdminPanel() {
       const interval = setInterval(fetchGlobalBillboard, 10000); // Poll every 10 seconds
       return () => clearInterval(interval);
     }
-  }, [session, isAddingSecurityCode, isManualChange]);
+  }, [session, isAddingSecurityCode, isManualChange, selectedEvent, selectedDate, syncWithGlobalBillboard]);
 
   // Update display date whenever selectedDate changes
   useEffect(() => {
@@ -1022,7 +1024,7 @@ function AdminPanel() {
                         startIcon={<CheckCircleIcon />}
                         onClick={async () => {
                           const eventName = events.find(e => e.id === selectedEvent)?.attributes?.name || 'Event';
-                          await setGlobalState(selectedEvent, eventName, [], selectedDate);
+                          await setGlobalState(selectedEvent, eventName, existingSecurityCodes, selectedDate);
                         }}
                       >
                         Set as Active Event
