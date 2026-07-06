@@ -35,6 +35,9 @@ function LocationStatus() {
         params.append('date', globalBillboard.eventDate);
       }
       const response = await api.get(`/location-status?${params.toString()}`);
+      if (response.status === 429 || !Array.isArray(response.data)) {
+        throw new Error('Location status data is unavailable');
+      }
       setLocations(response.data);
     } catch (error) {
       console.error('Error fetching location status:', error);
