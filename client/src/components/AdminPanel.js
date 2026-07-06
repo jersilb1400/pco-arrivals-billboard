@@ -174,18 +174,18 @@ function AdminPanel() {
     const fetchGlobalBillboard = async () => {
       try {
         const response = await api.get('/global-billboard');
-        const previousState = globalBillboardState;
-        setGlobalBillboardState(response.data);
-        
-        // Check if this is a cross-user update
-        if (previousState && response.data?.activeBillboard && 
-            previousState.activeBillboard?.eventId !== response.data.activeBillboard?.eventId) {
-          console.log('🔄 [CROSS-USER] Admin panel syncing with update from another user:', {
-            previous: previousState.activeBillboard?.eventName,
-            current: response.data.activeBillboard?.eventName,
-            updatedBy: response.data.createdBy
-          });
-        }
+        setGlobalBillboardState((previousState) => {
+          // Check if this is a cross-user update
+          if (previousState && response.data?.activeBillboard &&
+              previousState.activeBillboard?.eventId !== response.data.activeBillboard?.eventId) {
+            console.log('🔄 [CROSS-USER] Admin panel syncing with update from another user:', {
+              previous: previousState.activeBillboard?.eventName,
+              current: response.data.activeBillboard?.eventName,
+              updatedBy: response.data.createdBy
+            });
+          }
+          return response.data;
+        });
         
         const activeGlobalBillboard = response.data?.activeBillboard;
         const globalDate = activeGlobalBillboard?.eventDate || getTodayDate();
