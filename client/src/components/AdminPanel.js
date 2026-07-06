@@ -445,6 +445,7 @@ function AdminPanel() {
           eventDate
         });
         setHasLocalSelectionChange(false);
+        setIsManualChange(false);
         
         console.log('AdminPanel: Global state set successfully');
         

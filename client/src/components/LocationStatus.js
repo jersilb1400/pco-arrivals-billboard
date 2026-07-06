@@ -25,7 +25,10 @@ function LocationStatus() {
   // Fetch all locations with remaining children
   const fetchLocations = useCallback(async () => {
     try {
-      if (!globalBillboard) return;
+      if (!globalBillboard) {
+        setLocations([]);
+        return;
+      }
       const params = new URLSearchParams();
       params.append('eventId', globalBillboard.eventId);
       if (globalBillboard.eventDate) {
@@ -35,6 +38,8 @@ function LocationStatus() {
       setLocations(response.data);
     } catch (error) {
       console.error('Error fetching location status:', error);
+      setLocations([]);
+      throw error;
     }
   }, [globalBillboard]);
 
