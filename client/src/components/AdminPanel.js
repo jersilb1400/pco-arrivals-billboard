@@ -102,6 +102,7 @@ function AdminPanel() {
   const [activeNotifications, setActiveNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [isManualChange, setIsManualChange] = useState(false);
+  const [hasLocalSelectionChange, setHasLocalSelectionChange] = useState(false);
   const [locationColorAssignments, setLocationColorAssignments] = useState({});
   const [loadingLocationColors, setLoadingLocationColors] = useState(false);
   const [savingLocationColors, setSavingLocationColors] = useState(false);
@@ -159,6 +160,7 @@ function AdminPanel() {
       setSelectedEvent(global.activeBillboard.eventId);
       setSelectedDate(global.activeBillboard.eventDate || getTodayDate());
       setExistingSecurityCodes(global.activeBillboard.securityCodes || []);
+      setHasLocalSelectionChange(false);
     } else {
       console.log('AdminPanel: No active billboard - preserving user selections');
       setActiveBillboard(null);
@@ -174,36 +176,38 @@ function AdminPanel() {
     const fetchGlobalBillboard = async () => {
       try {
         const response = await api.get('/global-billboard');
-        const previousState = globalBillboardState;
-        setGlobalBillboardState(response.data);
+        setGlobalBillboardState((previousState) => {
+          // Check if this is a cross-user update
+          if (previousState && response.data?.activeBillboard &&
+              previousState.activeBillboard?.eventId !== response.data.activeBillboard?.eventId) {
+            console.log('🔄 [CROSS-USER] Admin panel syncing with update from another user:', {
+              previous: previousState.activeBillboard?.eventName,
+              current: response.data.activeBillboard?.eventName,
+              updatedBy: response.data.createdBy
+            });
+          }
+          return response.data;
+        });
         
-        // Check if this is a cross-user update
-        if (previousState && response.data?.activeBillboard && 
-            previousState.activeBillboard?.eventId !== response.data.activeBillboard?.eventId) {
-          console.log('🔄 [CROSS-USER] Admin panel syncing with update from another user:', {
-            previous: previousState.activeBillboard?.eventName,
-            current: response.data.activeBillboard?.eventName,
-            updatedBy: response.data.createdBy
-          });
-        }
-        
-        // Only sync if not adding a security code and not in manual change mode
-        // Also don't sync if user has selected an event but no billboard is active
-        const hasUserSelections = selectedEvent && !globalBillboardState?.activeBillboard;
-        if (!isAddingSecurityCode && !isManualChange && !hasUserSelections) {
+        const activeGlobalBillboard = response.data?.activeBillboard;
+        const globalDate = activeGlobalBillboard?.eventDate || getTodayDate();
+
+        // Only sync if not adding a security code and not in manual change mode.
+        // Also do not overwrite deliberate local event/date selections while configuring another session.
+        const hasUserSelections = hasLocalSelectionChange && selectedEvent && !activeGlobalBillboard;
+        const hasDifferentLocalSelection = hasLocalSelectionChange && activeGlobalBillboard && selectedEvent && (
+          String(selectedEvent) !== String(activeGlobalBillboard.eventId) ||
+          String(selectedDate || '') !== String(globalDate || '')
+        );
+        if (!isAddingSecurityCode && !isManualChange && !hasUserSelections && !hasDifferentLocalSelection) {
           console.log('AdminPanel: Syncing with global billboard state:', response.data);
           syncWithGlobalBillboard(response.data);
         } else {
-          console.log('AdminPanel: Skipping global sync - isAddingSecurityCode:', isAddingSecurityCode, 'isManualChange:', isManualChange, 'hasUserSelections:', hasUserSelections);
+          console.log('AdminPanel: Skipping global sync - isAddingSecurityCode:', isAddingSecurityCode, 'isManualChange:', isManualChange, 'hasUserSelections:', hasUserSelections, 'hasDifferentLocalSelection:', hasDifferentLocalSelection);
         }
       } catch (error) {
-        setGlobalBillboardState(null);
-        if (!isManualChange) {
-          console.log('AdminPanel: Clearing local state due to global billboard error');
-          syncWithGlobalBillboard({}); // Ensure local state is cleared
-        } else {
-          console.log('AdminPanel: Skipping local state clear - manual change in progress');
-        }
+        console.error('AdminPanel: Error fetching global billboard state:', error);
+        console.log('AdminPanel: Keeping last-known local state after global billboard fetch error');
       }
     };
     
@@ -214,7 +218,7 @@ function AdminPanel() {
       const interval = setInterval(fetchGlobalBillboard, 10000); // Poll every 10 seconds
       return () => clearInterval(interval);
     }
-  }, [session, isAddingSecurityCode, isManualChange]);
+  }, [session, isAddingSecurityCode, isManualChange, hasLocalSelectionChange, selectedEvent, selectedDate, syncWithGlobalBillboard]);
 
   // Update display date whenever selectedDate changes
   useEffect(() => {
@@ -437,8 +441,11 @@ function AdminPanel() {
         setActiveBillboard({
           eventId,
           eventName,
-          securityCodes: securityCodes
+          securityCodes: securityCodes,
+          eventDate
         });
+        setHasLocalSelectionChange(false);
+        setIsManualChange(false);
         
         console.log('AdminPanel: Global state set successfully');
         
@@ -479,6 +486,7 @@ function AdminPanel() {
     
     console.log('AdminPanel: Setting manual change flag to true for date change');
     setIsManualChange(true);
+    setHasLocalSelectionChange(true);
     setSelectedDate(newDate);
     setSelectedEvent('');
     setSecurityCodes([]);
@@ -500,6 +508,7 @@ function AdminPanel() {
     console.log('AdminPanel: Current selectedDate before event change:', selectedDate);
     console.log('AdminPanel: Setting manual change flag to true for event change');
     setIsManualChange(true);
+    setHasLocalSelectionChange(true);
     setSelectedEvent(eventId);
     setSecurityCodes([]);
     setExistingSecurityCodes([]);
@@ -660,6 +669,7 @@ function AdminPanel() {
       setExistingSecurityCodes([]);
       setActiveNotifications([]); // Clear pickup notifications
       setIsManualChange(false); // Reset manual change flag to allow normal sync
+      setHasLocalSelectionChange(false);
       setSnackbarMsg('Active billboard cleared for all users.');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
@@ -1022,7 +1032,7 @@ function AdminPanel() {
                         startIcon={<CheckCircleIcon />}
                         onClick={async () => {
                           const eventName = events.find(e => e.id === selectedEvent)?.attributes?.name || 'Event';
-                          await setGlobalState(selectedEvent, eventName, [], selectedDate);
+                          await setGlobalState(selectedEvent, eventName, existingSecurityCodes, selectedDate);
                         }}
                       >
                         Set as Active Event
