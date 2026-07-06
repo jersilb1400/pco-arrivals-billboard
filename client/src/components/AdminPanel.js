@@ -194,7 +194,7 @@ function AdminPanel() {
 
         // Only sync if not adding a security code and not in manual change mode.
         // Also do not overwrite deliberate local event/date selections while configuring another session.
-        const hasUserSelections = selectedEvent && !activeGlobalBillboard;
+        const hasUserSelections = hasLocalSelectionChange && selectedEvent && !activeGlobalBillboard;
         const hasDifferentLocalSelection = hasLocalSelectionChange && activeGlobalBillboard && selectedEvent && (
           String(selectedEvent) !== String(activeGlobalBillboard.eventId) ||
           String(selectedDate || '') !== String(globalDate || '')
