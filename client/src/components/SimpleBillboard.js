@@ -82,6 +82,8 @@ function SimpleBillboard() {
           }
         });
         setActiveNotifications(response.data);
+      } else {
+        setActiveNotifications([]);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -243,6 +245,8 @@ function SimpleBillboard() {
         } catch (error) {
           console.error('Error fetching notifications in interval:', error);
         }
+      } else {
+        setActiveNotifications([]);
       }
     }, 10000); // Poll every 10 seconds
     
@@ -253,6 +257,8 @@ function SimpleBillboard() {
   useEffect(() => {
     if (globalBillboard?.activeBillboard) {
       fetchActiveNotifications(globalBillboard);
+    } else {
+      setActiveNotifications([]);
     }
   }, [globalBillboard?.activeBillboard?.eventId, globalBillboard?.activeBillboard?.eventDate]); // Only depend on the actual data, not the whole object
 
