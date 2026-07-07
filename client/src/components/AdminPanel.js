@@ -442,9 +442,9 @@ function AdminPanel() {
       if (response.status === 429 || !response.data || response.data.success === false) {
         throw new Error(response.data?.error || 'Failed to update active billboard state');
       }
-      
+
       console.log('AdminPanel: Global state response:', response.data);
-      
+
       setActiveBillboard({
         eventId,
         eventName,
@@ -453,9 +453,9 @@ function AdminPanel() {
       });
       setHasLocalSelectionChange(false);
       setIsManualChange(false);
-      
+
       console.log('AdminPanel: Global state set successfully');
-      
+
       // Show success message
       setSnackbarMsg(`Active event set to: ${eventName}`);
       setSnackbarSeverity('success');
@@ -468,7 +468,7 @@ function AdminPanel() {
         data: error.response?.data,
         message: error.message
       });
-      
+
       // Show user-friendly error message
       setSnackbarMsg('Failed to set active event. Please try again.');
       setSnackbarSeverity('error');
