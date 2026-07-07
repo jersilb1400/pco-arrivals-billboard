@@ -25,28 +25,46 @@ function LocationStatus() {
   // Fetch all locations with remaining children
   const fetchLocations = useCallback(async () => {
     try {
-      if (!globalBillboard) return;
+      if (!globalBillboard) {
+        setLocations([]);
+        return;
+      }
       const params = new URLSearchParams();
       params.append('eventId', globalBillboard.eventId);
       if (globalBillboard.eventDate) {
         params.append('date', globalBillboard.eventDate);
       }
       const response = await api.get(`/location-status?${params.toString()}`);
+      if (response.status === 429 || !Array.isArray(response.data)) {
+        throw new Error('Location status data is unavailable');
+      }
       setLocations(response.data);
     } catch (error) {
       console.error('Error fetching location status:', error);
+      setLocations([]);
+      throw error;
     }
   }, [globalBillboard]);
 
   // Fetch active notifications
   const fetchActiveNotifications = useCallback(async () => {
     try {
-      const response = await api.get('/active-notifications');
+      if (!globalBillboard) {
+        setActiveNotifications([]);
+        return;
+      }
+
+      const response = await api.get('/active-notifications', {
+        params: {
+          eventId: globalBillboard.eventId,
+          eventDate: globalBillboard.eventDate
+        }
+      });
       setActiveNotifications(response.data);
     } catch (error) {
       console.error('Error fetching active notifications:', error);
     }
-  }, []);
+  }, [globalBillboard]);
 
   // Fetch both location status and active notifications
   const fetchAllData = useCallback(async () => {
@@ -79,9 +97,18 @@ function LocationStatus() {
     const fetchGlobalBillboard = async () => {
       try {
         const response = await api.get('/global-billboard');
-        setGlobalBillboard(response.data.activeBillboard || null);
+        const activeBillboard = response.data.activeBillboard || null;
+        setGlobalBillboard(activeBillboard);
+        if (!activeBillboard) {
+          setLocations([]);
+          setActiveNotifications([]);
+          setLoading(false);
+        }
       } catch (error) {
         setGlobalBillboard(null);
+        setLocations([]);
+        setActiveNotifications([]);
+        setLoading(false);
       }
     };
     fetchGlobalBillboard();
