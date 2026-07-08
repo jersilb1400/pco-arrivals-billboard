@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../utils/api';
 import {
   Container,
@@ -25,6 +25,9 @@ function LocationStatus() {
   const [notificationsSessionKey, setNotificationsSessionKey] = useState(null);
   const [dataError, setDataError] = useState(null);
   const [isActiveSessionTrusted, setIsActiveSessionTrusted] = useState(false);
+  const activeSessionTrustedRef = useRef(false);
+  const confirmedSessionKeyRef = useRef(null);
+  const globalBillboardRequestIdRef = useRef(0);
 
   const getSessionKey = useCallback((billboard) => {
     if (!billboard) {
@@ -32,7 +35,7 @@ function LocationStatus() {
     }
 
     return `${String(billboard.eventId)}|${String(billboard.eventDate || '')}`;
-  }, []);
+  }, [getSessionKey]);
 
   // Fetch all locations with remaining children
   const fetchLocations = useCallback(async () => {
@@ -51,9 +54,10 @@ function LocationStatus() {
       if (response.status === 429 || !Array.isArray(response.data)) {
         throw new Error('Location status data is unavailable');
       }
+      const responseSessionKey = getSessionKey(globalBillboard);
       setLocations(response.data);
-      setLocationsSessionKey(getSessionKey(globalBillboard));
-      if (isActiveSessionTrusted) {
+      setLocationsSessionKey(responseSessionKey);
+      if (activeSessionTrustedRef.current && confirmedSessionKeyRef.current === responseSessionKey) {
         setDataError(null);
       }
     } catch (error) {
@@ -117,21 +121,37 @@ function LocationStatus() {
 
   useEffect(() => {
     const fetchGlobalBillboard = async () => {
+      const requestId = globalBillboardRequestIdRef.current + 1;
+      globalBillboardRequestIdRef.current = requestId;
+
       try {
         const response = await api.get('/global-billboard');
+        if (requestId !== globalBillboardRequestIdRef.current) {
+          return;
+        }
+
         const activeBillboard = response.data.activeBillboard || null;
+        const activeSessionKey = getSessionKey(activeBillboard);
         setGlobalBillboard(activeBillboard);
+        confirmedSessionKeyRef.current = activeSessionKey;
+        activeSessionTrustedRef.current = true;
         setIsActiveSessionTrusted(true);
         if (!activeBillboard) {
           setLocations([]);
           setActiveNotifications([]);
           setLocationsSessionKey(null);
           setNotificationsSessionKey(null);
+          confirmedSessionKeyRef.current = null;
           setDataError(null);
           setLoading(false);
         }
       } catch (error) {
+        if (requestId !== globalBillboardRequestIdRef.current) {
+          return;
+        }
+
         console.error('Error fetching global billboard for location status:', error);
+        activeSessionTrustedRef.current = false;
         setIsActiveSessionTrusted(false);
         setDataError('Unable to confirm the active event. Location status is temporarily unavailable.');
         setLoading(false);
