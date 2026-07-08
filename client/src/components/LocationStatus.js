@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../utils/api';
 import {
   Container,
@@ -21,32 +21,76 @@ function LocationStatus() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [globalBillboard, setGlobalBillboard] = useState(null);
+  const [locationsSessionKey, setLocationsSessionKey] = useState(null);
+  const [notificationsSessionKey, setNotificationsSessionKey] = useState(null);
+  const [dataError, setDataError] = useState(null);
+  const [isActiveSessionTrusted, setIsActiveSessionTrusted] = useState(false);
+  const activeSessionTrustedRef = useRef(false);
+  const confirmedSessionKeyRef = useRef(null);
+  const globalBillboardRequestIdRef = useRef(0);
+
+  const getSessionKey = useCallback((billboard) => {
+    if (!billboard) {
+      return null;
+    }
+
+    return `${String(billboard.eventId)}|${String(billboard.eventDate || '')}`;
+  }, []);
 
   // Fetch all locations with remaining children
   const fetchLocations = useCallback(async () => {
     try {
-      if (!globalBillboard) return;
+      if (!globalBillboard || !isActiveSessionTrusted) {
+        setLocations([]);
+        setLocationsSessionKey(null);
+        return;
+      }
       const params = new URLSearchParams();
       params.append('eventId', globalBillboard.eventId);
       if (globalBillboard.eventDate) {
         params.append('date', globalBillboard.eventDate);
       }
       const response = await api.get(`/location-status?${params.toString()}`);
+      if (response.status === 429 || !Array.isArray(response.data)) {
+        throw new Error('Location status data is unavailable');
+      }
+      const responseSessionKey = getSessionKey(globalBillboard);
       setLocations(response.data);
+      setLocationsSessionKey(responseSessionKey);
+      if (activeSessionTrustedRef.current && confirmedSessionKeyRef.current === responseSessionKey) {
+        setDataError(null);
+      }
     } catch (error) {
       console.error('Error fetching location status:', error);
+      setDataError('Location status is temporarily unavailable for the confirmed active event.');
+      throw error;
     }
-  }, [globalBillboard]);
+  }, [globalBillboard, getSessionKey, isActiveSessionTrusted]);
 
   // Fetch active notifications
   const fetchActiveNotifications = useCallback(async () => {
     try {
-      const response = await api.get('/active-notifications');
+      if (!globalBillboard || !isActiveSessionTrusted) {
+        setActiveNotifications([]);
+        setNotificationsSessionKey(null);
+        return;
+      }
+
+      const response = await api.get('/active-notifications', {
+        params: {
+          eventId: globalBillboard.eventId,
+          eventDate: globalBillboard.eventDate
+        }
+      });
+      if (!Array.isArray(response.data)) {
+        throw new Error('Active notifications data is unavailable');
+      }
       setActiveNotifications(response.data);
+      setNotificationsSessionKey(getSessionKey(globalBillboard));
     } catch (error) {
       console.error('Error fetching active notifications:', error);
     }
-  }, []);
+  }, [globalBillboard, getSessionKey, isActiveSessionTrusted]);
 
   // Fetch both location status and active notifications
   const fetchAllData = useCallback(async () => {
@@ -77,17 +121,46 @@ function LocationStatus() {
 
   useEffect(() => {
     const fetchGlobalBillboard = async () => {
+      const requestId = globalBillboardRequestIdRef.current + 1;
+      globalBillboardRequestIdRef.current = requestId;
+
       try {
         const response = await api.get('/global-billboard');
-        setGlobalBillboard(response.data.activeBillboard || null);
+        if (requestId !== globalBillboardRequestIdRef.current) {
+          return;
+        }
+
+        const activeBillboard = response.data.activeBillboard || null;
+        const activeSessionKey = getSessionKey(activeBillboard);
+        setGlobalBillboard(activeBillboard);
+        confirmedSessionKeyRef.current = activeSessionKey;
+        activeSessionTrustedRef.current = true;
+        setIsActiveSessionTrusted(true);
+        if (!activeBillboard) {
+          setLocations([]);
+          setActiveNotifications([]);
+          setLocationsSessionKey(null);
+          setNotificationsSessionKey(null);
+          confirmedSessionKeyRef.current = null;
+          setDataError(null);
+          setLoading(false);
+        }
       } catch (error) {
-        setGlobalBillboard(null);
+        if (requestId !== globalBillboardRequestIdRef.current) {
+          return;
+        }
+
+        console.error('Error fetching global billboard for location status:', error);
+        activeSessionTrustedRef.current = false;
+        setIsActiveSessionTrusted(false);
+        setDataError('Unable to confirm the active event. Location status is temporarily unavailable.');
+        setLoading(false);
       }
     };
     fetchGlobalBillboard();
     const interval = setInterval(fetchGlobalBillboard, 30000); // Increased from 15 to 30 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [getSessionKey]);
 
   const formatTime = (date) => {
     return new Date(date).toLocaleTimeString([], {
@@ -96,13 +169,17 @@ function LocationStatus() {
     });
   };
 
+  const currentSessionKey = getSessionKey(globalBillboard);
+  const visibleLocations = isActiveSessionTrusted && locationsSessionKey === currentSessionKey ? locations : [];
+  const visibleActiveNotifications = isActiveSessionTrusted && notificationsSessionKey === currentSessionKey ? activeNotifications : [];
+
   // Sort locations by number of children (descending)
-  const sortedLocations = [...locations].sort((a, b) => b.childCount - a.childCount);
+  const sortedLocations = [...visibleLocations].sort((a, b) => b.childCount - a.childCount);
 
   // Removed unused notificationsByLocation variable
 
-  const totalChildrenInCare = locations.reduce((total, loc) => total + loc.childCount, 0);
-  const totalWaitingForPickup = activeNotifications.length;
+  const totalChildrenInCare = visibleLocations.reduce((total, loc) => total + loc.childCount, 0);
+  const totalWaitingForPickup = visibleActiveNotifications.length;
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -157,6 +234,11 @@ function LocationStatus() {
           <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 700, mb: 3 }}>
             Active Security Codes by Location
           </Typography>
+          {dataError && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {dataError}
+            </Alert>
+          )}
           {sortedLocations.length === 0 ? (
             <Alert severity="info" sx={{ mb: 2 }}>
               No active security codes.
