@@ -21,12 +21,24 @@ function LocationStatus() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [globalBillboard, setGlobalBillboard] = useState(null);
+  const [locationsSessionKey, setLocationsSessionKey] = useState(null);
+  const [notificationsSessionKey, setNotificationsSessionKey] = useState(null);
+  const [dataError, setDataError] = useState(null);
+
+  const getSessionKey = useCallback((billboard) => {
+    if (!billboard) {
+      return null;
+    }
+
+    return `${String(billboard.eventId)}|${String(billboard.eventDate || '')}`;
+  }, []);
 
   // Fetch all locations with remaining children
   const fetchLocations = useCallback(async () => {
     try {
       if (!globalBillboard) {
         setLocations([]);
+        setLocationsSessionKey(null);
         return;
       }
       const params = new URLSearchParams();
@@ -39,17 +51,21 @@ function LocationStatus() {
         throw new Error('Location status data is unavailable');
       }
       setLocations(response.data);
+      setLocationsSessionKey(getSessionKey(globalBillboard));
+      setDataError(null);
     } catch (error) {
       console.error('Error fetching location status:', error);
+      setDataError('Location status is temporarily unavailable. Showing last successful data for this active event when available.');
       throw error;
     }
-  }, [globalBillboard]);
+  }, [globalBillboard, getSessionKey]);
 
   // Fetch active notifications
   const fetchActiveNotifications = useCallback(async () => {
     try {
       if (!globalBillboard) {
         setActiveNotifications([]);
+        setNotificationsSessionKey(null);
         return;
       }
 
@@ -59,11 +75,15 @@ function LocationStatus() {
           eventDate: globalBillboard.eventDate
         }
       });
+      if (!Array.isArray(response.data)) {
+        throw new Error('Active notifications data is unavailable');
+      }
       setActiveNotifications(response.data);
+      setNotificationsSessionKey(getSessionKey(globalBillboard));
     } catch (error) {
       console.error('Error fetching active notifications:', error);
     }
-  }, [globalBillboard]);
+  }, [globalBillboard, getSessionKey]);
 
   // Fetch both location status and active notifications
   const fetchAllData = useCallback(async () => {
@@ -101,10 +121,14 @@ function LocationStatus() {
         if (!activeBillboard) {
           setLocations([]);
           setActiveNotifications([]);
+          setLocationsSessionKey(null);
+          setNotificationsSessionKey(null);
+          setDataError(null);
           setLoading(false);
         }
       } catch (error) {
         console.error('Error fetching global billboard for location status:', error);
+        setDataError('Unable to refresh the active event. Showing last successful data for this active event when available.');
         setLoading(false);
       }
     };
@@ -120,13 +144,17 @@ function LocationStatus() {
     });
   };
 
+  const currentSessionKey = getSessionKey(globalBillboard);
+  const visibleLocations = locationsSessionKey === currentSessionKey ? locations : [];
+  const visibleActiveNotifications = notificationsSessionKey === currentSessionKey ? activeNotifications : [];
+
   // Sort locations by number of children (descending)
-  const sortedLocations = [...locations].sort((a, b) => b.childCount - a.childCount);
+  const sortedLocations = [...visibleLocations].sort((a, b) => b.childCount - a.childCount);
 
   // Removed unused notificationsByLocation variable
 
-  const totalChildrenInCare = locations.reduce((total, loc) => total + loc.childCount, 0);
-  const totalWaitingForPickup = activeNotifications.length;
+  const totalChildrenInCare = visibleLocations.reduce((total, loc) => total + loc.childCount, 0);
+  const totalWaitingForPickup = visibleActiveNotifications.length;
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -181,6 +209,11 @@ function LocationStatus() {
           <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 700, mb: 3 }}>
             Active Security Codes by Location
           </Typography>
+          {dataError && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {dataError}
+            </Alert>
+          )}
           {sortedLocations.length === 0 ? (
             <Alert severity="info" sx={{ mb: 2 }}>
               No active security codes.
