@@ -35,7 +35,7 @@ function LocationStatus() {
     }
 
     return `${String(billboard.eventId)}|${String(billboard.eventDate || '')}`;
-  }, [getSessionKey]);
+  }, []);
 
   // Fetch all locations with remaining children
   const fetchLocations = useCallback(async () => {
@@ -160,7 +160,7 @@ function LocationStatus() {
     fetchGlobalBillboard();
     const interval = setInterval(fetchGlobalBillboard, 30000); // Increased from 15 to 30 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [getSessionKey]);
 
   const formatTime = (date) => {
     return new Date(date).toLocaleTimeString([], {
