@@ -24,6 +24,7 @@ function LocationStatus() {
   const [locationsSessionKey, setLocationsSessionKey] = useState(null);
   const [notificationsSessionKey, setNotificationsSessionKey] = useState(null);
   const [dataError, setDataError] = useState(null);
+  const [isActiveSessionTrusted, setIsActiveSessionTrusted] = useState(false);
 
   const getSessionKey = useCallback((billboard) => {
     if (!billboard) {
@@ -36,7 +37,7 @@ function LocationStatus() {
   // Fetch all locations with remaining children
   const fetchLocations = useCallback(async () => {
     try {
-      if (!globalBillboard) {
+      if (!globalBillboard || !isActiveSessionTrusted) {
         setLocations([]);
         setLocationsSessionKey(null);
         return;
@@ -52,18 +53,20 @@ function LocationStatus() {
       }
       setLocations(response.data);
       setLocationsSessionKey(getSessionKey(globalBillboard));
-      setDataError(null);
+      if (isActiveSessionTrusted) {
+        setDataError(null);
+      }
     } catch (error) {
       console.error('Error fetching location status:', error);
-      setDataError('Location status is temporarily unavailable. Showing last successful data for this active event when available.');
+      setDataError('Location status is temporarily unavailable for the confirmed active event.');
       throw error;
     }
-  }, [globalBillboard, getSessionKey]);
+  }, [globalBillboard, getSessionKey, isActiveSessionTrusted]);
 
   // Fetch active notifications
   const fetchActiveNotifications = useCallback(async () => {
     try {
-      if (!globalBillboard) {
+      if (!globalBillboard || !isActiveSessionTrusted) {
         setActiveNotifications([]);
         setNotificationsSessionKey(null);
         return;
@@ -83,7 +86,7 @@ function LocationStatus() {
     } catch (error) {
       console.error('Error fetching active notifications:', error);
     }
-  }, [globalBillboard, getSessionKey]);
+  }, [globalBillboard, getSessionKey, isActiveSessionTrusted]);
 
   // Fetch both location status and active notifications
   const fetchAllData = useCallback(async () => {
@@ -118,6 +121,7 @@ function LocationStatus() {
         const response = await api.get('/global-billboard');
         const activeBillboard = response.data.activeBillboard || null;
         setGlobalBillboard(activeBillboard);
+        setIsActiveSessionTrusted(true);
         if (!activeBillboard) {
           setLocations([]);
           setActiveNotifications([]);
@@ -128,7 +132,8 @@ function LocationStatus() {
         }
       } catch (error) {
         console.error('Error fetching global billboard for location status:', error);
-        setDataError('Unable to refresh the active event. Showing last successful data for this active event when available.');
+        setIsActiveSessionTrusted(false);
+        setDataError('Unable to confirm the active event. Location status is temporarily unavailable.');
         setLoading(false);
       }
     };
@@ -145,8 +150,8 @@ function LocationStatus() {
   };
 
   const currentSessionKey = getSessionKey(globalBillboard);
-  const visibleLocations = locationsSessionKey === currentSessionKey ? locations : [];
-  const visibleActiveNotifications = notificationsSessionKey === currentSessionKey ? activeNotifications : [];
+  const visibleLocations = isActiveSessionTrusted && locationsSessionKey === currentSessionKey ? locations : [];
+  const visibleActiveNotifications = isActiveSessionTrusted && notificationsSessionKey === currentSessionKey ? activeNotifications : [];
 
   // Sort locations by number of children (descending)
   const sortedLocations = [...visibleLocations].sort((a, b) => b.childCount - a.childCount);
