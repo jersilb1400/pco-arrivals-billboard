@@ -73,9 +73,7 @@ api.interceptors.response.use(
     
     // Handle rate limiting gracefully
     if (error.response?.status === 429) {
-      console.warn('Rate limit exceeded, request will be retried later');
-      // Don't throw the error for rate limiting, let the component handle it gracefully
-      return Promise.resolve({ data: null, status: 429 });
+      console.warn('Rate limit exceeded, preserving existing UI state');
     }
     
     // Handle authentication errors
