@@ -41,7 +41,6 @@ function LocationStatus() {
       setLocations(response.data);
     } catch (error) {
       console.error('Error fetching location status:', error);
-      setLocations([]);
       throw error;
     }
   }, [globalBillboard]);
@@ -105,9 +104,7 @@ function LocationStatus() {
           setLoading(false);
         }
       } catch (error) {
-        setGlobalBillboard(null);
-        setLocations([]);
-        setActiveNotifications([]);
+        console.error('Error fetching global billboard for location status:', error);
         setLoading(false);
       }
     };

@@ -672,6 +672,7 @@ app.post('/api/security-codes', async (req, res) => {
         let allCheckIns, included;
         const cachedData = getCachedCheckInData(eventId, {
           scope: 'security-codes',
+          date: eventDate || 'all-dates',
           include: 'person,household'
         });
         
@@ -699,12 +700,20 @@ app.post('/api/security-codes', async (req, res) => {
           // Cache the data
           updateCheckInCache(eventId, { data: allCheckIns, included }, {
             scope: 'security-codes',
+            date: eventDate || 'all-dates',
             include: 'person,household'
           });
         }
         
         // Filter check-ins by the requested security codes
-        const filteredCheckIns = allCheckIns.filter(checkIn => 
+        const checkInsForDate = eventDate
+          ? allCheckIns.filter(checkIn => isSameEventDate(
+            checkIn.attributes.created_at,
+            eventDate,
+            process.env.EVENT_TIME_ZONE || 'America/Chicago'
+          ))
+          : allCheckIns;
+        const filteredCheckIns = checkInsForDate.filter(checkIn =>
           securityCodes.includes(checkIn.attributes.security_code?.toLowerCase())
         );
         
@@ -786,11 +795,19 @@ app.post('/api/security-codes', async (req, res) => {
           console.log('Rate limited by PCO API, returning cached data if available');
           const cachedData = getCachedCheckInData(eventId, {
             scope: 'security-codes',
+            date: eventDate || 'all-dates',
             include: 'person,household'
           });
           if (cachedData) {
             // Process cached data
-            const filteredCheckIns = cachedData.data.filter(checkIn => 
+            const cachedCheckInsForDate = eventDate
+              ? cachedData.data.filter(checkIn => isSameEventDate(
+                checkIn.attributes.created_at,
+                eventDate,
+                process.env.EVENT_TIME_ZONE || 'America/Chicago'
+              ))
+              : cachedData.data;
+            const filteredCheckIns = cachedCheckInsForDate.filter(checkIn =>
               securityCodes.includes(checkIn.attributes.security_code?.toLowerCase())
             );
             // Return basic results from cache

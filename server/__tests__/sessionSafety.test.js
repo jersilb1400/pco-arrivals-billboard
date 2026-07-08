@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 
 const {
@@ -67,4 +69,15 @@ test('shouldCacheCheckInPage refuses partial or rate-limited result sets', () =>
   assert.equal(shouldCacheCheckInPage({ isComplete: true, rateLimited: false }), true);
   assert.equal(shouldCacheCheckInPage({ isComplete: false, rateLimited: false }), false);
   assert.equal(shouldCacheCheckInPage({ isComplete: true, rateLimited: true }), false);
+});
+
+test('/api/security-codes cache wiring scopes by event date and filters check-ins by event-local date', () => {
+  const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const securityCodeDateScopedCacheCalls = serverSource.match(
+    /scope: 'security-codes',\s+date: eventDate \|\| 'all-dates',\s+include: 'person,household'/g
+  ) || [];
+
+  assert.equal(securityCodeDateScopedCacheCalls.length, 3);
+  assert.match(serverSource, /const checkInsForDate = eventDate[\s\S]+?isSameEventDate/);
+  assert.match(serverSource, /const cachedCheckInsForDate = eventDate[\s\S]+?isSameEventDate/);
 });
