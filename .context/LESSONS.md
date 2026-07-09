@@ -72,3 +72,14 @@ TTL cache so 5 billboards polling don't fan out to 5× the DB load. GLM-5.2 flag
 **Rule:** Both the WebForms block and the polling endpoint (and a future SignalR topic) must consume
 the same service interface. This is what makes "polling now → SignalR later" a small change instead
 of a rewrite. Inline queries couple rendering to data access and block the upgrade path. GLM-5.2 advice.
+
+## L10 — Build/test environment is a local Windows 11 ARM VM, not Azure (cost-driven, 2026-07-09)
+**Trigger:** Any reference to "the Windows VM" / "Azure VM" / "azureuser" / `*.database.windows.net`,
+or instructions assuming a remote x64 Windows Server.
+**Rule:** The Azure Windows Server VM was decommissioned for cost. Builds + Rock testing now happen on a
+**local Windows 11 ARM VM** on this Mac (UTM/VMware Fusion/Parallels, all free for personal use) — see
+`WINDOWS_VM_SETUP.md`. The default `<RockBinPath>` in the csproj (`C:\inetpub\wwwroot\Rock\Bin`) still
+applies *inside* the VM. Compiling the plugin under ARM emulation works cleanly; running Rock (heavy
+WebForms, x64) under emulation is the one uncertainty — if it misbehaves, the fallback is a cheap
+auto-shutdown Azure B-series VM for smoke-testing only. Do NOT assume remote Azure tooling (Azure SQL
+connection strings, `azureuser` SSH, Triumph staging) is available unless re-provisioned.

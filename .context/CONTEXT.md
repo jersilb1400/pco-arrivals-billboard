@@ -122,8 +122,17 @@ com.gracefellowship.Arrivals/                  (project root — OUTSIDE iCloud 
 
 ## Build/deploy loop (Mac edits → Windows builds)
 
+**Environment (updated 2026-07-09):** the Azure Windows Server VM was decommissioned
+(cost). Builds + testing now happen on a **local Windows 11 ARM VM** on this Mac
+(UTM / VMware Fusion / Parallels — all free for personal use). Rock RMS (x64 .NET
+Framework) runs under ARM emulation in the VM; compiling works cleanly, and running
+Rock *should* work under emulation (the one uncertainty — if it misbehaves, the
+fallback is a cheap auto-shutdown Azure B-series VM for smoke-testing only). See
+`WINDOWS_VM_SETUP.md` at repo root for the full one-time setup + build/install/verify
+runbook.
+
 1. Mac: edit → `git commit && git push`
-2. Windows VM: `git pull && build-plugin.bat` (or `build-package.bat` for manual deploys)
+2. Windows ARM VM: `git pull && build-plugin.bat` (or `build-package.bat` for manual deploys)
 3. Windows: `.plugin` → Rock `App_Data\Packages\` → install via Rock UI (migrations auto-run);
    OR copy DLL→`Rock\bin\`, `.ascx`→`Rock\Plugins\com_gracefellowship_Arrivals\Blocks\`, recycle app pool.
 4. Browser: load the page, watch for "Server Error".

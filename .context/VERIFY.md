@@ -1,8 +1,10 @@
 # Verification — How We Know Work Is Correct
 
 > No task is "done" until its check tier has been run. Checks live in `.context/checks/`.
-> This plugin builds on a Windows VM (Rock + MSBuild + IIS), not on this Mac. So the "fast tier"
-> is split: a Mac-runnable source check, and a Windows-only build/deploy run.
+> This plugin builds on a **Windows 11 ARM VM** on the Mac (Rock + MSBuild + IIS), not on
+> macOS directly. (The Azure Windows Server VM was decommissioned 2026-07-09 for cost; see
+> `WINDOWS_VM_SETUP.md`.) So the "fast tier" is split: a Mac-runnable source check, and a
+> Windows-only build/deploy run.
 
 ## Fast tier — run before declaring ANY task done
 
@@ -14,7 +16,7 @@ What it catches: forbidden references (DotLiquid/Rock.Lava.Shared), `<Private>tr
 regressions, lowercase/non-canonical GUIDs, version drift between csproj and build scripts,
 DLL-into-Plugins packaging mistakes. It can't prove correctness, but blocks known scar-tissue.
 
-### On the Windows VM (build + smoke)
+### On the Windows ARM VM (build + smoke)
 ```powershell
 build-plugin.bat
 ```
@@ -45,7 +47,7 @@ Verify live against Rock RMS 19.1 on the Windows VM / Azure SQL, once the plugin
 ## Checklists (for what can't be scripted)
 
 ### Manual Rock smoke (after a code change)
-Run on the Windows VM with a Rock v19 instance that has check-in data (or create test check-ins):
+Run on the Windows ARM VM with a Rock v19 instance that has check-in data (or create test check-ins):
 - [ ] `build-plugin.bat` succeeds, no errors
 - [ ] `.plugin` installs via Rock UI (or DLL→`Rock\bin\`, `.ascx`→`Plugins\...\Blocks\`), app pool recycled
 - [ ] Admin page loads without "Server Error"; GroupType/date selectors populate from Rock
