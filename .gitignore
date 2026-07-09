@@ -34,3 +34,25 @@ yarn-error.log*
 **/npm-debug.log*
 **/yarn-debug.log*
 **/yarn-error.log*
+
+# ─── Rock RMS plugin (C#/.NET) build output ────────────────────
+# The plugin project lives alongside the legacy Node app in git history.
+bin/
+obj/
+PluginStaging/
+ReleaseStaging/
+*.dll
+*.pdb
+*.plugin
+
+# IDE / editor
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+
+# Logs
+*.log
+logs/
+!server/logs/.gitkeep
