@@ -1,5 +1,7 @@
 const assert = require('assert/strict');
+const fs = require('fs');
 const test = require('node:test');
+const path = require('path');
 
 const {
   buildCheckInCacheKey,
@@ -14,6 +16,8 @@ const {
 const {
   shouldClearNotifications,
 } = require('../utils/sessionSafety');
+
+const serverSource = () => fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 
 test('preserves notifications when the same event session is saved again', () => {
   const currentBillboard = {
@@ -113,4 +117,26 @@ test('cleanup preserves old notifications unless PCO reports checkout', () => {
     filterNotificationsByCheckedOutIds([oldNotification, activeNotification], [100]),
     [activeNotification]
   );
+});
+
+test('server route clears notifications only through the session safety helper', () => {
+  const source = serverSource();
+
+  assert.match(source, /shouldClearNotifications/);
+  assert.doesNotMatch(source, /activeNotifications\.length\s*=\s*0;\s*\n\s*console\.log\(`Server: Cleared/);
+});
+
+test('server route uses scoped cache keys and exact date matching', () => {
+  const source = serverSource();
+
+  assert.match(source, /buildCheckInCacheKey/);
+  assert.match(source, /isCheckInOnEventDate/);
+  assert.doesNotMatch(source, /matchesDate\s*=\s*daysDiff\s*<=\s*1/);
+});
+
+test('background cleanup does not remove notifications by age alone', () => {
+  const source = serverSource();
+
+  assert.doesNotMatch(source, /thirtyMinutesAgo/);
+  assert.doesNotMatch(source, /Removed \$\{removedByTime\} old notifications/);
 });
