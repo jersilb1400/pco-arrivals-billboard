@@ -95,8 +95,14 @@ test('scopes check-in cache by consumer, event, date, and include shape', () => 
 
   assert.notEqual(locationToday, locationTomorrow);
   assert.notEqual(locationToday, securityCodesToday);
-  assert.equal(isCheckInCacheHit({ cacheKey: locationToday, lastUpdated: new Date() }, locationToday), true);
-  assert.equal(isCheckInCacheHit({ cacheKey: locationToday, lastUpdated: new Date() }, locationTomorrow), false);
+  const populatedCache = {
+    cacheKey: locationToday,
+    data: { data: [], included: [] },
+    lastUpdated: new Date(),
+  };
+
+  assert.equal(isCheckInCacheHit(populatedCache, locationToday), true);
+  assert.equal(isCheckInCacheHit(populatedCache, locationTomorrow), false);
 });
 
 test('cleanup preserves old notifications unless PCO reports checkout', () => {
