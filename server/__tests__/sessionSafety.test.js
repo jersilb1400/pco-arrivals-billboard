@@ -137,6 +137,7 @@ test('server route uses scoped cache keys and exact date matching', () => {
 
   assert.match(source, /buildCheckInCacheKey/);
   assert.match(source, /isCheckInOnEventDate/);
+  assert.doesNotMatch(source, /getCachedCheckInData\(eventId\)/);
   assert.doesNotMatch(source, /matchesDate\s*=\s*daysDiff\s*<=\s*1/);
 });
 
