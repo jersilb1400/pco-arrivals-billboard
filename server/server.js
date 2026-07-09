@@ -659,16 +659,17 @@ app.post('/api/security-codes', async (req, res) => {
     
     // If securityCodes is provided and non-empty, use optimized logic
     if (securityCodes && securityCodes.length > 0) {
+      const securityCodesCacheKey = buildCheckInCacheKey({
+        scope: 'security-codes',
+        eventId,
+        date: eventDate,
+        include: 'person,household',
+      });
+
       try {
         // Check cache first
         let allCheckIns, included;
-        const cacheKey = buildCheckInCacheKey({
-          scope: 'security-codes',
-          eventId,
-          date: eventDate,
-          include: 'person,household',
-        });
-        const cachedData = getCachedCheckInData(cacheKey);
+        const cachedData = getCachedCheckInData(securityCodesCacheKey);
         
         if (cachedData) {
           console.log('Using cached check-in data for event:', eventId);
@@ -692,7 +693,7 @@ app.post('/api/security-codes', async (req, res) => {
           included = checkInResponse.data.included || [];
           
           // Cache the data
-          updateCheckInCache(cacheKey, { data: allCheckIns, included });
+          updateCheckInCache(securityCodesCacheKey, { data: allCheckIns, included });
         }
         
         // Filter check-ins by the requested security codes
@@ -776,7 +777,7 @@ app.post('/api/security-codes', async (req, res) => {
         // If we hit rate limiting, return cached data if available
         if (apiError.response?.status === 429) {
           console.log('Rate limited by PCO API, returning cached data if available');
-          const cachedData = getCachedCheckInData(eventId);
+          const cachedData = getCachedCheckInData(securityCodesCacheKey);
           if (cachedData) {
             // Process cached data
             const filteredCheckIns = cachedData.data.filter(checkIn => 
