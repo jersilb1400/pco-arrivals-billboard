@@ -68,6 +68,9 @@ for %%F in (ArrivalsAdmin SecurityCodeEntry Billboard LocationStatus) do (
         copy /Y "Blocks\%%F.ascx.designer.cs" "%STAGING%\Plugins\%PLUGIN_FOLDER%\Blocks\"
     )
 )
+
+:: Copy block assets (CSS, etc.) that ship alongside the blocks
+if exist "Blocks\*.css" copy /Y "Blocks\*.css" "%STAGING%\Plugins\%PLUGIN_FOLDER%\Blocks\"
 copy /Y "INSTALL.txt" "%STAGING%\" 2>nul
 copy /Y "install-to-rock.bat" "%STAGING%\" 2>nul
 copy /Y "USER_GUIDE.md" "%STAGING%\" 2>nul

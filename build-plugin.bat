@@ -70,6 +70,9 @@ for %%F in (ArrivalsAdmin SecurityCodeEntry Billboard LocationStatus) do (
     )
 )
 
+:: Copy block assets (CSS, etc.) that ship alongside the blocks
+if exist "Blocks\*.css" copy /Y "Blocks\*.css" "%STAGING%\Plugins\%PLUGIN_FOLDER%\Blocks\"
+
 :: Create the .plugin file (ZIP with .plugin extension)
 echo Creating .plugin file: %PLUGIN_NAME%
 powershell -NoProfile -Command "Compress-Archive -Path '%STAGING%\*' -DestinationPath 'PluginStaging\%PLUGIN_NAME%.zip' -Force"

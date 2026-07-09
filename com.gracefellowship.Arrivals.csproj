@@ -58,9 +58,10 @@
     </PackageReference>
   </ItemGroup>
 
-  <!-- Treat .ascx files as Content so they appear in the project and ship in the .plugin -->
+  <!-- Treat .ascx and .css files as Content so they appear in the project and ship in the .plugin -->
   <ItemGroup>
     <Content Include="Blocks\**\*.ascx" />
+    <Content Include="Blocks\**\*.css" />
   </ItemGroup>
 
   <!--
