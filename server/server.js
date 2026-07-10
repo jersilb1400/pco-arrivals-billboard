@@ -22,6 +22,7 @@ const {
 } = require('./utils/stationState');
 const { shouldClearNotifications } = require('./utils/billboardSession');
 const { DEFAULT_EVENT_TIME_ZONE, isSameEventDate } = require('./utils/dateMatching');
+const { removeCheckedOutNotifications } = require('./utils/notificationCleanup');
 
 // Debug logging helper - writes to both file and console for visibility
 const DEBUG_LOG_PATH = path.join(__dirname, '..', '.cursor', 'debug.log');
@@ -2039,24 +2040,9 @@ app.post('/api/cleanup-checked-out', async (req, res) => {
   }
 });
 
-// Cleanup old notifications and check for checked-out children (run every 1 minute for faster cleanup)
+// Check for checked-out children (run every 1 minute for faster cleanup)
 setInterval(async () => {
   try {
-    const currentTime = new Date();
-    const thirtyMinutesAgo = new Date(currentTime.getTime() - 30 * 60 * 1000); // Increased to 30 minutes
-    
-    // Remove notifications older than 30 minutes
-    const initialLength = activeNotifications.length;
-    activeNotifications = activeNotifications.filter(notification => {
-      const notificationTime = new Date(notification.notifiedAt);
-      return notificationTime > thirtyMinutesAgo;
-    });
-    
-    const removedByTime = initialLength - activeNotifications.length;
-    if (removedByTime > 0) {
-      console.log(`Cleaned up ${removedByTime} old notifications (older than 30 minutes)`);
-    }
-
     // Check if any children have been checked out in PCO (less frequently)
     if (activeNotifications.length > 0) {
       const checkInIds = activeNotifications.map(n => n.checkInId);
@@ -2100,9 +2086,7 @@ setInterval(async () => {
 
         if (checkedOutIds.length > 0) {
           const beforeCount = activeNotifications.length;
-          activeNotifications = activeNotifications.filter(n => 
-            !checkedOutIds.includes(n.checkInId)
-          );
+          activeNotifications = removeCheckedOutNotifications(activeNotifications, checkedOutIds);
           const afterCount = activeNotifications.length;
           
           if (beforeCount !== afterCount) {

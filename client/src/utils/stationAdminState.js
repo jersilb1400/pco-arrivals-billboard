@@ -31,3 +31,22 @@ export function getStationFetchResult(response) {
 export function isSuccessfulStationSaveResponse(response) {
   return response?.status !== 429 && response?.data?.success === true;
 }
+
+export function getLoadedStationPayload({
+  selectedEventId,
+  loadedEventId,
+  loadStatus,
+  selectedStationIds,
+  stationColors,
+  stationIcons
+}) {
+  if (loadStatus !== 'loaded' || selectedEventId !== loadedEventId) {
+    return {};
+  }
+
+  return {
+    ...(selectedStationIds?.length > 0 ? { selectedStationIds } : {}),
+    ...(stationColors && Object.keys(stationColors).length > 0 ? { stationColors } : {}),
+    ...(stationIcons && Object.keys(stationIcons).length > 0 ? { stationIcons } : {})
+  };
+}

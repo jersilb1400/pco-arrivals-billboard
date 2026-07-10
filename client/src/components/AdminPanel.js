@@ -57,6 +57,7 @@ import { useSession } from '../context/SessionContext';
 import DateInput from './DateInput';
 import { DEFAULT_PALETTE, DEFAULT_STATION_PALETTE, STATION_ICONS } from '../utils/locationColors';
 import {
+  getLoadedStationPayload,
   getStationFetchResult,
   isSuccessfulStationSaveResponse
 } from '../utils/stationAdminState';
@@ -118,6 +119,7 @@ function AdminPanel() {
   const [savingStationColors, setSavingStationColors] = useState(false);
   const [loadingStations, setLoadingStations] = useState(false);
   const [stationLoadStatus, setStationLoadStatus] = useState('idle');
+  const [stationLoadEventId, setStationLoadEventId] = useState(null);
   const [stationColorSectionExpanded, setStationColorSectionExpanded] = useState(false);
 
   // Helper function to get today's date in YYYY-MM-DD format
@@ -397,12 +399,14 @@ function AdminPanel() {
       setStationColorAssignments({});
       setStationIconAssignments({});
       setStationLoadStatus('idle');
+      setStationLoadEventId(null);
       return;
     }
     const fetchStations = async () => {
       setLoadingStations(true);
       setLoadingStationColors(true);
       setStationLoadStatus('loading');
+      setStationLoadEventId(null);
       try {
         const response = await api.get(`/events/${selectedEvent}/stations`);
         const result = getStationFetchResult(response);
@@ -419,6 +423,7 @@ function AdminPanel() {
         setStationColorAssignments(result.state.stationColors);
         setStationIconAssignments(result.state.stationIcons);
         setStationLoadStatus('loaded');
+        setStationLoadEventId(selectedEvent);
       } catch (err) {
         console.error('Error fetching stations:', err);
         setStationLoadStatus('error');
@@ -438,15 +443,21 @@ function AdminPanel() {
     if (eventId && eventName) {
       try {
         console.log('AdminPanel: Setting global state:', { eventId, eventName, securityCodes, eventDate });
+        const stationPayload = getLoadedStationPayload({
+          selectedEventId: eventId,
+          loadedEventId: stationLoadEventId,
+          loadStatus: stationLoadStatus,
+          selectedStationIds,
+          stationColors: stationColorAssignments,
+          stationIcons: stationIconAssignments
+        });
         const response = await api.post('/set-global-billboard', {
           eventId: eventId,
           eventName: eventName,
           securityCodes: securityCodes,
           eventDate: eventDate,
           locationColors: Object.keys(locationColorAssignments).length > 0 ? locationColorAssignments : undefined,
-          stationColors: Object.keys(stationColorAssignments).length > 0 ? stationColorAssignments : undefined,
-          stationIcons: Object.keys(stationIconAssignments).length > 0 ? stationIconAssignments : undefined,
-          selectedStationIds: selectedStationIds.length > 0 ? selectedStationIds : undefined
+          ...stationPayload
         });
         
         console.log('AdminPanel: Global state response:', response.data);
@@ -554,7 +565,7 @@ function AdminPanel() {
 
   const handleSaveStations = async () => {
     if (!selectedEvent) return;
-    if (stationLoadStatus !== 'loaded') {
+    if (stationLoadStatus !== 'loaded' || stationLoadEventId !== selectedEvent) {
       setSnackbarMsg('Station assignments must finish loading before they can be saved.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
@@ -1382,7 +1393,7 @@ function AdminPanel() {
                           variant="contained"
                           color="secondary"
                           onClick={handleSaveStations}
-                          disabled={savingStationColors || loadingStations || stationLoadStatus !== 'loaded'}
+                          disabled={savingStationColors || loadingStations || stationLoadStatus !== 'loaded' || stationLoadEventId !== selectedEvent}
                         >
                           {savingStationColors ? 'Saving...' : 'Save station selection, colors & icons'}
                         </Button>

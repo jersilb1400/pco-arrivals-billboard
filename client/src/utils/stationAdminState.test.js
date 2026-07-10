@@ -1,4 +1,5 @@
 import {
+  getLoadedStationPayload,
   getStationFetchResult,
   isSuccessfulStationSaveResponse
 } from './stationAdminState';
@@ -42,4 +43,34 @@ test('normalizes successful station fetch responses', () => {
 
 test('does not treat a 429 station save response as successful', () => {
   expect(isSuccessfulStationSaveResponse({ status: 429, data: null })).toBe(false);
+});
+
+test('omits station payload when assignments did not load for the selected event', () => {
+  const payload = getLoadedStationPayload({
+    selectedEventId: 'event-2',
+    loadedEventId: 'event-1',
+    loadStatus: 'error',
+    selectedStationIds: ['station-1'],
+    stationColors: { 'station-1': '#123456' },
+    stationIcons: { 'station-1': 'Star' }
+  });
+
+  expect(payload).toEqual({});
+});
+
+test('includes station payload only for the successfully loaded selected event', () => {
+  const payload = getLoadedStationPayload({
+    selectedEventId: 'event-1',
+    loadedEventId: 'event-1',
+    loadStatus: 'loaded',
+    selectedStationIds: ['station-1'],
+    stationColors: { 'station-1': '#123456' },
+    stationIcons: { 'station-1': 'Star' }
+  });
+
+  expect(payload).toEqual({
+    selectedStationIds: ['station-1'],
+    stationColors: { 'station-1': '#123456' },
+    stationIcons: { 'station-1': 'Star' }
+  });
 });
