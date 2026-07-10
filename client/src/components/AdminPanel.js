@@ -56,6 +56,10 @@ import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 import DateInput from './DateInput';
 import { DEFAULT_PALETTE, DEFAULT_STATION_PALETTE, STATION_ICONS } from '../utils/locationColors';
+import {
+  getStationFetchResult,
+  isSuccessfulStationSaveResponse
+} from '../utils/stationAdminState';
 
 const ICON_MAP = {
   Star: StarIcon,
@@ -113,6 +117,7 @@ function AdminPanel() {
   const [loadingStationColors, setLoadingStationColors] = useState(false);
   const [savingStationColors, setSavingStationColors] = useState(false);
   const [loadingStations, setLoadingStations] = useState(false);
+  const [stationLoadStatus, setStationLoadStatus] = useState('idle');
   const [stationColorSectionExpanded, setStationColorSectionExpanded] = useState(false);
 
   // Helper function to get today's date in YYYY-MM-DD format
@@ -390,24 +395,36 @@ function AdminPanel() {
       setStations([]);
       setSelectedStationIds([]);
       setStationColorAssignments({});
+      setStationIconAssignments({});
+      setStationLoadStatus('idle');
       return;
     }
     const fetchStations = async () => {
       setLoadingStations(true);
       setLoadingStationColors(true);
+      setStationLoadStatus('loading');
       try {
         const response = await api.get(`/events/${selectedEvent}/stations`);
-        const data = response.data;
-        setStations(Array.isArray(data?.stations) ? data.stations : []);
-        setSelectedStationIds(Array.isArray(data?.selectedStationIds) ? data.selectedStationIds : []);
-        setStationColorAssignments(data?.stationColors || {});
-        setStationIconAssignments(data?.stationIcons || {});
+        const result = getStationFetchResult(response);
+        if (!result.ok) {
+          setStationLoadStatus('error');
+          setSnackbarMsg(result.message);
+          setSnackbarSeverity('error');
+          setSnackbarOpen(true);
+          return;
+        }
+
+        setStations(result.state.stations);
+        setSelectedStationIds(result.state.selectedStationIds);
+        setStationColorAssignments(result.state.stationColors);
+        setStationIconAssignments(result.state.stationIcons);
+        setStationLoadStatus('loaded');
       } catch (err) {
         console.error('Error fetching stations:', err);
-        setStations([]);
-        setSelectedStationIds([]);
-        setStationColorAssignments({});
-        setStationIconAssignments({});
+        setStationLoadStatus('error');
+        setSnackbarMsg('Failed to load station assignments. Please try again.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
       } finally {
         setLoadingStations(false);
         setLoadingStationColors(false);
@@ -537,13 +554,29 @@ function AdminPanel() {
 
   const handleSaveStations = async () => {
     if (!selectedEvent) return;
+    if (stationLoadStatus !== 'loaded') {
+      setSnackbarMsg('Station assignments must finish loading before they can be saved.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
     setSavingStationColors(true);
     try {
-      await api.put(`/events/${selectedEvent}/stations`, {
+      const response = await api.put(`/events/${selectedEvent}/stations`, {
         selectedStationIds,
         stationColors: stationColorAssignments,
         stationIcons: stationIconAssignments
       });
+      if (!isSuccessfulStationSaveResponse(response)) {
+        setSnackbarMsg(response?.status === 429
+          ? 'Station assignments were not saved because the API is rate limited. Please try again shortly.'
+          : 'Failed to save station selection');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        return;
+      }
+
       setSnackbarMsg('Station selection, colors, and icons saved successfully');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
@@ -1349,7 +1382,7 @@ function AdminPanel() {
                           variant="contained"
                           color="secondary"
                           onClick={handleSaveStations}
-                          disabled={savingStationColors}
+                          disabled={savingStationColors || loadingStations || stationLoadStatus !== 'loaded'}
                         >
                           {savingStationColors ? 'Saving...' : 'Save station selection, colors & icons'}
                         </Button>

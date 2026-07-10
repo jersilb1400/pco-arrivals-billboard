@@ -15,6 +15,11 @@ const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
+const {
+  buildHydratedBillboard,
+  resolveBillboardVisualState,
+  shouldPersistStationState
+} = require('./utils/stationState');
 
 // Debug logging helper - writes to both file and console for visibility
 const DEBUG_LOG_PATH = path.join(__dirname, '..', '.cursor', 'debug.log');
@@ -76,15 +81,21 @@ let activeNotifications = [];
 
 // Function to update global billboard state
 function updateGlobalBillboardState(eventId, eventName, securityCodes, eventDate, userId, userName, locationColors, stationColors, stationIcons) {
+  const visualState = resolveBillboardVisualState(
+    globalBillboardState.activeBillboard,
+    eventId,
+    locationColors,
+    stationColors,
+    stationIcons
+  );
+
   globalBillboardState = {
     activeBillboard: {
       eventId,
       eventName,
       securityCodes: securityCodes || [],
       eventDate,
-      locationColors: locationColors || {},
-      stationColors: stationColors || {},
-      stationIcons: stationIcons || {}
+      ...visualState
     },
     lastUpdated: new Date(),
     createdBy: {
@@ -1291,19 +1302,13 @@ app.get('/api/global-billboard', async (req, res) => {
           LocationColor.findOne({ eventId: globalBillboardState.activeBillboard.eventId }),
           StationColor.findOne({ eventId: globalBillboardState.activeBillboard.eventId })
         ]);
-        const locationColors = locationColorDoc?.assignments && locationColorDoc.assignments.size > 0
-          ? Object.fromEntries(locationColorDoc.assignments)
-          : globalBillboardState.activeBillboard.locationColors || {};
-        const stationColors = stationColorDoc?.assignments && stationColorDoc.assignments.size > 0
-          ? Object.fromEntries(stationColorDoc.assignments)
-          : globalBillboardState.activeBillboard.stationColors || {};
         responseData = {
           ...responseData,
-          activeBillboard: {
-            ...globalBillboardState.activeBillboard,
-            locationColors,
-            stationColors
-          }
+          activeBillboard: buildHydratedBillboard(
+            globalBillboardState.activeBillboard,
+            locationColorDoc,
+            stationColorDoc
+          )
         };
       } catch (dbErr) {
         console.error('Error fetching location/station colors:', dbErr);
@@ -2695,8 +2700,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
     }
     
     // Save station colors and/or selectedStationIds to MongoDB
-    if ((stationColors && typeof stationColors === 'object' && Object.keys(stationColors).length > 0) ||
-        (Array.isArray(selectedStationIds) && selectedStationIds.length > 0)) {
+    if (shouldPersistStationState(selectedStationIds, stationColors, stationIcons)) {
       try {
         const doc = await StationColor.findOne({ eventId }) || new StationColor({ eventId });
         doc.eventId = eventId;
