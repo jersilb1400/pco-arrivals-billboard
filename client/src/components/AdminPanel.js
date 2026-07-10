@@ -56,6 +56,11 @@ import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 import DateInput from './DateInput';
 import { DEFAULT_PALETTE, DEFAULT_STATION_PALETTE, STATION_ICONS } from '../utils/locationColors';
+import {
+  getLoadedStationPayload,
+  getStationFetchResult,
+  isSuccessfulStationSaveResponse
+} from '../utils/stationAdminState';
 
 const ICON_MAP = {
   Star: StarIcon,
@@ -113,6 +118,8 @@ function AdminPanel() {
   const [loadingStationColors, setLoadingStationColors] = useState(false);
   const [savingStationColors, setSavingStationColors] = useState(false);
   const [loadingStations, setLoadingStations] = useState(false);
+  const [stationLoadStatus, setStationLoadStatus] = useState('idle');
+  const [stationLoadEventId, setStationLoadEventId] = useState(null);
   const [stationColorSectionExpanded, setStationColorSectionExpanded] = useState(false);
 
   // Helper function to get today's date in YYYY-MM-DD format
@@ -390,24 +397,39 @@ function AdminPanel() {
       setStations([]);
       setSelectedStationIds([]);
       setStationColorAssignments({});
+      setStationIconAssignments({});
+      setStationLoadStatus('idle');
+      setStationLoadEventId(null);
       return;
     }
     const fetchStations = async () => {
       setLoadingStations(true);
       setLoadingStationColors(true);
+      setStationLoadStatus('loading');
+      setStationLoadEventId(null);
       try {
         const response = await api.get(`/events/${selectedEvent}/stations`);
-        const data = response.data;
-        setStations(Array.isArray(data?.stations) ? data.stations : []);
-        setSelectedStationIds(Array.isArray(data?.selectedStationIds) ? data.selectedStationIds : []);
-        setStationColorAssignments(data?.stationColors || {});
-        setStationIconAssignments(data?.stationIcons || {});
+        const result = getStationFetchResult(response);
+        if (!result.ok) {
+          setStationLoadStatus('error');
+          setSnackbarMsg(result.message);
+          setSnackbarSeverity('error');
+          setSnackbarOpen(true);
+          return;
+        }
+
+        setStations(result.state.stations);
+        setSelectedStationIds(result.state.selectedStationIds);
+        setStationColorAssignments(result.state.stationColors);
+        setStationIconAssignments(result.state.stationIcons);
+        setStationLoadStatus('loaded');
+        setStationLoadEventId(selectedEvent);
       } catch (err) {
         console.error('Error fetching stations:', err);
-        setStations([]);
-        setSelectedStationIds([]);
-        setStationColorAssignments({});
-        setStationIconAssignments({});
+        setStationLoadStatus('error');
+        setSnackbarMsg('Failed to load station assignments. Please try again.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
       } finally {
         setLoadingStations(false);
         setLoadingStationColors(false);
@@ -421,15 +443,21 @@ function AdminPanel() {
     if (eventId && eventName) {
       try {
         console.log('AdminPanel: Setting global state:', { eventId, eventName, securityCodes, eventDate });
+        const stationPayload = getLoadedStationPayload({
+          selectedEventId: eventId,
+          loadedEventId: stationLoadEventId,
+          loadStatus: stationLoadStatus,
+          selectedStationIds,
+          stationColors: stationColorAssignments,
+          stationIcons: stationIconAssignments
+        });
         const response = await api.post('/set-global-billboard', {
           eventId: eventId,
           eventName: eventName,
           securityCodes: securityCodes,
           eventDate: eventDate,
           locationColors: Object.keys(locationColorAssignments).length > 0 ? locationColorAssignments : undefined,
-          stationColors: Object.keys(stationColorAssignments).length > 0 ? stationColorAssignments : undefined,
-          stationIcons: Object.keys(stationIconAssignments).length > 0 ? stationIconAssignments : undefined,
-          selectedStationIds: selectedStationIds.length > 0 ? selectedStationIds : undefined
+          ...stationPayload
         });
         
         console.log('AdminPanel: Global state response:', response.data);
@@ -537,13 +565,29 @@ function AdminPanel() {
 
   const handleSaveStations = async () => {
     if (!selectedEvent) return;
+    if (stationLoadStatus !== 'loaded' || stationLoadEventId !== selectedEvent) {
+      setSnackbarMsg('Station assignments must finish loading before they can be saved.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
     setSavingStationColors(true);
     try {
-      await api.put(`/events/${selectedEvent}/stations`, {
+      const response = await api.put(`/events/${selectedEvent}/stations`, {
         selectedStationIds,
         stationColors: stationColorAssignments,
         stationIcons: stationIconAssignments
       });
+      if (!isSuccessfulStationSaveResponse(response)) {
+        setSnackbarMsg(response?.status === 429
+          ? 'Station assignments were not saved because the API is rate limited. Please try again shortly.'
+          : 'Failed to save station selection');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        return;
+      }
+
       setSnackbarMsg('Station selection, colors, and icons saved successfully');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
@@ -1349,7 +1393,7 @@ function AdminPanel() {
                           variant="contained"
                           color="secondary"
                           onClick={handleSaveStations}
-                          disabled={savingStationColors}
+                          disabled={savingStationColors || loadingStations || stationLoadStatus !== 'loaded' || stationLoadEventId !== selectedEvent}
                         >
                           {savingStationColors ? 'Saving...' : 'Save station selection, colors & icons'}
                         </Button>
