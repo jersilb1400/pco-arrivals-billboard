@@ -15,6 +15,14 @@ const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
+const {
+  buildCheckInCacheKey,
+  filterNotificationsForScope,
+  getEventDateInTimeZone,
+  isCheckInOnEventDate,
+  pruneCheckedOutNotifications,
+  shouldClearNotifications,
+} = require('./utils/sessionSafety');
 
 // Debug logging helper - writes to both file and console for visibility
 const DEBUG_LOG_PATH = path.join(__dirname, '..', '.cursor', 'debug.log');
@@ -66,7 +74,7 @@ let globalBillboardState = {
 // Simple cache for check-in data to reduce API calls
 let checkInCache = {
   data: null,
-  eventId: null,
+  key: null,
   lastUpdated: null,
   cacheTimeout: 30000 // 30 seconds cache
 };
@@ -106,8 +114,8 @@ function clearGlobalBillboardState() {
 }
 
 // Function to get cached check-in data
-function getCachedCheckInData(eventId) {
-  if (checkInCache.eventId === eventId && 
+function getCachedCheckInData(cacheKey) {
+  if (checkInCache.key === cacheKey && 
       checkInCache.data && 
       checkInCache.lastUpdated && 
       (Date.now() - checkInCache.lastUpdated.getTime()) < checkInCache.cacheTimeout) {
@@ -117,10 +125,10 @@ function getCachedCheckInData(eventId) {
 }
 
 // Function to update check-in cache
-function updateCheckInCache(eventId, data) {
+function updateCheckInCache(cacheKey, data) {
   checkInCache = {
     data,
-    eventId,
+    key: cacheKey,
     lastUpdated: new Date(),
     cacheTimeout: 30000
   };
@@ -658,10 +666,17 @@ app.post('/api/security-codes', async (req, res) => {
     
     // If securityCodes is provided and non-empty, use optimized logic
     if (securityCodes && securityCodes.length > 0) {
+      const securityCodesCacheKey = buildCheckInCacheKey({
+        route: 'security-codes',
+        eventId,
+        date: eventDate,
+        include: 'person,household',
+      });
+
       try {
         // Check cache first
         let allCheckIns, included;
-        const cachedData = getCachedCheckInData(eventId);
+        const cachedData = getCachedCheckInData(securityCodesCacheKey);
         
         if (cachedData) {
           console.log('Using cached check-in data for event:', eventId);
@@ -685,7 +700,7 @@ app.post('/api/security-codes', async (req, res) => {
           included = checkInResponse.data.included || [];
           
           // Cache the data
-          updateCheckInCache(eventId, { data: allCheckIns, included });
+          updateCheckInCache(securityCodesCacheKey, { data: allCheckIns, included });
         }
         
         // Filter check-ins by the requested security codes
@@ -769,7 +784,7 @@ app.post('/api/security-codes', async (req, res) => {
         // If we hit rate limiting, return cached data if available
         if (apiError.response?.status === 429) {
           console.log('Rate limited by PCO API, returning cached data if available');
-          const cachedData = getCachedCheckInData(eventId);
+          const cachedData = getCachedCheckInData(securityCodesCacheKey);
           if (cachedData) {
             // Process cached data
             const filteredCheckIns = cachedData.data.filter(checkIn => 
@@ -1348,7 +1363,7 @@ app.delete('/api/global-billboard', (req, res) => {
     clearGlobalBillboardState();
     // Also clear active notifications when global billboard is cleared
     const beforeCount = activeNotifications.length;
-    activeNotifications.length = 0;
+    activeNotifications = [];
     console.log(`Global billboard state and ${beforeCount} active notifications cleared`);
     res.json({ 
       message: 'Global billboard state and active notifications cleared',
@@ -1664,52 +1679,22 @@ app.post('/api/security-code-entry', async (req, res) => {
     console.log(`[SECURITY CODE] Found ${allCheckIns.length} total check-ins in event ${eventId}`);
 
 
-    // Filter by security code (case-insensitive), active status, and date (lenient ±1 day for timezone)
-    // We use lenient date matching to handle timezone issues while preventing check-ins from previous sessions
+    // Filter by security code, active status, and exact event-local date.
     const activeCheckIns = allCheckIns.filter(checkIn => {
       const checkInSecurityCode = checkIn.attributes.security_code?.toLowerCase() || '';
       const matchesSecurityCode = checkInSecurityCode === normalizedSecurityCode;
       const isActive = !checkIn.attributes.checked_out_at;
-      
-      // Extract check-in date (UTC)
-      let checkInDate;
-      try {
-        const createdAt = checkIn.attributes.created_at;
-        if (createdAt) {
-          if (/^\d{4}-\d{2}-\d{2}$/.test(createdAt)) {
-            checkInDate = createdAt;
-          } else {
-            const dateObj = new Date(createdAt);
-            const year = dateObj.getUTCFullYear();
-            const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(dateObj.getUTCDate()).padStart(2, '0');
-            checkInDate = `${year}-${month}-${day}`;
-          }
-        } else {
-          checkInDate = 'unknown';
-        }
-      } catch (e) {
-        checkInDate = 'error';
-      }
-      
-      // Lenient date matching: allow ±1 day to handle timezone issues
-      // This prevents finding check-ins from previous sessions while handling timezone edge cases
-      let matchesDate = false;
-      if (checkInDate !== 'unknown' && checkInDate !== 'error' && eventDate) {
-        const eventDateObj = new Date(eventDate + 'T00:00:00Z');
-        const checkInDateObj = new Date(checkInDate + 'T00:00:00Z');
-        const daysDiff = Math.abs((checkInDateObj - eventDateObj) / (1000 * 60 * 60 * 24));
-        matchesDate = daysDiff <= 1; // Allow ±1 day
-      }
+      const checkInDate = getEventDateInTimeZone(checkIn.attributes.created_at);
+      const matchesDate = isCheckInOnEventDate(checkIn.attributes.created_at, eventDate);
       
       console.log(`[SECURITY CODE] Check-in ${checkIn.id}: code=${checkIn.attributes.security_code} (normalized: ${checkInSecurityCode}), matchesCode=${matchesSecurityCode}, active=${isActive}, checkInDate=${checkInDate}, eventDate=${eventDate}, matchesDate=${matchesDate}`);
       
       
-      // Filter by security code match, active status, and date (lenient ±1 day)
+      // Filter by security code match, active status, and exact event date.
       return matchesSecurityCode && isActive && matchesDate;
     });
 
-    console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins (matching by code, active status, and date ±1 day for timezone)`);
+    console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins (matching by code, active status, and exact event date)`);
 
 
     if (activeCheckIns.length === 0) {
@@ -1825,24 +1810,24 @@ app.get('/api/active-notifications', async (req, res) => {
       console.log(`[DEBUG] Filtering by event: ${eventId}, date: ${eventDate}`);
     }
     
-    // Filter notifications by event and date - STRICT matching to prevent showing notifications from previous sessions
-    let filteredNotifications = activeNotifications;
-    if (eventId && eventDate) {
-      // Only show notifications that match BOTH eventId AND eventDate
-      // This prevents showing notifications from previous sessions/dates
-      filteredNotifications = activeNotifications.filter(n => 
-        String(n.eventId) === String(eventId) && String(n.eventDate) === String(eventDate)
-      );
+    // Filter notifications by event and date, defaulting to the active billboard
+    // so public views fail closed instead of leaking previous sessions.
+    let filteredNotifications = filterNotificationsForScope(
+      activeNotifications,
+      { eventId, eventDate },
+      globalBillboardState
+    );
+    if (filteredNotifications.length > 0) {
       
-      console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for event ${eventId} on date ${eventDate} (strict matching)`);
+      console.log(`[DEBUG] Filtered to ${filteredNotifications.length} notifications for the requested or active session`);
       
       // Log if there are notifications from other dates/events for debugging
       const otherNotifications = activeNotifications.filter(n => 
-        String(n.eventId) === String(eventId) && String(n.eventDate) !== String(eventDate)
+        !filteredNotifications.some(filtered => filtered.id === n.id)
       );
       if (otherNotifications.length > 0) {
-        console.log(`[DEBUG] Found ${otherNotifications.length} notifications for event ${eventId} but different dates (ignored):`, 
-          otherNotifications.map(n => ({ date: n.eventDate, checkInId: n.checkInId })));
+        console.log(`[DEBUG] Ignored ${otherNotifications.length} notifications outside the current scope:`, 
+          otherNotifications.map(n => ({ eventId: n.eventId, date: n.eventDate, checkInId: n.checkInId })));
       }
     }
     
@@ -2027,9 +2012,7 @@ app.post('/api/cleanup-checked-out', async (req, res) => {
 
       if (checkedOutIds.length > 0) {
         const beforeCount = activeNotifications.length;
-        activeNotifications = activeNotifications.filter(n => 
-          !checkedOutIds.includes(n.checkInId)
-        );
+        activeNotifications = pruneCheckedOutNotifications(activeNotifications, checkedOutIds);
         const afterCount = activeNotifications.length;
         const removed = beforeCount - afterCount;
         
@@ -2065,22 +2048,7 @@ app.post('/api/cleanup-checked-out', async (req, res) => {
 // Cleanup old notifications and check for checked-out children (run every 1 minute for faster cleanup)
 setInterval(async () => {
   try {
-    const currentTime = new Date();
-    const thirtyMinutesAgo = new Date(currentTime.getTime() - 30 * 60 * 1000); // Increased to 30 minutes
-    
-    // Remove notifications older than 30 minutes
-    const initialLength = activeNotifications.length;
-    activeNotifications = activeNotifications.filter(notification => {
-      const notificationTime = new Date(notification.notifiedAt);
-      return notificationTime > thirtyMinutesAgo;
-    });
-    
-    const removedByTime = initialLength - activeNotifications.length;
-    if (removedByTime > 0) {
-      console.log(`Cleaned up ${removedByTime} old notifications (older than 30 minutes)`);
-    }
-
-    // Check if any children have been checked out in PCO (less frequently)
+    // Check if any children have been checked out in PCO.
     if (activeNotifications.length > 0) {
       const checkInIds = activeNotifications.map(n => n.checkInId);
       
@@ -2123,9 +2091,7 @@ setInterval(async () => {
 
         if (checkedOutIds.length > 0) {
           const beforeCount = activeNotifications.length;
-          activeNotifications = activeNotifications.filter(n => 
-            !checkedOutIds.includes(n.checkInId)
-          );
+          activeNotifications = pruneCheckedOutNotifications(activeNotifications, checkedOutIds);
           const afterCount = activeNotifications.length;
           
           if (beforeCount !== afterCount) {
@@ -2151,8 +2117,13 @@ app.get('/api/location-status', async (req, res) => {
     }
 
     // Check cache first
-    const cacheKey = `location-status-${eventId}-${date}`;
-    const cachedData = getCachedCheckInData(eventId);
+    const locationStatusCacheKey = buildCheckInCacheKey({
+      route: 'location-status',
+      eventId,
+      date,
+      include: 'person,locations,checked_in_at',
+    });
+    const cachedData = getCachedCheckInData(locationStatusCacheKey);
     
     if (cachedData && cachedData.data && cachedData.included) {
       console.log(`[DEBUG] Location-status: Using cached data for event ${eventId}`);
@@ -2266,7 +2237,7 @@ app.get('/api/location-status', async (req, res) => {
     
     // Cache the data for future use
     if (allCheckIns.length > 0) {
-      updateCheckInCache(eventId, { data: allCheckIns, included: allIncluded });
+      updateCheckInCache(locationStatusCacheKey, { data: allCheckIns, included: allIncluded });
     }
     
     const checkIns = allCheckIns.filter(ci => !ci.attributes.checked_out_at);
@@ -2760,10 +2731,11 @@ app.post('/api/set-global-billboard', async (req, res) => {
       }
     }
     
-    // Clear notifications from past events when starting a new event
+    // Clear notifications only when moving to a different event/date session.
     const beforeCount = activeNotifications.length;
-    if (beforeCount > 0) {
-      activeNotifications.length = 0;
+    const clearNotifications = shouldClearNotifications(globalBillboardState, { eventId, eventDate });
+    if (clearNotifications && beforeCount > 0) {
+      activeNotifications = [];
       console.log(`Server: Cleared ${beforeCount} notifications from previous events`);
     }
     
@@ -2775,7 +2747,7 @@ app.post('/api/set-global-billboard', async (req, res) => {
       success: true, 
       message: 'Global billboard state updated successfully',
       globalBillboardState,
-      notificationsCleared: beforeCount
+      notificationsCleared: clearNotifications ? beforeCount : 0
     });
   } catch (error) {
     console.error('Server: Error setting global billboard state:', error);
