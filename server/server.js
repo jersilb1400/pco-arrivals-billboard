@@ -115,7 +115,7 @@ function clearGlobalBillboardState() {
 
 // Function to get cached check-in data
 function getCachedCheckInData(cacheKey) {
-  if (checkInCache.key === cacheKey && 
+  if (checkInCache.key === cacheKey &&
       checkInCache.data && 
       checkInCache.lastUpdated && 
       (Date.now() - checkInCache.lastUpdated.getTime()) < checkInCache.cacheTimeout) {
@@ -1826,7 +1826,7 @@ app.get('/api/active-notifications', async (req, res) => {
         !filteredNotifications.some(filtered => filtered.id === n.id)
       );
       if (otherNotifications.length > 0) {
-        console.log(`[DEBUG] Ignored ${otherNotifications.length} notifications outside the current scope:`, 
+        console.log(`[DEBUG] Ignored ${otherNotifications.length} notifications outside the current scope:`,
           otherNotifications.map(n => ({ eventId: n.eventId, date: n.eventDate, checkInId: n.checkInId })));
       }
     }
