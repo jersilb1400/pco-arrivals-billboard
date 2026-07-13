@@ -1937,7 +1937,7 @@ app.post('/api/checkout-notification', async (req, res) => {
 
     // Remove notification from active list
     const initialLength = activeNotifications.length;
-    activeNotifications = activeNotifications.filter(n => n.checkInId !== checkInId);
+    activeNotifications = pruneCheckedOutNotifications(activeNotifications, [checkInId]);
     
     const removed = initialLength !== activeNotifications.length;
     
@@ -2010,9 +2010,7 @@ app.post('/api/cleanup-checked-out', async (req, res) => {
 
       if (checkedOutIds.length > 0) {
         const beforeCount = activeNotifications.length;
-        activeNotifications = activeNotifications.filter(n => 
-          !checkedOutIds.includes(n.checkInId)
-        );
+        activeNotifications = pruneCheckedOutNotifications(activeNotifications, checkedOutIds);
         const afterCount = activeNotifications.length;
         const removed = beforeCount - afterCount;
         

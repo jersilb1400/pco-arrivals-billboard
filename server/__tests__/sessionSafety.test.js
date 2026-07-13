@@ -118,4 +118,6 @@ test('server routes are wired to session safety helpers', () => {
   assert.doesNotMatch(serverSource, /getCachedCheckInData\(eventId\)/);
   assert.doesNotMatch(serverSource, /updateCheckInCache\(eventId,/);
   assert.doesNotMatch(serverSource, /older than 30 minutes/);
+  assert.doesNotMatch(serverSource, /n\.checkInId\s*!==\s*checkInId/);
+  assert.doesNotMatch(serverSource, /checkedOutIds\.includes\(n\.checkInId\)/);
 });
