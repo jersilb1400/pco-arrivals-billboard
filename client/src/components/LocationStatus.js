@@ -14,6 +14,7 @@ import {
   Alert
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { responseArrayOrFallback } from '../utils/apiData';
 
 function LocationStatus() {
   const [locations, setLocations] = useState([]);
@@ -32,7 +33,9 @@ function LocationStatus() {
         params.append('date', globalBillboard.eventDate);
       }
       const response = await api.get(`/location-status?${params.toString()}`);
-      setLocations(response.data);
+      setLocations(previousLocations =>
+        responseArrayOrFallback(response, previousLocations)
+      );
     } catch (error) {
       console.error('Error fetching location status:', error);
     }
@@ -41,12 +44,20 @@ function LocationStatus() {
   // Fetch active notifications
   const fetchActiveNotifications = useCallback(async () => {
     try {
-      const response = await api.get('/active-notifications');
-      setActiveNotifications(response.data);
+      if (!globalBillboard) return;
+      const params = new URLSearchParams();
+      params.append('eventId', globalBillboard.eventId);
+      if (globalBillboard.eventDate) {
+        params.append('eventDate', globalBillboard.eventDate);
+      }
+      const response = await api.get(`/active-notifications?${params.toString()}`);
+      setActiveNotifications(previousNotifications =>
+        responseArrayOrFallback(response, previousNotifications)
+      );
     } catch (error) {
       console.error('Error fetching active notifications:', error);
     }
-  }, []);
+  }, [globalBillboard]);
 
   // Fetch both location status and active notifications
   const fetchAllData = useCallback(async () => {
@@ -79,9 +90,16 @@ function LocationStatus() {
     const fetchGlobalBillboard = async () => {
       try {
         const response = await api.get('/global-billboard');
-        setGlobalBillboard(response.data.activeBillboard || null);
+        const activeBillboard = response.data.activeBillboard || null;
+        setGlobalBillboard(activeBillboard);
+        if (!activeBillboard) {
+          setLocations([]);
+          setActiveNotifications([]);
+        }
       } catch (error) {
         setGlobalBillboard(null);
+        setLocations([]);
+        setActiveNotifications([]);
       }
     };
     fetchGlobalBillboard();
