@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import api from '../utils/api';
+import { responseArrayOrFallback } from '../utils/apiData';
 import { getCardBorderColor, getStationColor } from '../utils/locationColors';
 
 const ICON_MAP = {
@@ -81,7 +82,9 @@ function SimpleBillboard() {
             eventDate: currentBillboard.activeBillboard.eventDate
           }
         });
-        setActiveNotifications(response.data);
+        setActiveNotifications(previousNotifications =>
+          responseArrayOrFallback(response, previousNotifications)
+        );
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -239,7 +242,9 @@ function SimpleBillboard() {
               eventDate: billboardResponse.data.activeBillboard.eventDate
             }
           });
-          setActiveNotifications(notificationsResponse.data);
+          setActiveNotifications(previousNotifications =>
+            responseArrayOrFallback(notificationsResponse, previousNotifications)
+          );
         } catch (error) {
           console.error('Error fetching notifications in interval:', error);
         }
