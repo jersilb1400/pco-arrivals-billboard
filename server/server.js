@@ -12,7 +12,7 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
-const { shouldClearNotifications } = require('./utils/billboardSession');
+const { clearNotificationsForSession } = require('./utils/billboardSession');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
@@ -2762,15 +2762,13 @@ app.post('/api/set-global-billboard', async (req, res) => {
     }
     
     // Clear notifications only when moving to a different event session.
-    const beforeCount = activeNotifications.length;
-    const sessionChanged = shouldClearNotifications(
+    const notificationsCleared = clearNotificationsForSession(
+      activeNotifications,
       globalBillboardState.activeBillboard,
       eventId,
       eventDate
     );
-    const notificationsCleared = sessionChanged ? beforeCount : 0;
     if (notificationsCleared > 0) {
-      activeNotifications.length = 0;
       console.log(`Server: Cleared ${notificationsCleared} notifications from previous events`);
     }
     

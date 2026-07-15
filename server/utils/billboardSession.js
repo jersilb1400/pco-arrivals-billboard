@@ -1,5 +1,11 @@
 function shouldClearNotifications(activeBillboard, nextEventId, nextEventDate) {
-  if (!activeBillboard) {
+  if (
+    !activeBillboard ||
+    !activeBillboard.eventId ||
+    !activeBillboard.eventDate ||
+    !nextEventId ||
+    !nextEventDate
+  ) {
     return true;
   }
 
@@ -7,6 +13,22 @@ function shouldClearNotifications(activeBillboard, nextEventId, nextEventDate) {
     String(activeBillboard.eventDate) !== String(nextEventDate);
 }
 
+function clearNotificationsForSession(
+  notifications,
+  activeBillboard,
+  nextEventId,
+  nextEventDate
+) {
+  if (!shouldClearNotifications(activeBillboard, nextEventId, nextEventDate)) {
+    return 0;
+  }
+
+  const removed = notifications.length;
+  notifications.length = 0;
+  return removed;
+}
+
 module.exports = {
+  clearNotificationsForSession,
   shouldClearNotifications
 };
