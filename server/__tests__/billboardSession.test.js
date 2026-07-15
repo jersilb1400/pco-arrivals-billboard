@@ -1,26 +1,11 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-
-function loadShouldClearNotifications() {
-  try {
-    return require('../utils/billboardSession').shouldClearNotifications;
-  } catch (error) {
-    return undefined;
-  }
-}
-
-function loadClearNotificationsForSession() {
-  try {
-    return require('../utils/billboardSession').clearNotificationsForSession;
-  } catch (error) {
-    return undefined;
-  }
-}
+const {
+  clearNotificationsForSession,
+  shouldClearNotifications
+} = require('../utils/billboardSession');
 
 test('preserves notifications when the event and date are unchanged', () => {
-  const shouldClearNotifications = loadShouldClearNotifications();
-  assert.equal(typeof shouldClearNotifications, 'function');
-
   const activeBillboard = {
     eventId: '123',
     eventDate: '2026-07-15'
@@ -32,80 +17,26 @@ test('preserves notifications when the event and date are unchanged', () => {
   );
 });
 
-test('clears notifications when the active date changes', () => {
-  const shouldClearNotifications = loadShouldClearNotifications();
-  assert.equal(typeof shouldClearNotifications, 'function');
-
+test('clears notifications when the session identity changes or is incomplete', () => {
   const activeBillboard = {
     eventId: '123',
     eventDate: '2026-07-15'
   };
+  const changedSessions = [
+    [activeBillboard, '123', '2026-07-16'],
+    [activeBillboard, '456', '2026-07-15'],
+    [null, '123', '2026-07-15'],
+    [activeBillboard, '123', undefined],
+    [{ eventId: '123' }, '123', '2026-07-15'],
+    [{ eventId: '123' }, '123', undefined]
+  ];
 
-  assert.equal(
-    shouldClearNotifications(activeBillboard, '123', '2026-07-16'),
-    true
-  );
-});
-
-test('clears notifications when the active event changes', () => {
-  const shouldClearNotifications = loadShouldClearNotifications();
-  assert.equal(typeof shouldClearNotifications, 'function');
-
-  const activeBillboard = {
-    eventId: '123',
-    eventDate: '2026-07-15'
-  };
-
-  assert.equal(
-    shouldClearNotifications(activeBillboard, '456', '2026-07-15'),
-    true
-  );
-});
-
-test('clears stale notifications when there is no active billboard', () => {
-  const shouldClearNotifications = loadShouldClearNotifications();
-  assert.equal(typeof shouldClearNotifications, 'function');
-
-  assert.equal(
-    shouldClearNotifications(null, '123', '2026-07-15'),
-    true
-  );
-});
-
-test('clears notifications when either session date is missing', () => {
-  const shouldClearNotifications = loadShouldClearNotifications();
-  assert.equal(typeof shouldClearNotifications, 'function');
-
-  assert.equal(
-    shouldClearNotifications(
-      { eventId: '123', eventDate: '2026-07-15' },
-      '123',
-      undefined
-    ),
-    true
-  );
-  assert.equal(
-    shouldClearNotifications(
-      { eventId: '123', eventDate: undefined },
-      '123',
-      '2026-07-15'
-    ),
-    true
-  );
-  assert.equal(
-    shouldClearNotifications(
-      { eventId: '123', eventDate: undefined },
-      '123',
-      undefined
-    ),
-    true
-  );
+  for (const session of changedSessions) {
+    assert.equal(shouldClearNotifications(...session), true);
+  }
 });
 
 test('preserves the queue and reports zero removals for the same session', () => {
-  const clearNotificationsForSession = loadClearNotificationsForSession();
-  assert.equal(typeof clearNotificationsForSession, 'function');
-
   const notifications = [{ id: 'one' }, { id: 'two' }];
   const activeBillboard = {
     eventId: '123',
@@ -124,9 +55,6 @@ test('preserves the queue and reports zero removals for the same session', () =>
 });
 
 test('clears the queue and reports removals when the session changes', () => {
-  const clearNotificationsForSession = loadClearNotificationsForSession();
-  assert.equal(typeof clearNotificationsForSession, 'function');
-
   const notifications = [{ id: 'one' }, { id: 'two' }];
   const activeBillboard = {
     eventId: '123',
