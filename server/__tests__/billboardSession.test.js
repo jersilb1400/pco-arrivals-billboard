@@ -92,6 +92,14 @@ test('clears notifications when either session date is missing', () => {
     ),
     true
   );
+  assert.equal(
+    shouldClearNotifications(
+      { eventId: '123', eventDate: undefined },
+      '123',
+      undefined
+    ),
+    true
+  );
 });
 
 test('preserves the queue and reports zero removals for the same session', () => {
