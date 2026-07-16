@@ -56,6 +56,11 @@ import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 import DateInput from './DateInput';
 import { DEFAULT_PALETTE, DEFAULT_STATION_PALETTE, STATION_ICONS } from '../utils/locationColors';
+import {
+  getLoadedLocationColorPayload,
+  getLocationColorFetchResult,
+  isSuccessfulLocationColorSaveResponse,
+} from '../utils/locationColorAdminState';
 
 const ICON_MAP = {
   Star: StarIcon,
@@ -103,6 +108,7 @@ function AdminPanel() {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [isManualChange, setIsManualChange] = useState(false);
   const [locationColorAssignments, setLocationColorAssignments] = useState({});
+  const [locationColorLoadEventId, setLocationColorLoadEventId] = useState(null);
   const [loadingLocationColors, setLoadingLocationColors] = useState(false);
   const [savingLocationColors, setSavingLocationColors] = useState(false);
   const [colorSectionExpanded, setColorSectionExpanded] = useState(false);
@@ -363,25 +369,36 @@ function AdminPanel() {
   useEffect(() => {
     if (!selectedEvent) {
       setLocationColorAssignments({});
+      setLocationColorLoadEventId(null);
       return;
     }
+
+    const requestedEventId = selectedEvent;
+    let cancelled = false;
     const fetchLocationColors = async () => {
       setLoadingLocationColors(true);
+      setLocationColorAssignments({});
+      setLocationColorLoadEventId(null);
       try {
-        const response = await api.get(`/location-colors?eventId=${selectedEvent}`);
-        if (response.data?.locationColors) {
-          setLocationColorAssignments(response.data.locationColors);
-        } else {
-          setLocationColorAssignments({});
+        const response = await api.get(`/location-colors?eventId=${requestedEventId}`);
+        const result = getLocationColorFetchResult(response, requestedEventId);
+        if (!cancelled && result.loaded) {
+          setLocationColorAssignments(result.assignments);
+          setLocationColorLoadEventId(requestedEventId);
         }
       } catch (err) {
         console.error('Error fetching location colors:', err);
-        setLocationColorAssignments({});
       } finally {
-        setLoadingLocationColors(false);
+        if (!cancelled) {
+          setLoadingLocationColors(false);
+        }
       }
     };
     fetchLocationColors();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedEvent]);
 
   // Fetch stations, selection, and colors when event is selected
@@ -420,13 +437,20 @@ function AdminPanel() {
   const setGlobalState = async (eventId, eventName, securityCodes = [], eventDate) => {
     if (eventId && eventName) {
       try {
+        const loadedLocationColors = getLoadedLocationColorPayload(
+          eventId,
+          locationColorLoadEventId,
+          locationColorAssignments,
+        );
         console.log('AdminPanel: Setting global state:', { eventId, eventName, securityCodes, eventDate });
         const response = await api.post('/set-global-billboard', {
           eventId: eventId,
           eventName: eventName,
           securityCodes: securityCodes,
           eventDate: eventDate,
-          locationColors: Object.keys(locationColorAssignments).length > 0 ? locationColorAssignments : undefined,
+          locationColors: loadedLocationColors && Object.keys(loadedLocationColors).length > 0
+            ? loadedLocationColors
+            : undefined,
           stationColors: Object.keys(stationColorAssignments).length > 0 ? stationColorAssignments : undefined,
           stationIcons: Object.keys(stationIconAssignments).length > 0 ? stationIconAssignments : undefined,
           selectedStationIds: selectedStationIds.length > 0 ? selectedStationIds : undefined
@@ -516,12 +540,28 @@ function AdminPanel() {
 
   const handleSaveLocationColors = async () => {
     if (!selectedEvent) return;
+
+    const loadedLocationColors = getLoadedLocationColorPayload(
+      selectedEvent,
+      locationColorLoadEventId,
+      locationColorAssignments,
+    );
+    if (!loadedLocationColors) {
+      setSnackbarMsg('Color assignments are not loaded for this event. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
     setSavingLocationColors(true);
     try {
-      await api.put('/location-colors', {
+      const response = await api.put('/location-colors', {
         eventId: selectedEvent,
-        locationColors: locationColorAssignments
+        locationColors: loadedLocationColors
       });
+      if (!isSuccessfulLocationColorSaveResponse(response)) {
+        throw new Error('Location color save was not confirmed');
+      }
       setSnackbarMsg('Color assignments saved successfully');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
@@ -1199,7 +1239,11 @@ function AdminPanel() {
                     <Button
                       variant="contained"
                       onClick={handleSaveLocationColors}
-                      disabled={savingLocationColors}
+                      disabled={
+                        savingLocationColors
+                        || loadingLocationColors
+                        || String(locationColorLoadEventId || '') !== String(selectedEvent || '')
+                      }
                     >
                       {savingLocationColors ? 'Saving...' : 'Save color assignments'}
                     </Button>
