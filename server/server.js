@@ -16,6 +16,7 @@ const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
 const { clearNotificationsForSession } = require('./utils/billboardSession');
+const { getPossibleDateStrings, matchesEventDate } = require('./utils/dateMatching');
 
 // Debug logging helper - writes to both file and console for visibility
 const DEBUG_LOG_PATH = path.join(__dirname, '..', '.cursor', 'debug.log');
@@ -1665,52 +1666,26 @@ app.post('/api/security-code-entry', async (req, res) => {
     console.log(`[SECURITY CODE] Found ${allCheckIns.length} total check-ins in event ${eventId}`);
 
 
-    // Filter by security code (case-insensitive), active status, and date (lenient ±1 day for timezone)
-    // We use lenient date matching to handle timezone issues while preventing check-ins from previous sessions
+    // Filter by security code (case-insensitive), active status, and strict event date.
+    // Accept UTC or local date from created_at for timezone edges, but never adjacent days.
     const activeCheckIns = allCheckIns.filter(checkIn => {
       const checkInSecurityCode = checkIn.attributes.security_code?.toLowerCase() || '';
       const matchesSecurityCode = checkInSecurityCode === normalizedSecurityCode;
       const isActive = !checkIn.attributes.checked_out_at;
-      
-      // Extract check-in date (UTC)
-      let checkInDate;
-      try {
-        const createdAt = checkIn.attributes.created_at;
-        if (createdAt) {
-          if (/^\d{4}-\d{2}-\d{2}$/.test(createdAt)) {
-            checkInDate = createdAt;
-          } else {
-            const dateObj = new Date(createdAt);
-            const year = dateObj.getUTCFullYear();
-            const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(dateObj.getUTCDate()).padStart(2, '0');
-            checkInDate = `${year}-${month}-${day}`;
-          }
-        } else {
-          checkInDate = 'unknown';
-        }
-      } catch (e) {
-        checkInDate = 'error';
-      }
-      
-      // Lenient date matching: allow ±1 day to handle timezone issues
-      // This prevents finding check-ins from previous sessions while handling timezone edge cases
-      let matchesDate = false;
-      if (checkInDate !== 'unknown' && checkInDate !== 'error' && eventDate) {
-        const eventDateObj = new Date(eventDate + 'T00:00:00Z');
-        const checkInDateObj = new Date(checkInDate + 'T00:00:00Z');
-        const daysDiff = Math.abs((checkInDateObj - eventDateObj) / (1000 * 60 * 60 * 24));
-        matchesDate = daysDiff <= 1; // Allow ±1 day
-      }
-      
-      console.log(`[SECURITY CODE] Check-in ${checkIn.id}: code=${checkIn.attributes.security_code} (normalized: ${checkInSecurityCode}), matchesCode=${matchesSecurityCode}, active=${isActive}, checkInDate=${checkInDate}, eventDate=${eventDate}, matchesDate=${matchesDate}`);
-      
-      
-      // Filter by security code match, active status, and date (lenient ±1 day)
+
+      const possibleDates = getPossibleDateStrings(checkIn.attributes.created_at);
+      const matchesDate = matchesEventDate(checkIn.attributes.created_at, eventDate);
+
+      console.log(
+        `[SECURITY CODE] Check-in ${checkIn.id}: code=${checkIn.attributes.security_code} (normalized: ${checkInSecurityCode}), ` +
+        `matchesCode=${matchesSecurityCode}, active=${isActive}, possibleDates=${Array.from(possibleDates).join('|') || 'none'}, ` +
+        `eventDate=${eventDate}, matchesDate=${matchesDate}`
+      );
+
       return matchesSecurityCode && isActive && matchesDate;
     });
 
-    console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins (matching by code, active status, and date ±1 day for timezone)`);
+    console.log(`[SECURITY CODE] Found ${activeCheckIns.length} active check-ins (matching by code, active status, and strict event date)`);
 
 
     if (activeCheckIns.length === 0) {
@@ -2021,7 +1996,7 @@ app.post('/api/cleanup-checked-out', async (req, res) => {
         // Check which ones are checked out
         batchResults.forEach(checkIn => {
           if (checkIn && checkIn.attributes && checkIn.attributes.checked_out_at) {
-            checkedOutIds.push(checkIn.id);
+            checkedOutIds.push(String(checkIn.id));
           }
         });
       }
@@ -2029,7 +2004,7 @@ app.post('/api/cleanup-checked-out', async (req, res) => {
       if (checkedOutIds.length > 0) {
         const beforeCount = activeNotifications.length;
         activeNotifications = activeNotifications.filter(n => 
-          !checkedOutIds.includes(n.checkInId)
+          !checkedOutIds.includes(String(n.checkInId))
         );
         const afterCount = activeNotifications.length;
         const removed = beforeCount - afterCount;
