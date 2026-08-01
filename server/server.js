@@ -12,6 +12,10 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
+const {
+  resolveCheckInDisplayName,
+  shouldIncludeLocatedCheckIn
+} = require('./utils/checkInDisplayName');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
@@ -1439,40 +1443,41 @@ app.get('/api/billboard/check-ins', async (req, res) => {
         item.id === checkIn.relationships.person?.data?.id
       );
       
-      if (person) {
-        const checkInTimeRaw = checkIn.attributes.created_at;
-        let checkInTime = '';
-        if (checkInTimeRaw) {
-          const dateObj = new Date(checkInTimeRaw);
-          checkInTime = isNaN(dateObj.getTime()) ? '' : dateObj.toISOString();
-        }
-        const checkInData = {
-          id: checkIn.id,
-          name: `${person.attributes.first_name} ${person.attributes.last_name}`,
-          securityCode: checkIn.attributes.security_code || '',
-          checkInTime,
-          locationName: location ? location.attributes.name : 'No Location Assigned',
-          locationId: location ? location.id : null,
-          eventName: checkIn.attributes.event_times_name || checkIn.attributes.event_name
-        };
-        
-        eventCheckIns.push(checkInData);
-        
-        if (location) {
-          checkInsWithLocations++;
-        } else {
-          checkInsWithoutLocations++;
-        }
-      } else {
-        console.log(`[DEBUG] Check-in ${index} has no person data:`, checkIn.id, checkIn.attributes);
+      // One-time guests have no Person record; still include them using CheckIn names.
+      if (!person) {
+        console.log(`[DEBUG] Check-in ${index} has no person data (using CheckIn name fallback):`, checkIn.id, checkIn.attributes);
         noPersonDataCount++;
+      }
+
+      const checkInTimeRaw = checkIn.attributes.created_at;
+      let checkInTime = '';
+      if (checkInTimeRaw) {
+        const dateObj = new Date(checkInTimeRaw);
+        checkInTime = isNaN(dateObj.getTime()) ? '' : dateObj.toISOString();
+      }
+      const checkInData = {
+        id: checkIn.id,
+        name: resolveCheckInDisplayName(checkIn, person),
+        securityCode: checkIn.attributes.security_code || '',
+        checkInTime,
+        locationName: location ? location.attributes.name : 'No Location Assigned',
+        locationId: location ? location.id : null,
+        eventName: checkIn.attributes.event_times_name || checkIn.attributes.event_name
+      };
+
+      eventCheckIns.push(checkInData);
+
+      if (location) {
+        checkInsWithLocations++;
+      } else {
+        checkInsWithoutLocations++;
       }
     });
 
     console.log(`[DEBUG] Processing summary for event ${eventId}:`);
     console.log(`[DEBUG] - Total check-ins from PCO: ${checkIns.length}`);
     console.log(`[DEBUG] - Checked out (filtered out): ${checkedOutCount}`);
-    console.log(`[DEBUG] - No person data (filtered out): ${noPersonDataCount}`);
+    console.log(`[DEBUG] - No person data (name fallback used): ${noPersonDataCount}`);
     console.log(`[DEBUG] - Active check-ins (included): ${eventCheckIns.length}`);
     console.log(`[DEBUG] - Check-ins with locations: ${checkInsWithLocations}`);
     console.log(`[DEBUG] - Check-ins without locations: ${checkInsWithoutLocations}`);
@@ -1735,9 +1740,7 @@ app.post('/api/security-code-entry', async (req, res) => {
       const station = stationData ? included.find(item =>
         item.type === 'Station' && item.id === stationData.id
       ) : null;
-      const childName = person ? 
-        `${person.attributes.first_name} ${person.attributes.last_name}` : 
-        'Unknown Child';
+      const childName = resolveCheckInDisplayName(activeCheckIn, person);
       const locationName = location?.attributes?.name || 'Unknown Location';
       const stationId = station?.id || null;
       const stationName = station?.attributes?.name || null;
@@ -2176,7 +2179,8 @@ app.get('/api/location-status', async (req, res) => {
           item.id === checkIn.relationships.person?.data?.id
         );
 
-        if (location && person) {
+        // One-time guests have no Person; still count them when a location exists.
+        if (shouldIncludeLocatedCheckIn(location, person, checkIn)) {
           checkInsWithLocations++;
           const locationId = location.id;
           const locationName = location.attributes.name;
@@ -2194,7 +2198,7 @@ app.get('/api/location-status', async (req, res) => {
           locationData.childCount++;
           locationData.children.push({
             id: checkIn.id,
-            name: `${person.attributes.first_name} ${person.attributes.last_name}`,
+            name: resolveCheckInDisplayName(checkIn, person),
             securityCode: checkIn.attributes.security_code,
             checkInTime: checkIn.attributes.created_at
           });
@@ -2285,7 +2289,8 @@ app.get('/api/location-status', async (req, res) => {
         item.id === checkIn.relationships.person?.data?.id
       );
 
-      if (location && person) {
+      // One-time guests have no Person; still count them when a location exists.
+      if (shouldIncludeLocatedCheckIn(location, person, checkIn)) {
         checkInsWithLocations++;
         const locationId = location.id;
         const locationName = location.attributes.name;
@@ -2303,7 +2308,7 @@ app.get('/api/location-status', async (req, res) => {
         locationData.childCount++;
         locationData.children.push({
           id: checkIn.id,
-          name: `${person.attributes.first_name} ${person.attributes.last_name}`,
+          name: resolveCheckInDisplayName(checkIn, person),
           securityCode: checkIn.attributes.security_code,
           checkInTime: checkIn.attributes.created_at
         });
