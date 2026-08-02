@@ -15,6 +15,7 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon
 } from '@mui/icons-material';
+import { formatLocalDateYYYYMMDD } from '../utils/localDate';
 
 function DateInput({ value, onChange, label, placeholder, fullWidth = true, sx = {} }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -40,7 +41,7 @@ function DateInput({ value, onChange, label, placeholder, fullWidth = true, sx =
   };
 
   const handleDateSelect = (date) => {
-    const formattedDate = date.toISOString().split('T')[0];
+    const formattedDate = formatLocalDateYYYYMMDD(date);
     console.log('DateInput: Date selected:', date);
     console.log('DateInput: Formatted date:', formattedDate);
     onChange({ target: { value: formattedDate } });
@@ -270,7 +271,7 @@ function DateInput({ value, onChange, label, placeholder, fullWidth = true, sx =
             }}>
               {calendarDays.map(({ date, isCurrentMonth }, index) => {
                 const isToday = date.toDateString() === today.toDateString();
-                const isSelected = date.toISOString().split('T')[0] === value;
+                const isSelected = formatLocalDateYYYYMMDD(date) === value;
                 
                 return (
                   <Button

@@ -21,6 +21,7 @@ import {
   LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import api from '../utils/api';
+import { getSecurityCodeEntryResult } from '../utils/securityCodeEntryResult';
 
 function SecurityCodeEntry() {
   const [securityCode, setSecurityCode] = useState('');
@@ -74,20 +75,17 @@ function SecurityCodeEntry() {
         eventDate: globalBillboard.eventDate
       });
 
-      if (response.data.success) {
-        let nameString = response.data.childName;
-        if (!nameString && response.data.addedChildren) {
-          nameString = response.data.addedChildren.map(c => c.childName).join(', ');
-        }
-        if (nameString) {
-          setMessage(`Success! ${nameString} has been added to the pickup list.`);
+      const result = getSecurityCodeEntryResult(response);
+      if (result.ok) {
+        if (result.childName) {
+          setMessage(`Success! ${result.childName} has been added to the pickup list.`);
         } else {
-          setMessage(response.data.message || 'Security code accepted.');
+          setMessage(result.message || 'Security code accepted.');
         }
         setMessageType('success');
         setSecurityCode('');
       } else {
-        setMessage(response.data.message || 'Security code not found');
+        setMessage(result.message || 'Security code not found');
         setMessageType('error');
       }
     } catch (error) {
