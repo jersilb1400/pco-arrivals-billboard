@@ -56,6 +56,8 @@ import NavBar from './NavBar';
 import { useSession } from '../context/SessionContext';
 import DateInput from './DateInput';
 import { DEFAULT_PALETTE, DEFAULT_STATION_PALETTE, STATION_ICONS } from '../utils/locationColors';
+import { formatLocalDateYYYYMMDD } from '../utils/localDate';
+import { getSecurityCodeEntryResult } from '../utils/securityCodeEntryResult';
 
 const ICON_MAP = {
   Star: StarIcon,
@@ -115,10 +117,9 @@ function AdminPanel() {
   const [loadingStations, setLoadingStations] = useState(false);
   const [stationColorSectionExpanded, setStationColorSectionExpanded] = useState(false);
 
-  // Helper function to get today's date in YYYY-MM-DD format
+  // Helper function to get today's date in YYYY-MM-DD format (local timezone)
   function getTodayDate() {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    return formatLocalDateYYYYMMDD(new Date());
   }
 
   // Check authentication
@@ -572,28 +573,31 @@ function AdminPanel() {
     if (securityCodes.includes(code) || existingSecurityCodes.includes(code)) {
       return;
     }
-    setSecurityCodes(prev => [...prev, code]);
-    setSecurityCode('');
 
     setIsAddingSecurityCode(true);
-    // Also trigger a pickup notification for the billboard
+    // Trigger a pickup notification for the billboard; only keep the code on success
     try {
       const response = await api.post('/security-code-entry', {
         securityCode: code,
         eventId: selectedEvent,
         eventDate: selectedDate
       });
-      let nameString = response.data.childName;
-      if (!nameString && response.data.addedChildren) {
-        nameString = response.data.addedChildren.map(c => c.childName).join(', ');
+      const result = getSecurityCodeEntryResult(response);
+      if (!result.ok) {
+        setSnackbarMsg(result.message || 'Failed to trigger pickup notification.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        return;
       }
-      if (nameString) {
-        setSnackbarMsg(`Success! ${nameString} has been added to the pickup list.`);
-        setSnackbarSeverity('success');
+
+      setSecurityCodes(prev => (prev.includes(code) ? prev : [...prev, code]));
+      setSecurityCode('');
+      if (result.childName) {
+        setSnackbarMsg(`Success! ${result.childName} has been added to the pickup list.`);
       } else {
-        setSnackbarMsg(response.data.message || 'Pickup notification sent!');
-        setSnackbarSeverity('success');
+        setSnackbarMsg(result.message || 'Pickup notification sent!');
       }
+      setSnackbarSeverity('success');
       setSnackbarOpen(true);
     } catch (error) {
       console.error('Error triggering pickup notification from admin:', error);
