@@ -694,7 +694,8 @@ function AdminPanel() {
       }
       
       const response = await api.get(`/billboard/check-ins?${params.toString()}`);
-      setCheckIns(response.data);
+      // 429 interceptor returns { data: null }; keep prior rows instead of crashing on .length/.map
+      setCheckIns((previous) => responseArrayOrFallback(response, previous));
     } catch (error) {
       console.error('Error fetching check-ins:', error);
       setCheckInError('Failed to fetch check-ins. Please try again.');

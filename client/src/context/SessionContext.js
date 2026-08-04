@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import api from '../utils/api';
+import { resolveSessionCheckResult } from '../utils/sessionStatus';
 
 const SessionContext = createContext();
 
@@ -10,36 +11,61 @@ export function SessionProvider({ children }) {
   const [selectedEvent, setSelectedEvent] = useState('');
   const [selectedEventTime, setSelectedEventTime] = useState('');
   const [userLoggedOut, setUserLoggedOut] = useState(false);
+  const sessionRef = useRef(null);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const checkSession = useCallback(async () => {
+    console.log('🔄 SessionContext: Starting session check...');
+
+    const apiKey = localStorage.getItem('pco_api_key');
+    const userId = localStorage.getItem('pco_user_id');
+    const hasCredentials = Boolean(apiKey && userId);
+
+    console.log(
+      '🔄 SessionContext: localStorage check - apiKey:',
+      apiKey ? 'Present' : 'Not Present',
+      'userId:',
+      userId ? 'Present' : 'Not Present'
+    );
+
     try {
-      console.log('🔄 SessionContext: Starting session check...');
-      
-      // Check if we have API key and user ID in localStorage
-      const apiKey = localStorage.getItem('pco_api_key');
-      const userId = localStorage.getItem('pco_user_id');
-      
-      console.log('🔄 SessionContext: localStorage check - apiKey:', apiKey ? 'Present' : 'Not Present', 'userId:', userId ? 'Present' : 'Not Present');
-      
-      if (!apiKey || !userId) {
+      if (!hasCredentials) {
         console.log('🔄 SessionContext: No authentication data found');
-        const errorSession = { authenticated: false };
-        setSession(errorSession);
-        return errorSession;
+        const { session: nextSession } = resolveSessionCheckResult({
+          previousSession: sessionRef.current,
+          responseData: null,
+          error: null,
+          hasCredentials: false
+        });
+        setSession(nextSession);
+        return nextSession;
       }
-      
+
       console.log('🔄 SessionContext: Making auth-status request...');
       const response = await api.get('/auth-status');
       console.log('🔄 SessionContext: Received response:', response.data);
-      const newSession = response.data;
-      setSession(newSession);
-      console.log('🔄 SessionContext: Session state updated:', newSession);
-      return newSession;
+      const { session: nextSession } = resolveSessionCheckResult({
+        previousSession: sessionRef.current,
+        responseData: response.data,
+        error: null,
+        hasCredentials: true
+      });
+      setSession(nextSession);
+      console.log('🔄 SessionContext: Session state updated:', nextSession);
+      return nextSession;
     } catch (error) {
       console.error('Session check failed:', error);
-      const errorSession = { authenticated: false };
-      setSession(errorSession);
-      return errorSession;
+      const { session: nextSession } = resolveSessionCheckResult({
+        previousSession: sessionRef.current,
+        responseData: undefined,
+        error,
+        hasCredentials
+      });
+      setSession(nextSession);
+      return nextSession;
     } finally {
       setLoading(false);
     }
@@ -59,36 +85,47 @@ export function SessionProvider({ children }) {
         console.log('🔄 Skipping session check - user explicitly logged out');
         return;
       }
-      
+
       try {
-        const currentSession = await checkSession();
-        
-        // If authentication status changed, trigger a refresh
-        if (currentSession.authenticated !== session?.authenticated) {
-          console.log('🔄 Authentication status changed:', {
-            was: session?.authenticated,
-            now: currentSession.authenticated,
-            user: currentSession.user?.name || 'No user'
-          });
-          
-          // Force a page refresh if user was logged out
-          if (session?.authenticated && !currentSession.authenticated) {
-            console.log('🚪 User logged out, refreshing page...');
-            window.location.reload();
+        const previousSession = sessionRef.current;
+        const apiKey = localStorage.getItem('pco_api_key');
+        const userId = localStorage.getItem('pco_user_id');
+        const hasCredentials = Boolean(apiKey && userId);
+
+        let responseData;
+        let error = null;
+        try {
+          if (!hasCredentials) {
+            responseData = null;
+          } else {
+            const response = await api.get('/auth-status');
+            responseData = response.data;
           }
+        } catch (err) {
+          error = err;
+        }
+
+        const { session: currentSession, shouldReloadForLogout } = resolveSessionCheckResult({
+          previousSession,
+          responseData,
+          error,
+          hasCredentials
+        });
+
+        setSession(currentSession);
+
+        if (shouldReloadForLogout) {
+          console.log('🚪 User logged out, refreshing page...');
+          window.location.reload();
         }
       } catch (error) {
         console.error('Session check error:', error);
-        // If session check fails, assume user is logged out
-        if (session?.authenticated) {
-          console.log('🚪 Session check failed, assuming logout...');
-          setSession({ authenticated: false, user: null });
-        }
+        // Transient failures must not force logout mid-service
       }
     }, 120000); // Increased from 60 seconds to 120 seconds (2 minutes) to reduce API calls further
     
     return () => clearInterval(intervalId);
-  }, [checkSession, session?.authenticated, userLoggedOut]);
+  }, [userLoggedOut]);
 
   useEffect(() => {
     if (selectedEvent) {
