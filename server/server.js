@@ -12,6 +12,7 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const fetchCheckinsByEventTime = require('./utils/fetchCheckinsByEventTime');
+const { buildBillboardCheckInsUrl } = require('./utils/pcoUrls');
 const { Parser } = require('json2csv'); // For CSV export (optional)
 const LocationColor = require('./models/LocationColor');
 const StationColor = require('./models/StationColor');
@@ -688,9 +689,14 @@ app.post('/api/security-codes', async (req, res) => {
           updateCheckInCache(eventId, { data: allCheckIns, included });
         }
         
-        // Filter check-ins by the requested security codes
-        const filteredCheckIns = allCheckIns.filter(checkIn => 
-          securityCodes.includes(checkIn.attributes.security_code?.toLowerCase())
+        // Normalize both sides — callers (and AdminPanel) send uppercase codes
+        const normalizedRequestedCodes = securityCodes.map((code) =>
+          String(code).toLowerCase()
+        );
+        const filteredCheckIns = allCheckIns.filter((checkIn) =>
+          normalizedRequestedCodes.includes(
+            checkIn.attributes.security_code?.toLowerCase()
+          )
         );
         
         const results = [];
@@ -771,9 +777,14 @@ app.post('/api/security-codes', async (req, res) => {
           console.log('Rate limited by PCO API, returning cached data if available');
           const cachedData = getCachedCheckInData(eventId);
           if (cachedData) {
-            // Process cached data
-            const filteredCheckIns = cachedData.data.filter(checkIn => 
-              securityCodes.includes(checkIn.attributes.security_code?.toLowerCase())
+            // Process cached data (normalize both sides; callers send uppercase)
+            const normalizedRequestedCodes = securityCodes.map((code) =>
+              String(code).toLowerCase()
+            );
+            const filteredCheckIns = cachedData.data.filter((checkIn) =>
+              normalizedRequestedCodes.includes(
+                checkIn.attributes.security_code?.toLowerCase()
+              )
             );
             // Return basic results from cache
             res.json(filteredCheckIns.map(checkIn => ({
@@ -1371,11 +1382,13 @@ app.get('/api/billboard/check-ins', async (req, res) => {
       return res.status(400).json({ error: 'Event ID is required' });
     }
 
-    // Build the URL with date filter if provided
-    let url = `${PCO_API_BASE}/events/${eventId}/check_ins?include=person,locations&per_page=100`;
-    if (date) {
-      // Add date filter to only get check-ins for the specific date
-      url += `&where[created_at][gte]=${date}T00:00:00Z&where[created_at][lt]=${date}T23:59:59Z`;
+    // Bound created_at to the event-local calendar day (not UTC Z midnight),
+    // so evening US check-ins are not silently dropped from admin Recent Check-ins.
+    let url;
+    try {
+      url = buildBillboardCheckInsUrl(PCO_API_BASE, eventId, date);
+    } catch (dateError) {
+      return res.status(400).json({ error: dateError.message });
     }
     
     console.log(`[DEBUG] Fetching check-ins from PCO with URL: ${url}`);

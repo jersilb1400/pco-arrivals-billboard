@@ -21,6 +21,7 @@ import {
   LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import api from '../utils/api';
+import { resolveGlobalBillboardPoll } from '../utils/globalBillboardPoll';
 
 function SecurityCodeEntry() {
   const [securityCode, setSecurityCode] = useState('');
@@ -37,10 +38,22 @@ function SecurityCodeEntry() {
         console.log('SecurityCodeEntry: Fetching global billboard state...');
         const response = await api.get('/global-billboard');
         console.log('SecurityCodeEntry: Global billboard response:', response.data);
-        setGlobalBillboard(response.data.activeBillboard || null);
+        setGlobalBillboard((previous) =>
+          resolveGlobalBillboardPoll({
+            previous,
+            responseData: response.data,
+            error: null
+          })
+        );
       } catch (error) {
         console.error('SecurityCodeEntry: Error fetching global billboard:', error);
-        setGlobalBillboard(null);
+        setGlobalBillboard((previous) =>
+          resolveGlobalBillboardPoll({
+            previous,
+            responseData: undefined,
+            error
+          })
+        );
       } finally {
         setIsLoading(false);
       }
