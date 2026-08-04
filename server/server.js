@@ -777,9 +777,14 @@ app.post('/api/security-codes', async (req, res) => {
           console.log('Rate limited by PCO API, returning cached data if available');
           const cachedData = getCachedCheckInData(eventId);
           if (cachedData) {
-            // Process cached data
-            const filteredCheckIns = cachedData.data.filter(checkIn => 
-              securityCodes.includes(checkIn.attributes.security_code?.toLowerCase())
+            // Process cached data (normalize both sides; callers send uppercase)
+            const normalizedRequestedCodes = securityCodes.map((code) =>
+              String(code).toLowerCase()
+            );
+            const filteredCheckIns = cachedData.data.filter((checkIn) =>
+              normalizedRequestedCodes.includes(
+                checkIn.attributes.security_code?.toLowerCase()
+              )
             );
             // Return basic results from cache
             res.json(filteredCheckIns.map(checkIn => ({
