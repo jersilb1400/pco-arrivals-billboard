@@ -1577,8 +1577,8 @@ app.post('/api/security-code-entry', async (req, res) => {
     // Normalize security code to lowercase for case-insensitive comparison
     const normalizedSecurityCode = securityCode.toLowerCase();
 
-    // Event-scoped, paginated lookup. Do NOT use org-wide /check_ins?where[event_id]=...
-    // PCO ignores where[event_id] on CheckIn, default per_page is 25, and a non-empty first
+    // Event-scoped, paginated lookup. Avoid org-wide /check_ins with an unsupported event filter.
+    // PCO ignores that filter on CheckIn, default per_page is 25, and a non-empty first
     // page of historical/wrong-event rows previously skipped the event-wide fallback.
     let allCheckIns = [];
     let allIncluded = [];

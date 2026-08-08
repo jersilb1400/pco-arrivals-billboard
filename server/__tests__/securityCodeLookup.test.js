@@ -72,16 +72,16 @@ test('fetchPaginatedCheckIns follows links.next and dedupes', async () => {
 
 test('security-code-entry route no longer uses org-wide where[event_id] lookup', () => {
   const serverSrc = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.match(serverSrc, /require\('\.\/utils\/securityCodeLookup'\)/);
+
   const entryStart = serverSrc.indexOf("app.post('/api/security-code-entry'");
   assert.ok(entryStart >= 0);
   const entryEnd = serverSrc.indexOf("app.get('/api/active-notifications'", entryStart);
   const entrySrc = serverSrc.slice(entryStart, entryEnd);
 
-  assert.match(entrySrc, /securityCodeLookup/);
-  assert.match(entrySrc, /buildEventScopedSecurityCodeUrls|fetchPaginatedCheckIns/);
-  assert.doesNotMatch(
-    entrySrc,
-    /\/check_ins\?where\[security_code\]=.*where\[event_id\]/
-  );
+  assert.match(entrySrc, /buildEventScopedSecurityCodeUrls/);
+  assert.match(entrySrc, /fetchPaginatedCheckIns/);
+  assert.match(entrySrc, /shouldFetchEventWideFallback/);
   assert.doesNotMatch(entrySrc, /where\[event_id\]=\$\{eventId\}/);
+  assert.doesNotMatch(entrySrc, /\$\{PCO_API_BASE\}\/check_ins\?where\[security_code\]/);
 });
